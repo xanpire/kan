@@ -17,7 +17,7 @@ import { seedDatabase } from '../lib/rpg/seed';
 import { appendStoryMessage } from '../lib/rpg/log';
 import { applyStateStep } from '../lib/rpg/memoryJobs';
 import { convertStateBlock } from '../lib/rpg/stateBlock';
-import { resolveCharacterRefs } from '../lib/rpg/entities';
+import { resolveCharacterRefs, resolveEntity } from '../lib/rpg/entities';
 import type { AppDatabase } from '../lib/rpg/types';
 
 const seed = () => normalizeDatabase(seedDatabase('slot_cast', 'Cast story'));
@@ -28,7 +28,7 @@ function play(db: AppDatabase, narration: string, state: Record<string, unknown>
   const turnLogId = next.rawLog[next.rawLog.length - 1].id;
   const diff = resolveCharacterRefs(next, convertStateBlock(state).diff);
   const result = applyStateStep(next, diff, { turnLogId, userMessage: '*I go.*', narration }, new Set());
-  return { db: result.db, entry: result.db.rawLog.find((item) => item.id === turnLogId)! };
+  return { db: result.db, entry: result.db.rawLog.find((item) => item.id === turnLogId)!, events: result.events };
 }
 
 describe('the scene cast follows Kan (audit 6.10)', () => {
@@ -154,5 +154,48 @@ describe('the people in the scene keep their cards (audit 6.1, 6.2)', () => {
     expect(db.state.sceneCast!.length).toBe(Math.min(names.length, SCENE_CAST_LIMIT));
     const text = buildNarrationPrompt(db, '*I wait.*').messages[1].content;
     expect(text).toContain('ALSO HERE');
+  });
+});
+
+describe('duplicate people (audit 6.14)', () => {
+  test('"Ren" seen recently and "Ren Kisaragi" named now are one person, with the fuller name', () => {
+    let db = play(seed(), 'A ferryman called Ren rows you across.', {
+      new_characters: [{ is_new: true, name: 'Ren', role: 'Ferryman' }],
+      characters_present: ['Ren'],
+    }).db;
+    const result = play(db, 'He tells you his full name.', {
+      new_characters: [{ is_new: true, name: 'Ren Kisaragi', role: 'Ferryman' }],
+      characters_present: ['Ren Kisaragi'],
+    });
+    db = result.db;
+    const rens = db.entities.filter((entity) => entity.name.startsWith('Ren'));
+    expect(rens).toHaveLength(1);
+    expect(rens[0].name).toBe('Ren Kisaragi');
+    expect(rens[0].aliases).toContain('Ren');
+    expect(result.events.some((event) => event.kind === 'merged')).toBe(true);
+  });
+
+  test('a stranger described twice in one scene is one person', () => {
+    let db = play(seed(), 'A scarred ferryman watches you.', {
+      new_characters: [{ is_new: true, name: 'scarred ferryman', name_known: false, role: 'Ferryman' }],
+      characters_present: ['scarred ferryman'],
+    }).db;
+    const before = db.entities.filter((entity) => entity.unnamed).length;
+    db = play(db, 'The ferryman with the scar spits.', {
+      new_characters: [{ is_new: true, name: 'ferryman with the scar', name_known: false, role: 'Ferryman' }],
+      characters_present: ['ferryman with the scar'],
+    }).db;
+    expect(db.entities.filter((entity) => entity.unnamed).length).toBe(before);
+    const ferryman = db.entities.find((entity) => entity.unnamed)!;
+    expect(db.state.sceneCast!.map((name) => resolveEntity(db, name)?.id)).toContain(ferryman.id);
+  });
+
+  test('a canon name is never merged by given name', () => {
+    const db = play(seed(), 'A girl named Hana Uzumaki waves.', {
+      new_characters: [{ is_new: true, name: 'Hana Uzumaki', role: 'Courier' }],
+      characters_present: ['Hana Uzumaki'],
+    }).db;
+    expect(db.entities.some((entity) => entity.name === 'Hana Uzumaki')).toBe(true);
+    expect(db.entities.some((entity) => entity.name === 'Hana Inuzuka')).toBe(true);
   });
 });

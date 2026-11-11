@@ -72,7 +72,7 @@ export function applyTurnDiff(
 
   if (Array.isArray(diff.entities)) {
     for (const entity of diff.entities) {
-      next = applyEntityDiff(next, entity);
+      next = applyEntityDiff(next, entity, { events: options.events });
     }
   }
 

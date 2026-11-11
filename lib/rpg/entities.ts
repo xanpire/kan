@@ -8,6 +8,8 @@ import { makeId } from './id';
 import { isPlaceholderStatus, NEWLY_MET_STATUS, UNMET_STATUS } from './met';
 import { romanceFor } from './romance';
 import { isCanonCharacter } from './canonPeople';
+import { isDeceased } from './deaths';
+import type { DebugEvent } from './debugEvents';
 import { uniqueList } from './util';
 import type { AppDatabase, EntityRecord, TurnDiff } from './types';
 
@@ -763,10 +765,21 @@ export function resolveEntity(
     return isBareMadara(rawName) ? findEntityByGroup(db, 'masked-man') : null;
   }
 
-  return null;
+  // A stranger is stored as "the scarred ferryman"; the tracker may write
+  // "scarred ferryman" (the name it gave in new_characters).
+  const bare = rawName.trim().toLowerCase().replace(/^(?:the|a|an)\s+/, '');
+  const stranger = db.entities.find(
+    (entity) => entity.unnamed && entity.name.toLowerCase().replace(/^(?:the|a|an)\s+/, '') === bare
+  );
+
+  return stranger ?? null;
 }
 
-export function applyEntityDiff(db: AppDatabase, entity: EntityDiff): AppDatabase {
+export function applyEntityDiff(
+  db: AppDatabase,
+  entity: EntityDiff,
+  options: { events?: DebugEvent[] } = {}
+): AppDatabase {
   if (!entity?.name || typeof entity.name !== 'string') {
     return db;
   }
@@ -809,6 +822,34 @@ export function applyEntityDiff(db: AppDatabase, entity: EntityDiff): AppDatabas
   // A description ("the masked man") is never a new person either.
   if (!existing && (entity.isNew === false || (isGenericDescription(name) && !stranger))) {
     return db;
+  }
+
+  // Two records for one person (audit 6.14): "Ren" seen last week is the
+  // "Ren Kisaragi" named now; "the ferryman with the scar" in this scene is
+  // the "scarred ferryman" already here.
+  if (!existing && entity.isNew === true) {
+    const twin = stranger ? sameStranger(db, entity.label?.trim() || name) : sameGivenName(db, name);
+
+    if (twin) {
+      options.events?.push({
+        kind: 'merged',
+        text: `"${name}" read as ${twin.name}, already on record (${stranger ? 'same stranger in this scene' : 'same given name, seen recently'}).`,
+      });
+
+      // The fuller name is learned; the old one stays an alias.
+      if (!stranger && name.length > twin.name.length && name.toLowerCase().startsWith(twin.name.toLowerCase())) {
+        const renamed = { ...twin, name, aliases: uniqueList([...twin.aliases, twin.name]).slice(0, 10) };
+        db = { ...db, entities: db.entities.map((item) => (item.id === twin.id ? renamed : item)) };
+        existing = renamed;
+      } else if (stranger) {
+        // The new description stays an alias, so this turn's cast finds them.
+        const described = { ...twin, aliases: uniqueList([...twin.aliases, name]).slice(0, 10) };
+        db = { ...db, entities: db.entities.map((item) => (item.id === twin.id ? described : item)) };
+        existing = described;
+      } else {
+        existing = twin;
+      }
+    }
   }
 
   if (!existing) {
@@ -920,6 +961,88 @@ export function applyEntityDiff(db: AppDatabase, entity: EntityDiff): AppDatabas
     state: nextState,
     entities,
   };
+}
+
+/** Was this person in the scene or seen within the last 30 in-story days? */
+function seenLately(db: AppDatabase, entity: EntityRecord) {
+  const here = (db.state.sceneCast ?? []).some((cast) => resolveEntity(db, cast)?.id === entity.id);
+
+  if (here) {
+    return true;
+  }
+
+  if (!entity.lastSeen) {
+    return false;
+  }
+
+  const days = (dateSortValue(db.state.inStoryDate) - dateSortValue(entity.lastSeen)) / 86400;
+  return days >= 0 && days <= 30;
+}
+
+/** An original (non-canon) person already on record whose given name this is, seen lately. */
+function sameGivenName(db: AppDatabase, name: string): EntityRecord | null {
+  const given = name.trim().split(/\s+/)[0]?.toLowerCase();
+
+  if (!given || given.length < 2 || isGenericDescription(name)) {
+    return null;
+  }
+
+  const matches = db.entities.filter(
+    (entity) =>
+      entity.type === 'character' &&
+      !entity.unnamed &&
+      !isCanonCharacter(entity) &&
+      entity.name.toLowerCase() !== 'kan' &&
+      !isDeceased(entity) &&
+      entity.name.trim().split(/\s+/)[0]?.toLowerCase() === given &&
+      seenLately(db, entity)
+  );
+
+  // Two people share that given name: not sure which, so nobody.
+  return matches.length === 1 ? matches[0] : null;
+}
+
+const LABEL_FILLER = new Set(['the', 'a', 'an', 'with', 'of', 'in', 'and', 'man', 'woman', 'person', 'one', 'who', 'his', 'her']);
+
+function labelWords(label: string) {
+  return new Set(
+    label
+      .toLowerCase()
+      .replace(/\(\d+\)/g, ' ')
+      .replace(/[^\p{L}\s-]/gu, ' ')
+      .split(/\s+/)
+      // "scarred" and "scar", "ferrymen" stays itself: a rough stem is enough here.
+      .map((word) => word.replace(/(?:ed|es|s)$/, '').replace(/([b-df-hj-np-tv-z])\1$/, '$1'))
+      .filter((word) => word.length >= 3 && !LABEL_FILLER.has(word))
+  );
+}
+
+/** An unnamed stranger in this scene described with two or more of the same words. */
+function sameStranger(db: AppDatabase, label: string): EntityRecord | null {
+  const wanted = labelWords(label);
+
+  if (wanted.size < 2) {
+    return null;
+  }
+
+  const here = new Set(
+    (db.state.sceneCast ?? []).map((cast) => resolveEntity(db, cast)?.id).filter((id): id is string => Boolean(id))
+  );
+  // In this scene: listed in it, or seen within the last day (this turn's
+  // cast may already have replaced the last one).
+  const inScene = (entity: EntityRecord) =>
+    here.has(entity.id) ||
+    Boolean(entity.lastSeen && Math.abs(dateSortValue(db.state.inStoryDate) - dateSortValue(entity.lastSeen)) <= 86400);
+  const matches = db.entities.filter((entity) => {
+    if (!entity.unnamed || !inScene(entity)) {
+      return false;
+    }
+
+    const words = labelWords(entity.known?.label ?? entity.name);
+    return [...wanted].filter((word) => words.has(word)).length >= 2;
+  });
+
+  return matches.length === 1 ? matches[0] : null;
 }
 
 /** Whether Kan has learned what a canon milestone reveals: its news reached him, or he was part of it. */
