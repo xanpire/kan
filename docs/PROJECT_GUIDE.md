@@ -113,6 +113,12 @@ Important functions:
 
 Images are normally stored as `img:` references, so only inline data URIs (native / no IndexedDB) are trimmed.
 
+### Images (`imageStore.ts`)
+
+- `storeImage` resolves only when the IndexedDB transaction commits (`tx.oncomplete`), so a write aborted afterwards (quota) never leaves a reference to a missing image.
+- Display goes through `useStoredImage`, which hands out `blob:` object URLs shared by every mounted view, with an LRU of 40 unused ones (a URL on screen is never revoked). Data URIs (for model references and exports) sit in a separate LRU of 24. The image viewer may hold a `blob:` URL, so `retouchSceneImage` converts it back with `toDataUri`, and `downloadImage` accepts it.
+- **Garbage collection.** `freeUpImageSpace(extra)` (db.ts) gathers every `img:` key from every stored slot-ish key (slots, snapshots inside them, `.bak`, `.conflict.*`, `.broken.*`, `.before-restore.*`, trash) plus the open story in memory, and `collectImageGarbage` deletes the rest. Images younger than an hour (by their `pic_` key's timestamp) are always kept, since a painting may not be saved into a story yet. If any copy can't be read, nothing is deleted. It runs after a story is deleted and from Settings → Stories → "Free up space".
+
 ---
 
 ## 3. Data model (`lib/rpg/types.ts`)

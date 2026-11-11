@@ -17,7 +17,35 @@ const DB_NAME = 'kan-images';
 const STORE = 'images';
 const REF_PREFIX = 'img:';
 
+/**
+ * Data URIs of recently used images (model references, exports). Bounded, so a
+ * long session doesn't keep every image it ever touched in memory as text.
+ */
+const DATA_CACHE_LIMIT = 24;
 const cache = new Map<string, string>();
+
+function cacheData(ref: string, uri: string) {
+  cache.delete(ref);
+  cache.set(ref, uri);
+
+  while (cache.size > DATA_CACHE_LIMIT) {
+    const oldest = cache.keys().next().value as string;
+    cache.delete(oldest);
+  }
+}
+
+function cachedData(ref: string) {
+  const uri = cache.get(ref);
+
+  if (uri) {
+    // Most recently used goes to the back.
+    cache.delete(ref);
+    cache.set(ref, uri);
+  }
+
+  return uri;
+}
+
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
 export function isImageRef(value: string | null | undefined): value is string {
@@ -70,8 +98,23 @@ function run<T>(
         try {
           const tx = db.transaction(STORE, mode);
           const request = action(tx.objectStore(STORE));
-          request.onsuccess = () => resolve(request.result ?? null);
+          let result: T | null = null;
+          request.onsuccess = () => {
+            result = request.result ?? null;
+
+            if (mode === 'readonly') {
+              resolve(result);
+            }
+          };
           request.onerror = () => resolve(null);
+
+          if (mode === 'readwrite') {
+            // A write counts only once it is committed: a put can succeed and
+            // its transaction still abort afterwards (quota), leaving nothing stored.
+            tx.oncomplete = () => resolve(result ?? (true as unknown as T));
+            tx.onabort = () => resolve(null);
+            tx.onerror = () => resolve(null);
+          }
         } catch {
           resolve(null);
         }
@@ -129,7 +172,7 @@ export async function storeImage(dataUri: string, options: CompressOptions = SCE
   }
 
   const ref = `${REF_PREFIX}${key}`;
-  cache.set(ref, compressed);
+  cacheData(ref, compressed);
   return ref;
 }
 
@@ -143,15 +186,13 @@ export async function loadImage(value: string | null | undefined): Promise<strin
     return value;
   }
 
-  const cached = cache.get(value);
+  const cached = cachedData(value);
 
   if (cached) {
     return cached;
   }
 
-  const stored = await run<string | Blob>('readonly', (store) =>
-    store.get(value.slice(REF_PREFIX.length))
-  );
+  const stored = await readStored(value);
 
   // Older images were kept as text; newer ones as binary.
   const uri =
@@ -162,11 +203,211 @@ export async function loadImage(value: string | null | undefined): Promise<strin
         : null;
 
   if (uri) {
-    cache.set(value, uri);
+    cacheData(value, uri);
     return uri;
   }
 
   return null;
+}
+
+function readStored(ref: string) {
+  return run<string | Blob>('readonly', (store) => store.get(ref.slice(REF_PREFIX.length)));
+}
+
+/** Turns whatever an <Image> was shown (a data URI or a blob: URL) back into a data URI for a model call. */
+export async function toDataUri(uri: string): Promise<string> {
+  if (!uri.startsWith('blob:') || typeof fetch === 'undefined') {
+    return uri;
+  }
+
+  const blob = await (await fetch(uri)).blob();
+  return (await blobToDataUri(blob)) ?? uri;
+}
+
+// ---------------------------------------------------------------------------
+// Display: object URLs, shared by every mounted view of an image, with a
+// small LRU of unused ones. A URL still on screen is never revoked.
+// ---------------------------------------------------------------------------
+
+const DISPLAY_LIMIT = 40;
+type Displayed = { url: string; users: number; revoke: boolean };
+const displayed = new Map<string, Displayed>();
+const loadingDisplay = new Map<string, Promise<string | null>>();
+
+function canMakeObjectUrls() {
+  return typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function' && typeof Blob !== 'undefined';
+}
+
+function trimDisplayed() {
+  if (displayed.size <= DISPLAY_LIMIT) {
+    return;
+  }
+
+  // Oldest first (Map keeps insertion order; use refreshes it).
+  for (const [ref, entry] of displayed) {
+    if (displayed.size <= DISPLAY_LIMIT) {
+      break;
+    }
+
+    if (entry.users === 0) {
+      displayed.delete(ref);
+
+      if (entry.revoke) {
+        URL.revokeObjectURL(entry.url);
+      }
+    }
+  }
+}
+
+async function makeDisplayUrl(ref: string): Promise<{ url: string; revoke: boolean } | null> {
+  const stored = await readStored(ref);
+
+  if (canMakeObjectUrls()) {
+    const blob =
+      stored instanceof Blob ? stored : typeof stored === 'string' ? dataUriToBlob(stored) : null;
+
+    if (blob) {
+      return { url: URL.createObjectURL(blob), revoke: true };
+    }
+  }
+
+  const uri =
+    typeof stored === 'string'
+      ? stored
+      : typeof Blob !== 'undefined' && stored instanceof Blob
+        ? await blobToDataUri(stored)
+        : null;
+  return uri ? { url: uri, revoke: false } : null;
+}
+
+/** A URL to show the image with; call `releaseDisplayUrl` when the view goes away. */
+async function acquireDisplayUrl(ref: string): Promise<string | null> {
+  const existing = displayed.get(ref);
+
+  if (existing) {
+    existing.users += 1;
+    displayed.delete(ref);
+    displayed.set(ref, existing);
+    return existing.url;
+  }
+
+  let pending = loadingDisplay.get(ref);
+
+  if (!pending) {
+    pending = makeDisplayUrl(ref).then((made) => {
+      loadingDisplay.delete(ref);
+
+      if (!made) {
+        return null;
+      }
+
+      displayed.set(ref, { url: made.url, users: 0, revoke: made.revoke });
+      return made.url;
+    });
+    loadingDisplay.set(ref, pending);
+  }
+
+  const url = await pending;
+  const entry = displayed.get(ref);
+
+  if (!url || !entry) {
+    return null;
+  }
+
+  entry.users += 1;
+  trimDisplayed();
+  return entry.url;
+}
+
+function releaseDisplayUrl(ref: string) {
+  const entry = displayed.get(ref);
+
+  if (entry) {
+    entry.users = Math.max(0, entry.users - 1);
+    trimDisplayed();
+  }
+}
+
+/** Tests: how many display URLs are held, and how many are on screen. */
+export function displayCacheStats() {
+  let inUse = 0;
+  for (const entry of displayed.values()) if (entry.users > 0) inUse += 1;
+  return { held: displayed.size, inUse, data: cache.size };
+}
+
+// ---------------------------------------------------------------------------
+// Garbage collection
+// ---------------------------------------------------------------------------
+
+const KEY_RE = /^pic_([0-9a-z]+)$/;
+/** Images newer than this are never collected: a painting may not be saved into a story yet. */
+const GC_GRACE_MS = 60 * 60 * 1000;
+
+/** When an image key was made (makeId: base36 time + 6 random characters), or null. */
+function keyTime(key: string): number | null {
+  const match = KEY_RE.exec(key);
+
+  if (!match || match[1].length <= 6) {
+    return null;
+  }
+
+  const time = Number.parseInt(match[1].slice(0, -6), 36);
+  return Number.isFinite(time) ? time : null;
+}
+
+/** Every `img:` reference in a piece of text (a save's JSON). */
+export function imageRefsIn(text: string): string[] {
+  return [...text.matchAll(/img:([A-Za-z0-9_-]+)/g)].map((match) => match[1]);
+}
+
+export async function listImageKeys(): Promise<string[]> {
+  const keys = await run<IDBValidKey[]>('readonly', (store) => store.getAllKeys());
+  return (keys ?? []).map(String);
+}
+
+/**
+ * Deletes every stored image no save refers to. `inUse` holds the image keys
+ * (without "img:") found in every slot, snapshot, backup and trashed story.
+ * Recent images are kept whatever (see GC_GRACE_MS).
+ */
+export async function collectImageGarbage(
+  inUse: Set<string>,
+  now = Date.now()
+): Promise<{ deleted: number; kept: number }> {
+  const keys = await listImageKeys();
+  const doomed = keys.filter((key) => {
+    if (inUse.has(key)) return false;
+    const made = keyTime(key);
+    return made === null || now - made > GC_GRACE_MS;
+  });
+
+  if (doomed.length > 0) {
+    await run('readwrite', (store) => {
+      let last: IDBRequest<undefined> | null = null;
+      for (const key of doomed) last = store.delete(key);
+      return last as IDBRequest<undefined>;
+    });
+
+    for (const key of doomed) {
+      const ref = `${REF_PREFIX}${key}`;
+      cache.delete(ref);
+      const entry = displayed.get(ref);
+      if (entry && entry.users === 0) {
+        displayed.delete(ref);
+        if (entry.revoke) URL.revokeObjectURL(entry.url);
+      }
+    }
+  }
+
+  return { deleted: doomed.length, kept: keys.length - doomed.length };
+}
+
+/** Tests only. */
+export function resetImageStoreForTests() {
+  dbPromise = null;
+  cache.clear();
+  displayed.clear();
+  loadingDisplay.clear();
 }
 
 export async function loadImages(values: string[]): Promise<string[]> {
@@ -175,29 +416,45 @@ export async function loadImages(values: string[]): Promise<string[]> {
 }
 
 export function useStoredImage(value: string | null | undefined): string | null {
-  const immediate = !value ? null : isImageRef(value) ? cache.get(value) ?? null : value;
-  const [resolved, setResolved] = useState<string | null>(immediate);
+  const immediate = !value ? null : isImageRef(value) ? displayed.get(value)?.url ?? null : value;
+  const [resolved, setResolved] = useState<{ value: string; uri: string | null } | null>(null);
 
   useEffect(() => {
-    let active = true;
-
-    if (immediate || !value) {
-      setResolved(immediate);
+    if (!value || !isImageRef(value)) {
       return;
     }
 
-    void loadImage(value).then((uri) => {
-      if (active) {
-        setResolved(uri);
+    let active = true;
+    let held = false;
+
+    void acquireDisplayUrl(value).then((uri) => {
+      if (!active) {
+        if (uri) releaseDisplayUrl(value);
+        return;
       }
+
+      held = Boolean(uri);
+      setResolved({ value, uri });
     });
 
     return () => {
       active = false;
-    };
-  }, [immediate, value]);
 
-  return resolved;
+      if (held) {
+        releaseDisplayUrl(value);
+      }
+    };
+  }, [value]);
+
+  if (!value) {
+    return null;
+  }
+
+  if (!isImageRef(value)) {
+    return value;
+  }
+
+  return resolved?.value === value ? resolved.uri ?? immediate : immediate;
 }
 
 function hasInlineImages(db: AppDatabase) {

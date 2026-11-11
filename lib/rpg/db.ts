@@ -17,7 +17,8 @@ import { normalizeDate } from './calendar';
 import { GEOGRAPHY_LORE, seedDatabase } from './seed';
 import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
-import { readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
+import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
+import { collectImageGarbage, imageRefsIn } from './imageStore';
 import { normalizeSceneMode } from './sceneMode';
 import type { AppDatabase, MemoryIndex, WeatherLock } from './types';
 import { normalizeTravelLog } from './mapData';
@@ -358,6 +359,41 @@ export function turnsSinceExport(db: AppDatabase) {
 }
 
 export const EXPORT_REMINDER_TURNS = 50;
+
+/**
+ * Image keys referenced anywhere a save is kept: every slot, its snapshots,
+ * daily backup, conflict and broken copies, the trash, plus `extra` (the open
+ * story in memory, which may be ahead of storage). Throws if any stored copy
+ * can't be read, so garbage collection never runs on a partial picture.
+ */
+export async function imageKeysInUse(extra: (AppDatabase | null | undefined)[] = []): Promise<Set<string>> {
+  const inUse = new Set<string>();
+  const idbKeys = (await listStoredKeys()).filter((key) => key.startsWith(SLOT_PREFIX));
+  const localKeys = ((await AsyncStorage.getAllKeys().catch(() => [])) as string[]).filter((key) =>
+    key.startsWith(SLOT_PREFIX)
+  );
+
+  for (const key of [...new Set([...idbKeys, ...localKeys])]) {
+    const text = idbKeys.includes(key) ? await readSlotJson(key) : await AsyncStorage.getItem(key);
+
+    if (text) {
+      for (const ref of imageRefsIn(text)) inUse.add(ref);
+    }
+  }
+
+  for (const db of extra) {
+    if (db) {
+      for (const ref of imageRefsIn(JSON.stringify(db))) inUse.add(ref);
+    }
+  }
+
+  return inUse;
+}
+
+/** Deletes stored images that no story refers to any more. */
+export async function freeUpImageSpace(extra: (AppDatabase | null | undefined)[] = []) {
+  return collectImageGarbage(await imageKeysInUse(extra));
+}
 
 /** Tests only. */
 export function resetBackupsForTests() {

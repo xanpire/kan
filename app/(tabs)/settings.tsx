@@ -68,6 +68,7 @@ export default function SettingsScreen() {
     importSlot,
     markExported,
     restoreDailyBackup,
+    freeUpSpace,
     isNarrating,
     isProcessing,
   } = useGame();
@@ -99,6 +100,7 @@ export default function SettingsScreen() {
   const [backup, setBackup] = useState<BackupInfo | null | undefined>(undefined);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [freeing, setFreeing] = useState(false);
 
   const openSlotId = db?.meta.slotId;
   const savedAt = db?.meta.updatedAt;
@@ -279,6 +281,23 @@ export default function SettingsScreen() {
     await renameSlotById(menuSlot.meta.slotId, name);
     closeMenu();
     showToast('Story renamed.', 'success');
+  };
+
+  const handleFreeUp = async () => {
+    setFreeing(true);
+
+    try {
+      const deleted = await freeUpSpace();
+      setStorage(await storageStatus());
+      showToast(
+        deleted > 0 ? `Removed ${deleted} image${deleted === 1 ? '' : 's'} no story uses.` : 'Nothing to clear: every image belongs to a story.',
+        'success'
+      );
+    } catch {
+      showToast('Could not check every save, so nothing was removed.', 'error');
+    } finally {
+      setFreeing(false);
+    }
   };
 
   const handleRestore = async () => {
@@ -709,6 +728,12 @@ export default function SettingsScreen() {
                 title="Storage"
               />
             ) : null}
+            <ListRow
+              body="Removes images left over from undone turns, repainted scenes and deleted stories."
+              onPress={freeing || isNarrating ? undefined : () => void handleFreeUp()}
+              title="Free up space"
+              trailing={freeing ? <ActivityIndicator color={colors.textMuted} size="small" /> : null}
+            />
             <ListRow
               body={
                 backup

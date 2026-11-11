@@ -16,6 +16,7 @@ import {
   deleteSlot,
   duplicateSlot,
   exportDatabase,
+  freeUpImageSpace,
   importDatabase,
   listSlots,
   loadActiveSlot,
@@ -148,6 +149,8 @@ type GameContextValue = {
   markExported: () => Promise<void>;
   /** Replaces the open story with its daily backup. */
   restoreDailyBackup: () => Promise<void>;
+  /** Deletes stored images no story refers to; resolves to how many went. */
+  freeUpSpace: () => Promise<number>;
   isNarrating: boolean;
   /** True while the state step or any summary step is running. */
   isProcessing: boolean;
@@ -1086,6 +1089,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     async (slotId: string) => {
       await deleteSlot(slotId);
       setMeta(await loadStorageMeta());
+      // The deleted story's images go too (anything still referenced elsewhere stays).
+      void freeUpImageSpace([dbRef.current]).catch(() => undefined);
 
       try {
         const next = await loadActiveSlot();
@@ -1527,6 +1532,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const isProcessing = stateStepRunning || activeJobCount > 0;
 
+  const freeUpSpace = useCallback(async () => {
+    await saveQueueRef.current.catch(() => undefined);
+    const { deleted } = await freeUpImageSpace([dbRef.current]);
+    return deleted;
+  }, []);
+
   const markExported = useCallback(async () => {
     const current = dbRef.current;
 
@@ -1576,6 +1587,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       openElsewhere,
       markExported,
       restoreDailyBackup,
+      freeUpSpace,
       isNarrating,
       isProcessing,
       pendingMemoryCount,
@@ -1636,6 +1648,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       openElsewhere,
       markExported,
       restoreDailyBackup,
+      freeUpSpace,
       exportActiveSlot,
       importSlot,
       isNarrating,

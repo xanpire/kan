@@ -20,7 +20,7 @@ import {
 } from './image';
 import { checkSceneImage, imageCheckEnabled, sharperActorRule, type ImageCheck } from './imageCheck';
 import { wantsEnsemble, type ShotChip } from './imageDirection';
-import { loadImage } from './imageStore';
+import { loadImage, toDataUri } from './imageStore';
 import { wearsAkatsukiCloak } from './portrait';
 import { faceDroppedWarning, loadKanReferenceImages, planReferences, type PlannedReference } from './referenceImages';
 import type { AppDatabase, SceneImageMeta } from './types';
@@ -225,7 +225,7 @@ export async function retouchSceneImage({
   db: AppDatabase;
   caps: ImageModelCaps;
   logId: string;
-  /** The image as shown (a data URI). */
+  /** The image as shown (a data URI or a blob: URL). */
   image: string;
   tweak: string;
 }): Promise<PaintedTake> {
@@ -235,9 +235,11 @@ export async function retouchSceneImage({
 
   const entry = db.rawLog.find((item) => item.id === logId);
   const kanRefs = await loadKanReferenceImages(wearsAkatsukiCloak(db));
+  // What the viewer shows may be a blob: URL; the model needs the image itself.
+  const editImage = await toDataUri(image);
   const plan = planReferences(
     [
-      { kind: 'edit', uri: image },
+      { kind: 'edit', uri: editImage },
       { kind: 'face', uri: kanRefs.face },
     ],
     caps.maxReferences

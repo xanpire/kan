@@ -20,6 +20,17 @@ export function downloadImage(filename: string, dataUri: string) {
     return;
   }
 
+  if (!dataUri.startsWith('data:')) {
+    // A blob: URL from the image viewer downloads as it is.
+    const anchor = document.createElement('a');
+    anchor.href = dataUri;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    return;
+  }
+
   const [meta, data] = dataUri.split(',');
   const mimeType = /data:([^;]+)/.exec(meta)?.[1] ?? 'image/jpeg';
 
