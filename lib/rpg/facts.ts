@@ -6,7 +6,7 @@ import { kanKnowsDeath } from './deaths';
 import { resolveEntity } from './entities';
 import { makeId } from './id';
 import { secondPerson, trimToSentence, uniqueList } from './util';
-import type { AppDatabase, EntityRecord, EventRecord, FactRecord, ThreadRecord, TurnDiff } from './types';
+import type { AppDatabase, EntityRecord, EventRecord, FactRecord, ThreadRecord, ThreadType, TurnDiff } from './types';
 
 type FactDiff = NonNullable<TurnDiff['facts']>[number];
 
@@ -319,6 +319,20 @@ function matchingThread(db: AppDatabase, title: string, description?: string) {
  * than opened twice. Every thread has participants, by name and id: Kan and
  * whoever is in the scene unless the tracker names them.
  */
+/**
+ * A thread's type from its words, for threads the tracker didn't type (and
+ * the one-time migration of old "other" threads).
+ */
+export function classifyThread(title: string, description?: string): ThreadType {
+  const text = `${title} ${description ?? ''}`.toLowerCase();
+
+  if (/\b(owe|owes|owed|debt|repay|pay (him|her|them) back)\b/.test(text)) return 'debt';
+  if (/\b(promise|promised|swore|sworn|vow|vowed|oath)\b/.test(text)) return 'promise';
+  if (/\b(find out|what really|the truth|who is|who was|why did)\b|\?/.test(text)) return 'mystery';
+  if (/\b(mission|deliver|escort|kill|assassinate|retrieve|capture|find|track|hunt|steal|infiltrate|guard|bounty)\b/.test(text)) return 'quest';
+  return 'other';
+}
+
 export function applyThreadDiff(
   db: AppDatabase,
   thread: ThreadDiff,
@@ -366,14 +380,14 @@ export function applyThreadDiff(
   if (existingIndex === -1) {
     const newThread: ThreadRecord = {
       id: makeId('thread'),
-      type: thread.type ?? 'other',
+      type: thread.type ?? classifyThread(title, thread.description),
       // Keeps the tracker's casing ("Itachi's offer", not "itachi's offer").
       title: title.charAt(0).toUpperCase() + title.slice(1),
       description: secondPerson(thread.description?.trim() || ''),
       status: 'open' as const,
       openedAt: db.state.inStoryDate,
       resolvedAt: null,
-      importance: 3 as 1 | 2 | 3 | 4 | 5,
+      importance: thread.importance ?? 3,
       participants: names,
       participantIds: people,
       // The memory this turn is part of; the turn itself is stamped by the state step.
@@ -393,7 +407,9 @@ export function applyThreadDiff(
   threads[existingIndex] = {
     ...current,
     description: thread.description?.trim() ? secondPerson(thread.description.trim()) : current.description,
-    type: thread.type ?? current.type,
+    // "other" never overwrites a real type (a story hook's quest stays a quest).
+    type: thread.type && thread.type !== 'other' ? thread.type : current.type,
+    importance: thread.importance ?? current.importance,
     participantIds: mergedIds,
     participants: uniqueList([...current.participants, ...named.map((entity) => entity.name)]),
   };

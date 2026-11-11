@@ -88,3 +88,35 @@ describe('threads are ranked (audit 6.4)', () => {
     expect(text).toContain('The vow at Izumi grave');
   });
 });
+
+import { convertStateBlock } from '../lib/rpg/stateBlock';
+import { applyThreadDiff, classifyThread } from '../lib/rpg/facts';
+
+describe('missions and goals fill in (audit 6.17)', () => {
+  test('the tracker types threads and gives them importance', () => {
+    const { diff } = convertStateBlock({
+      threads: [{ title: 'Deliver the scroll to Tanzaku', description: null, status: 'open', type: 'quest', importance: 4, participants: [] }],
+    });
+    expect(diff?.threads?.[0]).toMatchObject({ type: 'quest', importance: 4 });
+    const db = applyThreadDiff(seed(), diff!.threads![0]);
+    const thread = db.threads.find((item) => item.title === 'Deliver the scroll to Tanzaku')!;
+    expect(thread.type).toBe('quest');
+    expect(thread.importance).toBe(4);
+  });
+
+  test('an update without a type never turns a quest into "other"', () => {
+    let db = applyThreadDiff(seed(), { action: 'open', title: 'Escort the merchant', type: 'quest' });
+    db = applyThreadDiff(db, { action: 'update', title: 'Escort the merchant', description: 'Halfway there.', type: 'other' });
+    expect(db.threads.find((item) => item.title === 'Escort the merchant')!.type).toBe('quest');
+  });
+
+  test('old untyped threads are classified by their words', () => {
+    expect(classifyThread('Deliver the message to Pain')).toBe('quest');
+    expect(classifyThread('You promised Hana you would write')).toBe('promise');
+    expect(classifyThread('You owe Kakuzu 300 ryō')).toBe('debt');
+    expect(classifyThread('What really happened to Shisui?')).toBe('mystery');
+    expect(classifyThread('A strange feeling')).toBe('other');
+    const db = normalizeDatabase({ ...seed(), threads: [{ ...applyThreadDiff(seed(), { action: 'open', title: 'Find the deserter', type: 'other' }).threads.at(-1)! }] });
+    expect(db.threads.at(-1)!.type).toBe('quest');
+  });
+});

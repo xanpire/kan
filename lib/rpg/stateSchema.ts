@@ -55,6 +55,7 @@ export const RELATIONSHIPS = [
   'rejected',
   'ex',
 ] as const;
+export const THREAD_TYPES = ['quest', 'goal', 'promise', 'debt', 'mystery', 'grudge', 'other'] as const;
 export const FLASHBACK_MARKS = ['offered', 'started', 'ended'] as const;
 export const ATTRACTIONS = ['none', 'warm', 'strong'] as const;
 export const GENDERS = ['male', 'female', 'unknown'] as const;
@@ -155,6 +156,8 @@ export const TURN_STATE_SCHEMA = object({
     title: { type: 'string' },
     description: nullableString,
     status: { type: 'string', enum: [...THREAD_STATUSES] },
+    type: nullableEnum(THREAD_TYPES),
+    importance: nullableNumber,
     participants: stringList,
   }),
   // Only people absent from KNOWN CHARACTERS, each with is_new: true. Entries

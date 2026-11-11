@@ -1,6 +1,7 @@
 // Reading the state model's reply: JSON parsing and snake_case → TurnDiff.
 
 import { readRyo } from './money';
+import { THREAD_TYPES } from './stateSchema';
 import type {
   Audience,
   ConsequenceKind,
@@ -605,7 +606,19 @@ export function convertStateBlock(
     diff.threads = block.threads
       .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
       .map((item) => {
-        const thread = item as { title?: unknown; description?: unknown; status?: unknown; participants?: unknown };
+        const thread = item as {
+          title?: unknown;
+          description?: unknown;
+          status?: unknown;
+          participants?: unknown;
+          type?: unknown;
+          importance?: unknown;
+        };
+        const type = THREAD_TYPES.find((value) => value === thread.type);
+        const importance =
+          typeof thread.importance === 'number' && Number.isFinite(thread.importance)
+            ? (Math.min(5, Math.max(1, Math.round(thread.importance))) as 1 | 2 | 3 | 4 | 5)
+            : undefined;
         const participants = stringItems(thread.participants).filter((name) => name.toLowerCase() !== 'kan');
         const action: 'open' | 'update' | 'resolve' =
           thread.status === 'resolved' || thread.status === 'resolve'
@@ -620,7 +633,8 @@ export function convertStateBlock(
           action,
           title: title.slice(0, 80),
           description,
-          type: 'other' as const,
+          ...(type ? { type } : {}),
+          ...(importance ? { importance } : {}),
           ...(participants.length > 0 ? { participants } : {}),
         };
       })

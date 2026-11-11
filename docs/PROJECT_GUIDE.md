@@ -273,7 +273,7 @@ consequences: [{
   jutsuUsed?: [{ name, user, chakraNature?, effect?, visual? }],
   bonds?: [{ entityId?, character, affinityDelta?, status?, note?, isMajor?, relationship?, attraction?, romanceNote? }],
   facts?: [{ action, type?, text, subject?, whoKnows?, validFrom?, ... }],
-  threads?: [{ action, title, description?, type?, participants? }],
+  threads?: [{ action, title, description?, type?, importance?, participants? }],   // type and importance from the tracker (quest, goal, promise, debt, mystery, grudge, other; 1-5). An untyped new thread is classified by its words (classifyThread); "other" never overwrites a real type on update; old "other" threads are reclassified on load. The Journal's Missions show quests, Goals show goals.
   canonCompleted?: string[], canonEngaged?: string[], canonPassed?: string[],
   newsRelayed?: [{ id, from? }],
   lettersSent?: [{ entityId?, name, gist?, text?, carrier?, coded? }], lettersReceived?: [{ entityId?, name, text? }],

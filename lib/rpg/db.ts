@@ -6,7 +6,7 @@ import { normalizeRenown } from './renown';
 import { normalizeConsequences } from './consequences';
 import { normalizeDeaths } from './deaths';
 import { ensureNames } from './names';
-import { knowersOf } from './facts';
+import { classifyThread, knowersOf } from './facts';
 
 import { DEFAULT_SETTINGS, emptyIndex, normalizePromptBudget } from './defaults';
 import { makeId } from './id';
@@ -884,7 +884,12 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
         }))
       : [],
     facts: Array.isArray(db.facts) ? db.facts : [],
-    threads: Array.isArray(db.threads) ? db.threads : [],
+    // Threads the tracker could not type used to all be "other" (audit 6.17).
+    threads: Array.isArray(db.threads)
+      ? db.threads.map((thread) =>
+          thread.type === 'other' ? { ...thread, type: classifyThread(thread.title, thread.description) } : thread
+        )
+      : [],
     // The geography paragraph is the app's, not the story's: older saves get the current one.
     loreEntries: Array.isArray(db.loreEntries)
       ? db.loreEntries.map((lore) =>

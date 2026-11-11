@@ -1227,6 +1227,7 @@ export type TurnDiff = {
     title: string;
     description?: string;
     type?: ThreadType;
+    importance?: 1 | 2 | 3 | 4 | 5;
     participants?: string[];
   }[];
   /** People who died this turn, or whose death Kan saw or was told of. */
