@@ -14,6 +14,10 @@ import { resolveEntity } from './entities';
 import { clamp, uniqueList } from './util';
 import type { AppDatabase, EntityRecord, ScenePace, TurnDiff } from './types';
 
+import { SCENE_CAST_LIMIT } from './sceneLimits';
+
+export { SCENE_CAST_LIMIT };
+
 /** More than this and scenes stop being readable; the scene cast holds six. */
 export const MAX_COMPANIONS = 4;
 
@@ -68,7 +72,7 @@ function updateEntity(db: AppDatabase, id: string, patch: (entity: EntityRecord)
 }
 
 function withCast(db: AppDatabase, cast: string[]): AppDatabase {
-  return { ...db, state: { ...db.state, sceneCast: uniqueList(cast.filter(Boolean)).slice(0, 6) } };
+  return { ...db, state: { ...db.state, sceneCast: uniqueList(cast.filter(Boolean)).slice(0, SCENE_CAST_LIMIT) } };
 }
 
 /** Starts someone travelling with Kan. No-op for Kan, the dead, existing companions, or a full party. */

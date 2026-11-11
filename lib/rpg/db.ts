@@ -26,6 +26,7 @@ import { WEATHER_CONDITIONS } from './weather';
 import { normalizeFlashbacks } from './flashbacks';
 import { normalizeSafehouses } from './safehouses';
 import { normalizePurse } from './money';
+import { SCENE_CAST_LIMIT } from './sceneLimits';
 
 const META_KEY = 'kan.meta.v1';
 const SLOT_PREFIX = 'kan.slot.';
@@ -1098,7 +1099,7 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
         ? state.scenePace
         : undefined,
     sceneCast: Array.isArray(state.sceneCast)
-      ? state.sceneCast.filter(Boolean).slice(0, 6)
+      ? state.sceneCast.filter(Boolean).slice(0, SCENE_CAST_LIMIT)
       : [],
     sceneMode: normalizeSceneMode(state.sceneMode),
     post: normalizePost(state.post),

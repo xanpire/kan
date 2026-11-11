@@ -128,3 +128,31 @@ describe('the prose fallback sets the cast (audit 6.16)', () => {
     expect(result.events.some((event) => event.kind === 'fallback')).toBe(true);
   });
 });
+
+import { buildNarrationPrompt } from '../lib/rpg/prompt';
+import { SCENE_CAST_LIMIT } from '../lib/rpg/sceneLimits';
+
+describe('the people in the scene keep their cards (audit 6.1, 6.2)', () => {
+  test('a new person standing in front of Kan gets a card, with how they feel about him', () => {
+    let db = play(seed(), 'A ferryman nods.', {
+      new_characters: [{ is_new: true, name: 'Ren Kisaragi', role: 'Ferryman', personality: 'Dry', speech_style: 'Short' }],
+      characters_present: ['Ren Kisaragi'],
+      bonds: [{ character_id: 'Ren Kisaragi', affinity_change: -2, note: 'Wary of you', relationship: 'acquaintance' }],
+    }).db;
+    // Seven canon people talked about in the last reply.
+    db = appendStoryMessage(db, 'assistant', 'Ren talks about Itachi, Kisame, Pain, Konan, Kakuzu, Hidan, Deidara and Sasori while he rows.', null, 0, 0);
+    const text = buildNarrationPrompt(db, '*I listen.*').messages[1].content;
+    const cards = text.split('CHARACTERS IN SCENE')[1] ?? '';
+    expect(cards.indexOf('Ren Kisaragi')).toBeGreaterThan(-1);
+    expect(cards.indexOf('Ren Kisaragi')).toBeLessThan(cards.indexOf('Itachi'));
+    expect(cards).toContain('they feel -2/10 toward you');
+  });
+
+  test('an ensemble scene keeps everyone', () => {
+    const names = ['itachi-uchiha', 'kisame-hoshigaki', 'pain', 'konan', 'kakuzu', 'hidan', 'deidara', 'sasori', 'zetsu', 'orochimaru'];
+    const db = play(seed(), 'The Akatsuki gather in the hall.', { characters_present: names }).db;
+    expect(db.state.sceneCast!.length).toBe(Math.min(names.length, SCENE_CAST_LIMIT));
+    const text = buildNarrationPrompt(db, '*I wait.*').messages[1].content;
+    expect(text).toContain('ALSO HERE');
+  });
+});

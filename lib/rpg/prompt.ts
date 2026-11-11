@@ -34,6 +34,7 @@ import { DEFAULT_SETTINGS } from './defaults';
 import { PLACE_NAME_RULE, localizePlaceNames } from './glossary';
 import { isDeceased, kanKnowsDeath } from './deaths';
 import { canonRoleAhead, canonSurvivalLine } from './canonRoles';
+import { FULL_CARD_LIMIT } from './sceneLimits';
 import { resolveEntity } from './entities';
 import { alsoKnownAs, displayName, identitiesOf, identityLine, kanKnowsLine, kanKnowsName, labelOf, narratorName } from './names';
 import { companionsOf, daysTogether, formatTogether } from './companions';
@@ -311,7 +312,10 @@ export function buildNarrationPrompt(
       formatTimeLine(db, 'narrator', sceneMode.mode),
       formatWeatherLine(db, sceneMode.mode),
       formatSafehouseLine(db, userMessage),
-      formatMatchedEntities(db, matchedEntityIds),
+      formatMatchedEntities(db, matchedEntityIds, {
+        lastNarration: [...messagesForScene].reverse().find((message) => message.role === 'assistant')?.content,
+        userMessage,
+      }),
       formatFacts(db, facts),
       formatFigures(db),
       formatElsewhere(db),
@@ -698,21 +702,35 @@ function sceneCastIdsOf(db: AppDatabase): string[] {
     .filter((id): id is string => Boolean(id));
 }
 
-function formatMatchedEntities(db: AppDatabase, entityIds: Set<string>) {
+function formatMatchedEntities(
+  db: AppDatabase,
+  entityIds: Set<string>,
+  turnText: { lastNarration?: string; userMessage?: string } = {}
+) {
   if (entityIds.size === 0) {
     return '';
   }
 
-  const characters = db.entities
+  const present = sceneCastIdsOf(db);
+  const presentSet = new Set(present);
+  const nowText = `${turnText.lastNarration ?? ''}\n${turnText.userMessage ?? ''}`;
+  // Who matters most this turn (audit 6.1): companions, the people actually
+  // here, people named in the last reply or in Kan's input, then everyone
+  // else by how recently Kan saw them.
+  const rank = (entity: EntityRecord) =>
+    entity.companion ? 0 : presentSet.has(entity.id) ? 1 : mentionsEntity(nowText, entity) ? 2 : 3;
+  const seenKey = (entity: EntityRecord) => (entity.lastSeen ? dateSortValue(entity.lastSeen) : 0);
+  const ranked = db.entities
     .filter(
       (entity) =>
         entity.type === 'character' &&
         entityIds.has(entity.id) &&
         entity.name.toLowerCase() !== 'kan'
     )
-    // Companions first, so a crowded scene never cuts them.
-    .sort((a, b) => Number(Boolean(b.companion)) - Number(Boolean(a.companion)))
-    .slice(0, 6);
+    .sort((a, b) => rank(a) - rank(b) || seenKey(b) - seenKey(a));
+  const characters = ranked.slice(0, FULL_CARD_LIMIT);
+  // Anyone else in the room still gets a line: name Kan knows, role, mood, feeling.
+  const extras = ranked.slice(FULL_CARD_LIMIT).filter((entity) => entity.companion || presentSet.has(entity.id));
 
   if (characters.length === 0) {
     return '';
@@ -726,7 +744,11 @@ function formatMatchedEntities(db: AppDatabase, entityIds: Set<string>) {
     return pov ? `; remembers of you: "${truncate(pov, 120)}"` : '';
   };
 
-  const present = sceneCastIdsOf(db);
+  const bondsByEntity = new Map(db.bonds.map((bond) => [bond.entityId, bond]));
+  const feeling = (entity: EntityRecord) => {
+    const bond = bondsByEntity.get(entity.id);
+    return bond ? `\n  ${formatBondLine(db, bond)}` : '';
+  };
   const known = (entity: EntityRecord) => {
     const other = kanKnowsName(entity) ? alsoKnownAs(db, entity)[0] : undefined;
     const card = kanKnowsName(entity) ? displayName(db, entity) : `${labelOf(db, entity)} [narrator only: ${entity.name}]`;
@@ -754,8 +776,17 @@ function formatMatchedEntities(db: AppDatabase, entityIds: Set<string>) {
     'CHARACTERS IN SCENE',
     ...characters.map(
       (entity) =>
-        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${survives(entity)}`
+        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${feeling(entity)}${survives(entity)}`
     ),
+    ...(extras.length > 0
+      ? [
+          'ALSO HERE',
+          ...extras.map((entity) => {
+            const bond = bondsByEntity.get(entity.id);
+            return `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}; mood ${truncate(entity.mood ?? 'unknown', 40)}${bond ? `; ${bond.affinity}/10 toward you, ${bond.relationship ?? 'stranger'}` : ''}${survives(entity)}`;
+          }),
+        ]
+      : []),
   ].join('\n');
 }
 
@@ -907,9 +938,19 @@ function formatBonds(db: AppDatabase) {
 
     return entity ? narratorName(db, entity) : bond.characterName;
   };
+  // Who matters most, love or hate alike (audit 6.2): major bonds, then the
+  // strongest feelings either way, then the most recently touched. Enemies
+  // are no longer cut for being negative. The list stays the same whoever is
+  // in the scene, so this cached block doesn't change every time someone
+  // walks in; the people in the scene get their bond on their own card too.
   const bonds = [...db.bonds]
     .filter((bond) => bond.isMajor || Math.abs(bond.affinity) >= 4 || bond.grudge)
-    .sort((a, b) => b.affinity - a.affinity)
+    .sort(
+      (a, b) =>
+        Number(b.isMajor) - Number(a.isMajor) ||
+        Math.abs(b.affinity) - Math.abs(a.affinity) ||
+        dateSortValue(b.updatedInStoryDate) - dateSortValue(a.updatedInStoryDate)
+    )
     .slice(0, 10);
 
   if (bonds.length === 0) {
@@ -918,11 +959,13 @@ function formatBonds(db: AppDatabase) {
 
   return [
     'BONDS',
-    ...bonds.map(
-      (bond) =>
-        `- ${bondName(bond)}${deadLabel.get(bond.entityId) ?? ''} (they feel ${bond.affinity}/10 toward you; you feel ${bond.yourFeelings?.affinity ?? bond.affinity}/10 toward them): ${truncate(bond.status ?? 'unknown', 50)}. ${truncate(bond.note, 80)}${bond.yourFeelings?.note ? ` You: ${truncate(bond.yourFeelings.note, 60)}` : ''}${bond.relationship ? ` [relationship: ${bond.relationship}${bond.attraction && bond.attraction !== 'none' ? `, attraction: ${bond.attraction}` : ''}]` : ''}${bond.grudge ? ` [grudge: ${grudgeStage(db, bond)}, ${truncate(bond.grudge.reason, 60)}]` : ''}`
-    ),
+    ...bonds.map((bond) => `- ${bondName(bond)}${deadLabel.get(bond.entityId) ?? ''} ${formatBondLine(db, bond)}`),
   ].join('\n');
+}
+
+/** How a bond reads to the narrator: feeling both ways, relationship, status, notes, grudge stage. */
+function formatBondLine(db: AppDatabase, bond: BondRecord) {
+  return `(they feel ${bond.affinity}/10 toward you; you feel ${bond.yourFeelings?.affinity ?? bond.affinity}/10 toward them): ${truncate(bond.status ?? 'unknown', 50)}. ${truncate(bond.note, 80)}${bond.yourFeelings?.note ? ` You: ${truncate(bond.yourFeelings.note, 60)}` : ''}${bond.relationship ? ` [relationship: ${bond.relationship}${bond.attraction && bond.attraction !== 'none' ? `, attraction: ${bond.attraction}` : ''}]` : ''}${bond.grudge ? ` [grudge: ${grudgeStage(db, bond)}, ${truncate(bond.grudge.reason, 60)}]` : ''}`;
 }
 
 /**

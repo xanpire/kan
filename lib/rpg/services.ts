@@ -30,6 +30,7 @@ import { convertStateBlock, parseJsonObject, repairTruncatedJson } from './state
 import { TURN_STATE_SCHEMA, TURN_STATE_SCHEMA_NAME } from './stateSchema';
 import { type TitledSummary, parseTitledSummary, uniqueList } from './util';
 import type { AppDatabase, CalendarDate, RawLogEntry, TurnDiff } from './types';
+import { SCENE_CAST_LIMIT } from './sceneLimits';
 
 /** Room for the state reply. Thinking tokens count against this too. */
 const STATE_MAX_TOKENS = 3000;
@@ -209,7 +210,7 @@ export function applyTurnDiff(
       ...next,
       state: {
         ...next.state,
-        sceneCast: castWithCompanions(next, cast).slice(0, 6),
+        sceneCast: castWithCompanions(next, cast).slice(0, SCENE_CAST_LIMIT),
       },
     };
   }
@@ -308,7 +309,7 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
 
   // You are never in your own scene cast.
   if (Array.isArray(state.sceneCast)) {
-    next.state.sceneCast = state.sceneCast.filter((name) => name && name.trim().toLowerCase() !== 'kan').slice(0, 6);
+    next.state.sceneCast = state.sceneCast.filter((name) => name && name.trim().toLowerCase() !== 'kan').slice(0, SCENE_CAST_LIMIT);
   }
 
   if (

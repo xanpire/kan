@@ -16,6 +16,7 @@ import type {
   TurnDiff,
   VillageFaction,
 } from './types';
+import { SCENE_CAST_LIMIT } from './sceneLimits';
 
 const CARRIERS = ['bird', 'ninken', 'summon', 'courier', 'dead-drop', 'hand'] as const;
 const AUDIENCES = ['leaf', 'sand', 'mist', 'cloud', 'stone', 'akatsuki', 'rain', 'underworld'] as const;
@@ -378,7 +379,7 @@ export function convertStateBlock(
   const charactersPresent = listedPresent
     ? (block.characters_present as unknown[])
         .filter((name): name is string => typeof name === 'string' && name.trim().length > 0 && name.trim().toLowerCase() !== 'kan')
-        .slice(0, 8)
+        .slice(0, SCENE_CAST_LIMIT)
     : [];
 
   if (listedPresent) {
