@@ -198,6 +198,10 @@ export const TURN_STATE_SCHEMA = object({
     cause: nullableString,
   }),
   revived: stringList,
+  // Edo Tensei: the dead brought back to act (still dead), and those whose
+  // reanimation ends (released, sealed).
+  reanimated: stringList,
+  released: stringList,
   characters_present: stringList,
   // Someone who clearly sets out with Kan this turn, or a companion who truly
   // parts ways (not a short step away), by character id.

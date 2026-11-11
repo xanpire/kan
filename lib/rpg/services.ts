@@ -9,7 +9,7 @@ import { applyCanonEndgames } from './canonEndgame';
 import { daysBetween, formatDate } from './calendar';
 import { applyClockChange, applyClockTick } from './clock';
 import { applyCompanionChanges, applySharedScene, castWithCompanions } from './companions';
-import { isDeceased, markAlive, markDeceased } from './deaths';
+import { isDeceased, markAlive, markDeceased, markReanimated, markReleased } from './deaths';
 import { buildIndices } from './db';
 import { type DebugCallKind, recordDebugCall, recordDebugState } from './debug';
 import { validateLocationKind } from './encounters';
@@ -83,6 +83,20 @@ export function applyTurnDiff(
         next = markAlive(next, person.entityId);
       }
     }
+  }
+
+  // Edo Tensei: before the cast is recorded, so the reanimated can be present this turn.
+  if (Array.isArray(diff.reanimated) && diff.reanimated.length > 0) {
+    next = markReanimated(
+      next,
+      diff.reanimated.map((person) => person.entityId).filter((id): id is string => Boolean(id))
+    );
+  }
+
+  if (Array.isArray(diff.released) && diff.released.length > 0) {
+    next = markReleased(next, {
+      ids: diff.released.map((person) => person.entityId).filter((id): id is string => Boolean(id)),
+    });
   }
 
   if (Array.isArray(diff.deaths)) {

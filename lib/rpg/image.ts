@@ -25,6 +25,7 @@ import {
 } from './imageDirection';
 import { CONDITION_INFO } from './weather';
 import type { AppDatabase, EntityRecord } from './types';
+import { REANIMATED_LOOK, isReanimated } from './deaths';
 
 /** At most one earlier scene is sent, for rendering style only (#4). */
 const RECENT_IMAGE_LIMIT = 1;
@@ -277,7 +278,11 @@ function peopleNotes(db: AppDatabase, cast: string[]) {
   return cast
     .map((name) => {
       const entity = resolveEntity(db, name);
-      const bits = [entity?.mood ? `mood: ${entity.mood}` : '', entity?.currentLook ? `looks: ${entity.currentLook}` : '']
+      const bits = [
+        entity && isReanimated(entity) ? `reanimated by Edo Tensei: ${REANIMATED_LOOK}` : '',
+        entity?.mood ? `mood: ${entity.mood}` : '',
+        entity?.currentLook ? `looks: ${entity.currentLook}` : '',
+      ]
         .filter(Boolean)
         .join('; ');
 

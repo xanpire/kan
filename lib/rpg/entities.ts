@@ -8,7 +8,7 @@ import { makeId } from './id';
 import { isPlaceholderStatus, NEWLY_MET_STATUS, UNMET_STATUS } from './met';
 import { romanceFor } from './romance';
 import { isCanonCharacter } from './canonPeople';
-import { isDeceased } from './deaths';
+import { isDeceased, isReanimated } from './deaths';
 import type { DebugEvent } from './debugEvents';
 import { uniqueList } from './util';
 import type { AppDatabase, EntityRecord, TurnDiff } from './types';
@@ -123,12 +123,23 @@ export function resolveCharacterRefs(db: AppDatabase, diff: TurnDiff): TurnDiff 
     });
   }
 
-  if (diff.revived) {
-    next.revived = diff.revived.flatMap((person) => {
+  const byRef = (list: { entityId?: string; name: string }[]) =>
+    list.flatMap((person) => {
       const ref = resolve(person.entityId ?? person.name);
 
       return ref?.entityId ? [{ name: ref.name, entityId: ref.entityId }] : [];
     });
+
+  if (diff.revived) {
+    next.revived = byRef(diff.revived);
+  }
+
+  if (diff.reanimated) {
+    next.reanimated = byRef(diff.reanimated);
+  }
+
+  if (diff.released) {
+    next.released = byRef(diff.released);
   }
 
   // A new person can join this turn: their name passes through and is
@@ -593,11 +604,18 @@ export function recordPresence(db: AppDatabase, names: string[]): AppDatabase {
 
   return {
     ...db,
-    entities: db.entities.map((entity) =>
-      entity.type === 'character' && matched.has(entity.id) && !entity.deceased && entity.status !== 'Deceased'
-        ? { ...entity, lastSeen: db.state.inStoryDate, lastSeenAt: db.state.location || entity.lastSeenAt, met: true, whereabouts: undefined }
-        : entity
-    ),
+    entities: db.entities.map((entity) => {
+      if (entity.type !== 'character' || !matched.has(entity.id)) return entity;
+
+      const seen = { lastSeen: db.state.inStoryDate, lastSeenAt: db.state.location || entity.lastSeenAt, met: true, whereabouts: undefined };
+
+      // The reanimated walk again: seeing one also tells Kan they died.
+      if (isReanimated(entity)) {
+        return { ...entity, ...seen, deceased: { ...(entity.deceased ?? {}), known: true } };
+      }
+
+      return isDeceased(entity) ? entity : { ...entity, ...seen };
+    }),
   };
 }
 

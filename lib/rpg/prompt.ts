@@ -32,7 +32,7 @@ import { formatHunterOffer, formatReputationBlock, hunterOffer, reputationTracki
 import { estimateTokens } from '../openrouter';
 import { DEFAULT_SETTINGS } from './defaults';
 import { PLACE_NAME_RULE, localizePlaceNames } from './glossary';
-import { isDeceased, kanKnowsDeath } from './deaths';
+import { REANIMATED_LOOK, isDeceased, isReanimated, kanKnowsDeath } from './deaths';
 import { canonRoleAhead, canonSurvivalLine } from './canonRoles';
 import { FULL_CARD_LIMIT } from './sceneLimits';
 import { resolveEntity } from './entities';
@@ -140,7 +140,7 @@ NAMES: you see everyone's true identity and id; the notes say what name you (Kan
 
 COMPANIONS: people marked [travelling with Kan] are with him in every scene; always list them in characters_present. companions_joined lists, by id, someone who clearly sets out with Kan this turn (agrees to come along, is assigned as his partner, leaves with him), with a short reason; companions_left lists a companion who truly parts ways (leaves, is sent away, called back, captured, or splits off on their own mission), with a short reason. Scouting ahead, sleeping in the next room, or a short errand is not leaving. Companions share what happens to Kan: give a companion a bonds entry whenever this turn's shared events move how they feel about him (fighting side by side, being protected or saved, a secret shared, kindness, an argument, a betrayal); affinity_change usually -3..3.
 
-DEATHS: deaths lists, by id, anyone the prose makes certain is dead this turn: they die on screen, Kan sees the body, or someone tells Kan they died (also for someone already marked deceased whom Kan did not know about). Never for someone unconscious, missing, faking, or only rumored dead. The dead are never in characters_present or bonds. revived lists ids only for a true return to life (like Chiyo's life-transfer jutsu, or the Rinnegan's revival); an Edo Tensei reanimation is still dead.
+DEATHS: deaths lists, by id, anyone the prose makes certain is dead this turn: they die on screen, Kan sees the body, or someone tells Kan they died (also for someone already marked deceased whom Kan did not know about). Never for someone unconscious, missing, faking, or only rumored dead. The dead are never in characters_present or bonds, except the reanimated. revived lists ids only for a true return to life (like Chiyo's life-transfer jutsu, or the Rinnegan's revival). reanimated lists ids of the dead whom the prose shows brought back by Edo Tensei this turn (still dead, but here and able to act): while that holds they may be in characters_present, share memories and move a bond. released lists reanimated people whose jutsu ends this turn (released, sealed, passing on).
 
 ABILITIES: natures_gained when you learn one of your own chakra natures (source "innate") or take one with Thousand Souls (source "thousand-souls", from = whose chakra); abilities_changed when one of your abilities awakens or changes stage (name "Sharingan" stage "1 tomoe"/"2 tomoe"/"3 tomoe"; "Mangekyō Sharingan" "awakened"; "Susanoo" "ribcage"/"full body"...). Otherwise [].
 
@@ -813,7 +813,7 @@ function formatMatchedEntities(
     'CHARACTERS IN SCENE',
     ...characters.map(
       (entity) =>
-        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${feeling(entity)}${survives(entity)}`
+        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isReanimated(entity) ? ` [REANIMATED: dead, here through Edo Tensei; ${REANIMATED_LOOK}]` : isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${feeling(entity)}${survives(entity)}`
     ),
     ...(extras.length > 0
       ? [
@@ -1028,7 +1028,7 @@ function formatTheDead(db: AppDatabase) {
       const name =
         kanKnowsName(entity) || entity.met !== false ? narratorName(db, entity) : `${entity.name} (unknown to Kan)`;
 
-      return `- ${name}${cause}${kanKnowsDeath(db, entity) ? '' : ' (Kan does not know yet)'}`;
+      return `- ${name}${cause}${kanKnowsDeath(db, entity) ? '' : ' (Kan does not know yet)'}${isReanimated(entity) ? ' (walking again through Edo Tensei)' : ''}`;
     }),
   ].join('\n');
 }

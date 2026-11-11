@@ -70,6 +70,10 @@ export function romanceBlock(db: AppDatabase, entity: EntityRecord): string | nu
   const profile = loreProfileFor(entity.name);
   const access = profile?.romanceAccessibility ?? entity.romanceAccessibility;
 
+  if (entity.deceased || entity.status === 'Deceased') {
+    return 'they are dead';
+  }
+
   // Kan is straight: men are never romance options, whatever their lore says.
   if (entity.gender === 'male' || access === 'not-applicable') {
     return 'romance is not possible with them';

@@ -577,6 +577,11 @@ export type EntityRecord = {
   /** Where Kan last saw this person (state.location at the time). */
   lastSeenAt?: string;
   /**
+   * Dead, but walking again through Edo Tensei (deaths.ts isReanimated):
+   * since when, who holds the jutsu, and when it ended (they passed on).
+   */
+  reanimated?: { since: CalendarDate; by?: string; until?: CalendarDate };
+  /**
    * Set once this person has died in the story (see deaths.ts). `known` is
    * whether Kan has seen it or been told; a canon death also becomes known
    * when the news of `canonEventId` reaches him.
@@ -1235,6 +1240,10 @@ export type TurnDiff = {
   deaths?: { entityId?: string; name: string; cause?: string }[];
   /** People genuinely brought back to life (never Edo Tensei). */
   revived?: { entityId?: string; name: string }[];
+  /** The dead brought back to act through Edo Tensei (still dead; see deaths.ts). */
+  reanimated?: { entityId?: string; name: string }[];
+  /** Reanimated people whose jutsu ended (released, sealed): they pass on. */
+  released?: { entityId?: string; name: string }[];
   /** People who start travelling with Kan this turn. */
   companionsJoined?: { entityId?: string; name: string; reason?: string }[];
   /** Companions who part ways with Kan this turn. */

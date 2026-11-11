@@ -229,3 +229,67 @@ export function markKnownDeathsOnBonds(db: AppDatabase): AppDatabase {
 
   return changed ? { ...db, bonds } : db;
 }
+
+// ---------------------------------------------------------------------------
+// The reanimated (audit 6.9): still dead, but here and able to act while
+// Edo Tensei holds. They can be in the scene cast, share its memories and
+// move a bond; they never become a companion or a romance.
+
+/** The look an Edo Tensei body has, for cards and images. */
+export const REANIMATED_LOOK = 'cracked, ash-grey skin like old paper, dark sclera';
+
+/** Dead, and walking again through Edo Tensei right now. */
+export function isReanimated(entity: Pick<EntityRecord, 'deceased' | 'status' | 'reanimated'>): boolean {
+  return isDeceased(entity) && Boolean(entity.reanimated) && !entity.reanimated?.until;
+}
+
+/** Dead and not walking: the dead as most code means it. */
+export function isGone(entity: Pick<EntityRecord, 'deceased' | 'status' | 'reanimated'>): boolean {
+  return isDeceased(entity) && !isReanimated(entity);
+}
+
+function findByName(db: AppDatabase, name: string) {
+  const wanted = name.trim().toLowerCase();
+  return db.entities.find(
+    (item) => item.type === 'character' && identityNames(item).some((candidate) => candidate.trim().toLowerCase() === wanted)
+  );
+}
+
+/** Edo Tensei brings these dead back to act (a milestone, or the tracker's `reanimated`). */
+export function markReanimated(db: AppDatabase, entityIds: string[], options: { by?: string; date?: CalendarDate } = {}): AppDatabase {
+  const ids = new Set(entityIds);
+
+  return {
+    ...db,
+    entities: db.entities.map((entity) =>
+      ids.has(entity.id) && isDeceased(entity) && !isReanimated(entity)
+        ? { ...entity, reanimated: { since: options.date ?? db.state.inStoryDate, ...(options.by ? { by: options.by } : {}) } }
+        : entity
+    ),
+  };
+}
+
+/** The jutsu ends for these people (or for everyone it holds, by one caster): they pass on. */
+export function markReleased(
+  db: AppDatabase,
+  select: { ids?: string[]; by?: string; all?: boolean; except?: string[] },
+  date: CalendarDate = db.state.inStoryDate
+): AppDatabase {
+  const ids = new Set(select.ids ?? []);
+  const except = new Set((select.except ?? []).map((name) => findByName(db, name)?.id).filter(Boolean) as string[]);
+
+  return {
+    ...db,
+    entities: db.entities.map((entity) => {
+      if (!isReanimated(entity) || except.has(entity.id)) return entity;
+      const chosen = ids.has(entity.id) || select.all || (select.by && entity.reanimated?.by === select.by);
+      return chosen ? { ...entity, reanimated: { ...entity.reanimated!, until: date } } : entity;
+    }),
+  };
+}
+
+/** For canon data, by name. */
+export function reanimateByName(db: AppDatabase, names: string[], options: { by?: string; date?: CalendarDate }) {
+  const ids = names.map((name) => findByName(db, name)?.id).filter((id): id is string => Boolean(id));
+  return markReanimated(db, ids, options);
+}

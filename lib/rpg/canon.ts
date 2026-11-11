@@ -22,7 +22,7 @@ import {
   type CanonProgress,
   type CanonWindow,
 } from './canonData';
-import { markDeathsByName } from './deaths';
+import { markDeathsByName, markReleased, reanimateByName } from './deaths';
 import { missingKeyActor } from './canonRoles';
 import { castAppearingWith, ensureCanonCast } from './canonCast';
 import { knowersOf } from './facts';
@@ -273,6 +273,14 @@ function fireMilestone(
       date: happenedAt,
       canonEventId: eventIdFor(milestone.id),
     });
+  }
+
+  if (milestone.reanimates) {
+    next = reanimateByName(next, milestone.reanimates.names, { by: milestone.reanimates.by, date: happenedAt });
+  }
+
+  if (milestone.releases) {
+    next = markReleased(next, milestone.releases, happenedAt);
   }
 
   for (const [name, status] of Object.entries(milestone.setsStatus ?? {})) {

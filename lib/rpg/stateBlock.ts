@@ -714,6 +714,17 @@ export function convertStateBlock(
     diff.revived = revived;
   }
 
+  const reanimated = stringItems(block.reanimated).map((name) => ({ name }));
+  const released = stringItems(block.released).map((name) => ({ name }));
+
+  if (reanimated.length > 0) {
+    diff.reanimated = reanimated;
+  }
+
+  if (released.length > 0) {
+    diff.released = released;
+  }
+
   const companionsJoined = companionRefs(block.companions_joined);
   const companionsLeft = companionRefs(block.companions_left);
 

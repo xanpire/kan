@@ -107,6 +107,10 @@ export type CanonMilestone = {
    * on their own record (deaths.ts); anyone the save does not have is skipped.
    */
   deaths?: string[];
+  /** The dead this milestone brings back through Edo Tensei, and who holds the jutsu. */
+  reanimates?: { names: string[]; by: string };
+  /** Edo Tensei ends: for everyone one caster holds (`by`), or for everyone (`all`), sparing `except`. */
+  releases?: { by?: string; all?: boolean; except?: string[] };
   /** People whose status this milestone changes, by exact name ("Sealed", "Free"). */
   setsStatus?: Record<string, string>;
   encounter?: CanonEncounter;
@@ -1391,6 +1395,7 @@ const CORE_MILESTONES: CanonMilestone[] = [
     id: 'edo-itachi',
     era: 'The Fourth War',
     title: 'Edo Itachi',
+    reanimates: { names: ['Itachi Uchiha', 'Nagato'], by: 'Kabuto' },
     description: "Kabuto's Edo Tensei returns Itachi to the battlefield. Breaking free of the control, he fights beside Naruto and Killer Bee against Nagato — and you meet your brother again across the impossible divide.",
     canonPoint: 'Edo Tensei Itachi walks the battlefield again.',
     from: { year: 23, month: 1, day: 10 },
@@ -1426,6 +1431,7 @@ const CORE_MILESTONES: CanonMilestone[] = [
     id: 'madara-revived',
     era: 'The Fourth War',
     title: 'Madara is revived',
+    reanimates: { names: ['Madara Uchiha'], by: 'Kabuto' },
     description: "Kabuto's Edo Tensei returns the REAL Madara Uchiha to the war — the legend himself, not the masked man's borrowed name.",
     canonPoint: 'The real Madara Uchiha has been revived for the war.',
     from: { year: 23, month: 1, day: 11 },
@@ -1439,6 +1445,7 @@ const CORE_MILESTONES: CanonMilestone[] = [
     id: 'hokage-edo',
     era: 'The Fourth War',
     title: 'The four Hokage return',
+    reanimates: { names: ['Hashirama Senju', 'Tobirama Senju', 'Hiruzen Sarutobi', 'Minato Namikaze'], by: 'Orochimaru' },
     description: 'Orochimaru revives the four Hokage with Edo Tensei. Minato, Hashirama, Tobirama, and Hiruzen walk the battlefield again.',
     canonPoint: 'The four Hokage have been revived by Edo Tensei.',
     from: { year: 23, month: 1, day: 11 },
@@ -1589,6 +1596,8 @@ const CORE_MILESTONES: CanonMilestone[] = [
     region: 'Land of Lightning',
     location: 'the Fourth War front',
     major: true,
+    // The Hokage pass on when the war is over; Madara dies with it.
+    releases: { all: true },
     deaths: ['Madara Uchiha'],
     // Torn out of Madara, the beasts go free; Kurama and Gyūki stay with Naruto and Bee.
     setsStatus: {
@@ -2248,6 +2257,7 @@ const WORLD_EXPANSION: CanonMilestone[] = [
     id: 'edo-dead-march',
     era: 'The Fourth War',
     title: 'The dead march',
+    reanimates: { names: ['Zabuza Momochi', 'Haku', 'Rasa'], by: 'Kabuto' },
     description:
       "Kabuto's coffins open across the front: the Seven Swordsmen of the Mist, Zabuza and Haku against Kakashi's division, and four dead Kage — Gaara's father Rasa among them — against Gaara's.",
     from: { year: 23, month: 1, day: 10 },
@@ -2272,6 +2282,8 @@ const WORLD_EXPANSION: CanonMilestone[] = [
     id: 'itachi-izanami',
     era: 'The Fourth War',
     title: 'Izanami',
+    // Madara cut himself free of the jutsu and stayed.
+    releases: { by: 'Kabuto', except: ['Madara Uchiha'] },
     description:
       'Free of Kabuto, Itachi finds Sasuke and fights beside his little brother one last time. He traps Kabuto in Izanami — a loop that ends only when Kabuto accepts who he is — and through him releases Edo Tensei. Itachi tells Sasuke the truth, says goodbye, and passes on.',
     canonPoint: 'Itachi stopped Kabuto with Izanami, ended Edo Tensei, and passed on.',

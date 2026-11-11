@@ -519,6 +519,14 @@ Decided by Xan: anyone with a canon role still ahead cannot die early. `mileston
 - Safety net for old saves: when a key actor (named in the title, or killed by it) is already dead in the save, `advanceCanon` skips the milestone (completed and expired) instead of firing it as written.
 - A data test checks that every milestone's needs and deaths are alive in canon up to it.
 
+### The reanimated (`deaths.ts`, audit 6.9)
+
+Edo Tensei brings the dead back without making them alive. `EntityRecord.reanimated = { since, by?, until? }`; `isReanimated` is dead with a reanimation that has not ended. They stay dead everywhere (THE DEAD, "The dead" on Bonds), but while it holds they may be in the scene cast, are seen (`recordPresence`; seeing one also makes their death known to Kan), share the scene's memories and move a bond. They never become a companion, and `romanceBlock` refuses any romance with the dead.
+
+- Canon: `reanimates: { names, by }` and `releases: { by?, all?, except? }` on milestones. `edo-dead-march` (Zabuza, Haku, Rasa), `edo-itachi` (Itachi, Nagato), `madara-revived` (Madara) are Kabuto's; `hokage-edo` (the four Hokage) is Orochimaru's. `itachi-izanami` releases everything Kabuto holds except Madara; `war-ends` releases everyone.
+- Tracker: `reanimated` / `released` (ids), told in the DEATHS rule.
+- Narrator: their card reads `[REANIMATED: dead, here through Edo Tensei; cracked, ash-grey skin like old paper, dark sclera]`; THE DEAD adds "(walking again through Edo Tensei)". The image director's people notes carry the same look.
+
 ### News & rumors
 
 - Every fired world event is **unheard** until delivered.
