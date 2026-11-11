@@ -1,5 +1,6 @@
 import { formatClock, timeOfDayOf } from './calendar';
 import type { DayPeriod } from './calendar';
+import { currentSafehouse } from './safehouses';
 import type { AppDatabase, LocationKind } from './types';
 
 export type EncounterRisk = 'none' | 'very-low' | 'low' | 'medium' | 'high';
@@ -28,11 +29,16 @@ const WILDERNESS_WORDS = [
   'canyon', 'ravine', 'island', 'wilderness', 'treeline', 'grove',
 ];
 
+/** Earliest whole-word mention ("inn" is not in "inner", "port" not in "report", "sea" not in "search"). */
 function earliestMatch(text: string, words: string[]) {
   let best = -1;
 
   for (const word of words) {
-    const index = text.indexOf(word);
+    // Plurals and compounds still count: "marketplace", "riverside", "townhouse".
+    const found = new RegExp(
+      `(?<![a-z])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|es|place|side|front|house|yard|land|room|hall)?(?![a-z])`
+    ).exec(text);
+    const index = found ? found.index : -1;
 
     if (index !== -1 && (best === -1 || index < best)) {
       best = index;
@@ -138,6 +144,13 @@ export function formatEncounterConditions(db: AppDatabase) {
   const kind = locationKindOf(db);
   const time = timeOfDayOf(db.state.inStoryDate);
   const risk = encounterRisk(kind, time);
+  // Inside a hideout or a temple full of people: not "nobody would be here" (audit 6b.2).
+  const peopled = kind === 'structure' && ((db.state.sceneCast?.length ?? 0) > 0 || safehouseHasResidents(db));
+  const label = peopled ? 'indoors; only those already here' : RISK_LABEL[risk];
 
-  return `ENCOUNTER CONDITIONS: ${kind}, ${time} (${formatClock(db.state.inStoryDate)}) — ${RISK_LABEL[risk]}.`;
+  return `ENCOUNTER CONDITIONS: ${kind}, ${time} (${formatClock(db.state.inStoryDate)}) — ${label}.`;
+}
+
+function safehouseHasResidents(db: AppDatabase) {
+  return (currentSafehouse(db)?.residents?.length ?? 0) > 0;
 }

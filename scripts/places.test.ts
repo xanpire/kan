@@ -36,3 +36,49 @@ describe('ordinary words never put Kan in the wrong village (audit 6b.1)', () =>
     expect(territoryOf('the Forest of Death')).toBe('leaf');
   });
 });
+
+import { mock } from 'bun:test';
+
+mock.module('@react-native-async-storage/async-storage', () => ({
+  default: { getItem: async () => null, setItem: async () => undefined, removeItem: async () => undefined, getAllKeys: async () => [], multiGet: async () => [], multiSet: async () => undefined, multiRemove: async () => undefined },
+}));
+
+import { conditionFromText } from '../lib/rpg/weather';
+import { classifyLocation, formatEncounterConditions } from '../lib/rpg/encounters';
+import { resolveTurnMode } from '../lib/rpg/sceneMode';
+import { normalizeDatabase } from '../lib/rpg/db';
+import { seedDatabase } from '../lib/rpg/seed';
+
+describe('smaller world-model fixes (audit 6b.2)', () => {
+  test('weather words that are negated do not count', () => {
+    expect(conditionFromText('a clear night, no wind')).toBe('clear');
+    expect(conditionFromText('not raining anymore, sun out')).toBe('clear');
+    expect(conditionFromText('heavy rain')).toBe('rain');
+    expect(conditionFromText('without a breath of wind, the snow falls')).toBe('snow');
+  });
+
+  test('location words match whole words', () => {
+    expect(classifyLocation('the inner chamber of a cave')).toBe('structure');
+    expect(classifyLocation('reading the report by the road')).toBe('road');
+    expect(classifyLocation('the search party in the forest')).toBe('wilderness');
+    expect(classifyLocation('a quiet inn')).toBe('settlement');
+  });
+
+  test('a hideout with people in it is not "nobody would be here"', () => {
+    const db = normalizeDatabase(seedDatabase('slot_places', 'Places'));
+    const hideout = { ...db, state: { ...db.state, location: 'The Akatsuki hideout', locationKind: 'structure' as const, sceneCast: ['Itachi Uchiha'] } };
+    expect(formatEncounterConditions(hideout)).toContain('only those already here');
+    const empty = { ...hideout, state: { ...hideout.state, sceneCast: [] } };
+    expect(formatEncounterConditions(empty)).toContain('almost nobody');
+  });
+
+  test('a figure of speech alone is not a fight', () => {
+    const db = normalizeDatabase(seedDatabase('slot_places', 'Places'));
+    const alone = { ...db, state: { ...db.state, sceneCast: [] } };
+    expect(resolveTurnMode(alone, '*I kick a pebble into the river.*').mode).not.toBe('fight');
+    expect(resolveTurnMode(alone, '*I strike a match.*').mode).not.toBe('fight');
+    const withItachi = { ...db, state: { ...db.state, sceneCast: ['Itachi Uchiha'] } };
+    expect(resolveTurnMode(withItachi, '*I strike at his throat.*').mode).toBe('fight');
+    expect(resolveTurnMode(withItachi, '*I strike a match.*').mode).not.toBe('fight');
+  });
+});

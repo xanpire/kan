@@ -28,6 +28,7 @@ import type {
   SceneModeState,
   ScenePace,
 } from './types';
+import { companionsOf } from './companions';
 
 /** Exchange beats in a row before conversation mode starts by itself. */
 export const CONVERSATION_STREAK = 2;
@@ -145,8 +146,11 @@ export function resolveTurnMode(db: AppDatabase, input: string): TurnMode {
   const people = talkers.length > 0 ? talkers : castNames(db).slice(0, 4);
   const wasConversation = state.current === 'conversation';
 
-  // An attack is hard to mistake: it starts a fight whatever else is going on.
-  const startsFight = kan.attacks;
+  // An attack starts a fight, but only against someone (audit 6b.2): alone,
+  // "I kick a pebble" or "I strike a match" is just a move.
+  const someoneHere = castNames(db).length > 0 || companionsOf(db).length > 0;
+  const harmless = /\b(strike|strikes|striking) (?:a |the )?(?:match|flint|light)|\bkick(?:s|ing)? (?:a |the )?(?:pebble|stone|rock|can|door|dirt|dust|leaves|snow|fire)/i.test(input);
+  const startsFight = kan.attacks && someoneHere && !harmless;
 
   if (state.override === 'fight') {
     return { mode: 'fight', lean: false, manual: true, with: castNames(db).slice(0, 4) };

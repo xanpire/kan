@@ -535,11 +535,20 @@ const STORY_PATTERNS: [RegExp, WeatherCondition][] = [
   [/\b(cloud|clouds|cloudy|overcast|grey sky|gray sky)\b/i, 'cloudy'],
 ];
 
+/** "no wind", "not raining", "without rain", "the rain stopped": the word is there, the weather isn't. */
+const NEGATED = /\b(no|not|without|never|isn't|wasn't|stopped|no more|nor)\s+(?:\w+\s+)?$/i;
+
 export function conditionFromText(text: string | undefined | null): WeatherCondition | null {
   if (!text) return null;
 
   for (const [pattern, condition] of STORY_PATTERNS) {
-    if (pattern.test(text)) return condition;
+    const global = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+
+    for (const match of text.matchAll(global)) {
+      const before = text.slice(Math.max(0, (match.index ?? 0) - 24), match.index);
+
+      if (!NEGATED.test(before)) return condition;
+    }
   }
 
   return null;
