@@ -9,9 +9,15 @@ import { formatDayMonth } from '@/lib/rpg/calendar';
 import { useGame } from '@/lib/rpg/game';
 import { groupJutsuByNature, jutsuKey } from '@/lib/rpg/jutsu';
 import type { JutsuRecord } from '@/lib/rpg/types';
+import { resolveEntity } from '@/lib/rpg/entities';
+import { displayName } from '@/lib/rpg/names';
 
 export function JutsuSection() {
   const { db, renameJutsu, deleteJutsu } = useGame();
+  const userName = (name: string) => {
+    const entity = db ? resolveEntity(db, name) : null;
+    return entity && db ? displayName(db, entity) : name;
+  };
   const [openId, setOpenId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -91,7 +97,7 @@ export function JutsuSection() {
             natures.length === 0
               ? 'Your own chakra nature is not known yet.'
               : natures
-                  .map((item) => `${item.nature}${item.source === 'innate' ? ' (yours)' : ` (Thousand Souls${item.from ? `, from ${item.from}` : ''})`}`)
+                  .map((item) => `${item.nature}${item.source === 'innate' ? ' (yours)' : ` (Thousand Souls${item.from ? `, from ${userName(item.from)}` : ''})`}`)
                   .join(' · ')
           }
           title="Chakra natures"
@@ -124,10 +130,11 @@ export function JutsuSection() {
           <ListCard>
             {group.jutsu.map((record) => {
               const open = openId === record.id;
+              // The name Kan knows them by, never the record's own (audit 6b.2).
               const meta =
                 record.user === 'Kan'
                   ? `Used ${record.timesUsed}×`
-                  : `${record.user} · used ${record.timesUsed}×`;
+                  : `${userName(record.user)} · used ${record.timesUsed}×`;
 
               return (
                 <View key={record.id}>

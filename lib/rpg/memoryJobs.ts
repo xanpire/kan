@@ -1037,7 +1037,7 @@ export async function runSummaryJob(
       const messages = base.rawLog.filter((entry) => wanted.has(entry.id));
       logIds = messages.map((entry) => entry.id);
       result = await summarizeScene({ apiKey, db: base, messages, debugTurnId: job.turnLogId });
-      povs = result?.pov ? resolvePovs(povCandidates(base, messages), parsePovLines(result.pov)) : undefined;
+      povs = result?.pov ? resolvePovs(povCandidates(base, messages), parsePovLines(result.pov), (entity) => displayName(base, entity)) : undefined;
       break;
     }
     case 'flashback': {
@@ -1054,7 +1054,7 @@ export async function runSummaryJob(
           ? `This scene is a memory you lived through again: "${record.title}", Year ${record.date.year}, when you were ${ageWord(kanAgeAt(base, record.date))}. Write it up as that memory, in its own time; the present plays no part in it.`
           : undefined,
       });
-      povs = result?.pov ? resolvePovs(povCandidates(base, messages), parsePovLines(result.pov)) : undefined;
+      povs = result?.pov ? resolvePovs(povCandidates(base, messages), parsePovLines(result.pov), (entity) => displayName(base, entity)) : undefined;
       break;
     }
     case 'arc': {

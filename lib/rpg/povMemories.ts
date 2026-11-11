@@ -49,11 +49,12 @@ export function povCandidates(db: AppDatabase, messages: RawLogEntry[]): EntityR
 }
 
 /** The extra instruction for the summary call, or '' when nobody qualifies. */
-export function povInstruction(candidates: EntityRecord[]): string {
+export function povInstruction(candidates: EntityRecord[], nameOf: (entity: EntityRecord) => string = (entity) => entity.name): string {
   if (candidates.length === 0) return '';
 
+  // The names Kan knows, so a memory's text never carries a name he never learned (audit 6b.2).
   return [
-    `POINTS OF VIEW: ${candidates.map((entity) => entity.name).join(', ')} ${candidates.length === 1 ? 'was' : 'were'} there.`,
+    `POINTS OF VIEW: ${candidates.map(nameOf).join(', ')} ${candidates.length === 1 ? 'was' : 'were'} there.`,
     'After SUMMARY, add a POV: section with one line for each of them the scene truly mattered to, as they will remember it: in their own voice and manner, speaking to you (Kan) as "you", only what they could see or hear (never your thoughts), under 35 words. Leave out anyone it did not matter to; if it mattered to none, leave POV: out.',
     'POV:',
     '- Name: line',
@@ -79,7 +80,8 @@ export function parsePovLines(section: string | undefined): { name: string; text
 /** Matches the lines to the candidates by name (or first name); anyone else is dropped. */
 export function resolvePovs(
   candidates: EntityRecord[],
-  lines: { name: string; text: string }[]
+  lines: { name: string; text: string }[],
+  nameOf: (entity: EntityRecord) => string = (entity) => entity.name
 ): { entityId: string; text: string }[] {
   const found: { entityId: string; text: string }[] = [];
 
@@ -87,6 +89,7 @@ export function resolvePovs(
     const key = line.name.toLowerCase();
     const entity = candidates.find(
       (person) =>
+        nameOf(person).toLowerCase() === key ||
         person.name.toLowerCase() === key ||
         person.aliases.some((alias) => alias.toLowerCase() === key) ||
         person.name.toLowerCase().split(' ')[0] === key.split(' ')[0]

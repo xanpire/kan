@@ -29,6 +29,7 @@ import { canonStoryWeight, isCanonFigure } from './lives';
 import { applyReputationChanges, VILLAGE_NAME } from './reputation';
 import { hashText, playerTurnCount } from './util';
 import type { AppDatabase, ConsequenceKind, ConsequenceSeed, EntityRecord, TurnDiff } from './types';
+import { narratorName } from './names';
 
 /** Waiting seeds kept at once; the oldest fade first. */
 const MAX_WAITING = 24;
@@ -354,7 +355,7 @@ export function formatConsequenceOffer(db: AppDatabase, seed: ConsequenceSeed | 
   const canon = person && isCanonFigure(person) ? ' They stay on their canon path; this changes only how they see you.' : '';
 
   return [
-    `SOMETHING COMES BACK (optional: use it only if it fits this scene; never forced). ${ago} ago: ${seed.what} (${seed.who}).`,
+    `SOMETHING COMES BACK (optional: use it only if it fits this scene; never forced). ${ago} ago: ${seed.what} (${person ? narratorName(db, person) : seed.who}).`,
     seed.want ? `What they want now: ${seed.want}.` : '',
     how,
     `Make it realistic: show how it found you.${canon} If it does not fit, leave it for another time.`,

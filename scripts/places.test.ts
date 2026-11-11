@@ -82,3 +82,19 @@ describe('smaller world-model fixes (audit 6b.2)', () => {
     expect(resolveTurnMode(withItachi, '*I strike a match.*').mode).not.toBe('fight');
   });
 });
+
+import { povInstruction } from '../lib/rpg/povMemories';
+import { displayName } from '../lib/rpg/names';
+
+describe('app-written lines use the names Kan knows (audit 6b.2)', () => {
+  test('the summariser is given the name Kan knows, not the record', () => {
+    const db = normalizeDatabase(seedDatabase('slot_names', 'Names'));
+    const kisame = db.entities.find((entity) => entity.name === 'Kisame Hoshigaki')!;
+    const known = displayName(db, kisame);
+    const line = povInstruction([kisame], (entity) => displayName(db, entity));
+    expect(line).toContain(known);
+    if (known !== kisame.name) {
+      expect(line).not.toContain('Kisame');
+    }
+  });
+});

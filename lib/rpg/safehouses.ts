@@ -45,6 +45,7 @@ import type {
   VillageFaction,
 } from './types';
 import { addItems } from './inventory';
+import { displayName } from './names';
 
 export const SAFEHOUSE_KINDS: SafehouseKind[] = ['own', 'rented', 'borrowed', 'base', 'camp'];
 export const SAFEHOUSE_ENDS: Exclude<SafehouseEnd, 'left'>[] = ['expired', 'destroyed', 'compromised', 'withdrawn', 'given-up'];
@@ -889,11 +890,11 @@ export function advanceSafehouses(db: AppDatabase): AppDatabase {
       const bond = host ? next.bonds.find((item) => item.entityId === host.id) : null;
 
       if (host && isDeceased(host) && kanKnowsDeath(next, host)) {
-        next = endHouse(next, house.id, 'withdrawn', `${host.name} died`);
+        next = endHouse(next, house.id, 'withdrawn', `${displayName(next, host)} died`);
         continue;
       }
       if (bond && ((bond.grudge && grudgeKnown(bond.grudge)) || bond.relationship === 'enemy')) {
-        next = endHouse(next, house.id, 'withdrawn', `${host?.name ?? 'the host'} turned on you`);
+        next = endHouse(next, house.id, 'withdrawn', `${host ? displayName(next, host) : 'the host'} turned on you`);
         continue;
       }
     }
@@ -998,22 +999,22 @@ export const END_LABEL: Record<SafehouseEnd, string> = {
   left: 'Left behind',
 };
 
-function entityName(db: AppDatabase, id: string) {
-  return db.entities.find((entity) => entity.id === id)?.name ?? null;
-}
-
 /** Who knows of it, in words: people (living) and groups. */
 export function whoKnows(db: AppDatabase, house: Safehouse): string[] {
   const people = house.knownBy
     .map((id) => db.entities.find((entity) => entity.id === id))
     .filter((entity): entity is EntityRecord => Boolean(entity) && !(isDeceased(entity!) && kanKnowsDeath(db, entity!)))
-    .map((entity) => entity.name);
+    // The names Kan knows them by, never the record's own (audit 6b.2).
+    .map((entity) => displayName(db, entity));
 
   return [...people, ...house.knownGroups];
 }
 
 export function residentNames(db: AppDatabase, house: Safehouse): string[] {
-  return house.residents.map((id) => entityName(db, id)).filter((name): name is string => Boolean(name));
+  return house.residents
+    .map((id) => db.entities.find((entity) => entity.id === id))
+    .filter((entity): entity is EntityRecord => Boolean(entity))
+    .map((entity) => displayName(db, entity));
 }
 
 function shortDate(date: CalendarDate) {

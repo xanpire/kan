@@ -850,6 +850,8 @@ The narrator and the UI only call someone by a name Kan has actually learned. St
 
 **The state tracker**: KNOWN CHARACTERS lists every identity ("identities: Tobi (persona), Madara Uchiha (claimed), Obito Uchiha (true)"); CHARACTERS IN THIS TURN says "you know them as …" or "you don't know their name (you see "…")". The NAMES rule in `STATE_SYSTEM`: `names_learned: [{character_id, name, part: given|family|full|identity, how}]` only for a name spoken, written or recognised within Kan's hearing or reading; `names_told: [{character_id, name, told_to}]`; `new_characters[].name_known: false` adds a stranger under a label; every text it writes uses the names Kan knew at that moment.
 
+**App-written lines** (audit 6b.2) name people as Kan knows them: the safehouse lines (`whoKnows`, `residentNames`, "X died", "X turned on you"), the letter interception line, the grudge styles (`narratorName`) and the grudge thread title, the "something comes back" line, the summariser's POINTS OF VIEW (`povInstruction` with `displayName`; `resolvePovs` reads those names back), and the Jutsu list's users and "from …" natures.
+
 **Leak check**: `nameLeaks` lists names the narration used outside quotes that Kan can't know yet (whole, capitalised words; known names of other people excluded). They are shown on the turn in Settings → Debug ("Names Kan couldn't know yet…").
 
 **Prompt size**: about 180 tokens more in the narrator prompt in the test save (the NAMES rules, cached, and the "unknown to Kan" marks on THE DEAD), plus one or two lines per person on the scene cards; the tracker's rules grow by about 250 tokens (cached).

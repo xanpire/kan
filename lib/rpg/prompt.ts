@@ -500,7 +500,7 @@ export function buildSceneSummaryPrompt(
   ].join('\n\n');
 
   // The people it mattered to most also get their own side of it.
-  const pov = povInstruction(povCandidates(db, messages));
+  const pov = povInstruction(povCandidates(db, messages), (entity) => displayName(db, entity));
   const memory = options.memoryNote ? `${options.memoryNote}\n\n` : '';
   const user = `${memory}${when ? `${when}\n\n` : ''}SCENE TRANSCRIPT:\n${transcript}\n\n${pov ? `${pov}\n\n` : ''}Write the summary now.`;
   const promptMessages: OpenRouterMessage[] = [

@@ -147,7 +147,7 @@ function startGrudge(db: AppDatabase, entity: EntityRecord, heat: number, reason
   next = applyThreadDiff(next, {
     action: 'open',
     type: 'grudge',
-    title: threadTitle(entity.name),
+    title: threadTitle(displayName(db, entity)),
     description: grudge.reason,
     participants: [entity.name],
   });
@@ -171,11 +171,12 @@ function endGrudge(db: AppDatabase, entity: EntityRecord, how: 'let-go' | 'settl
     died: `${displayName(db, entity)} died still holding a grudge against Kan.`,
   };
 
-  next = applyThreadDiff(next, {
-    action: 'resolve',
-    title: threadTitle(entity.name),
-    description: outcome[how],
-  });
+  // Opened under the name Kan knew then: try that name, then the record's own.
+  for (const title of [threadTitle(displayName(db, entity)), threadTitle(entity.name)]) {
+    const before = next;
+    next = applyThreadDiff(next, { action: 'resolve', title, description: outcome[how] });
+    if (next !== before) break;
+  }
 
   if (how !== 'died') {
     next = applyFactDiff(next, {
@@ -408,7 +409,8 @@ function isStrikeTurn(db: AppDatabase, turn: number) {
 
 function styleFor(db: AppDatabase, offer: Omit<GrudgeOffer, 'pressed' | 'style'>, turn: number): string {
   const kind = locationKindOf(db);
-  const name = offer.entity.name;
+  // The narrator writes these lines into the story: names as Kan knows them.
+  const name = narratorName(db, offer.entity);
   // Someone Kan cares about, for a hunter who has struck before and failed.
   const dear = db.bonds
     .filter((bond) => bond.affinity >= 5 && bond.entityId !== offer.entity.id && !bond.grudge)
@@ -425,7 +427,7 @@ function styleFor(db: AppDatabase, offer: Omit<GrudgeOffer, 'pressed' | 'style'>
           `blades ${name} hired: mercenaries or bounty hunters who know your face and your habits`,
           `signs that ${name} is close: watchers, tracks around your camp, a message left where only you would find it`,
           ...(dear && offer.grudge.strikes > 0
-            ? [`a threat aimed at ${dear.name} rather than you, so you know ${name} has found what you care about`]
+            ? [`a threat aimed at ${narratorName(db, dear)} rather than you, so you know ${name} has found what you care about`]
             : []),
         ]
       : [

@@ -313,7 +313,8 @@ function crossTheRoad(db: AppDatabase, letter: Letter, entity: EntityRecord): { 
   for (const risk of interceptionRisks(db, entity, carrier, letter.coded === true)) {
     if (roll(db, 'intercept', risk.who, entity.name, dayKey(letter.sentOn), letter.direction) >= risk.chance) continue;
 
-    const towards = letter.direction === 'from-kan' ? `your letter to ${entity.name}` : `${entity.name}'s letter to you`;
+    const known = displayName(db, entity);
+    const towards = letter.direction === 'from-kan' ? `your letter to ${known}` : `${known}'s letter to you`;
     const seized = risk.who !== 'root' && risk.who !== 'akatsuki' && roll(db, 'seized', entity.name, dayKey(letter.sentOn)) < 34;
     const next = plantSeed(db, {
       kind: 'intercepted',
