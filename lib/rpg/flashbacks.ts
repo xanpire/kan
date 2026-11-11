@@ -502,7 +502,7 @@ export function formatFlashbackReturn(db: AppDatabase): string {
 
   if (!returned || !record) return '';
 
-  return `BACK FROM A MEMORY: Kan has just come back from remembering ${record.title} (${whenLine(db, record)}). No time passed in the present: continue from the LAST NARRATED BEAT, the same second he left. ${
+  return `BACK FROM A MEMORY: Kan has just come back from remembering ${record.title} (${whenLine(db, record)}). No time passed in the present: continue from the last narrated beat in RECENT SCENE, the same second he left. ${
     returned.forced ? 'The memory let go of him before it was finished. ' : ''
   }How the memory ended: "…${returned.ending}". Let it linger in him if it fits; never retell it.`;
 }

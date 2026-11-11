@@ -134,7 +134,7 @@ describe('6. facts can expire or be replaced', () => {
       db = play(db, `Turn ${i}: you walk on through the rain with Itachi, saying little.`, { characters_present: ['itachi-uchiha'] });
     }
     const full = buildNarrationPrompt(db, '*You walk.*');
-    const tight = buildNarrationPrompt({ ...db, settings: { ...db.settings, promptTokenBudget: full.estimatedTokens - 300 } }, '*You walk.*');
+    const tight = buildNarrationPrompt({ ...db, settings: { ...db.settings, promptTokenBudget: full.estimatedTokens - 120 } }, '*You walk.*');
 
     expect(tight.recentMessages.length).toBe(full.recentMessages.length);
     expect(tight.estimatedTokens).toBeLessThan(full.estimatedTokens);

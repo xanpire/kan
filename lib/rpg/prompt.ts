@@ -234,7 +234,11 @@ export function buildNarrationPrompt(
     entityText,
     new Set([...companionsOf(db).map((entity) => entity.id), ...sceneCastIdsOf(db)])
   );
-  const allLore = triggeredLore(db, entityText);
+  // Lore that is always on (the geography) never changes from turn to turn,
+  // so it sits in the cached front of the prompt; only triggered lore is per turn.
+  const triggered = triggeredLore(db, entityText);
+  const alwaysLore = triggered.filter((entry) => entry.always);
+  const allLore = triggered.filter((entry) => !entry.always);
   // What the prompt budget cuts first (see the loop at the end): older
   // memories, then the less relevant facts and lore, and only then the
   // oldest lines of the recent scene.
@@ -292,7 +296,6 @@ export function buildNarrationPrompt(
       formatFlashbackBlock(db, formatWeatherLine(memoryView ?? db, sceneMode.mode)),
       formatMemories(db, freshMemories),
       formatRecentMessages(messagesForScene),
-      formatLastBeat(messagesForScene),
       'CONTINUITY: continue directly from the last narrated beat of the memory. Never repeat a beat you already wrote and never contradict it.',
       // Present wounds don't exist in the memory.
       formatSceneModeLine({ ...db, facts: [] }, sceneMode),
@@ -320,7 +323,6 @@ export function buildNarrationPrompt(
       formatCanonBlock(db),
       formatMemories(db, freshMemories),
       formatRecentMessages(messagesForScene),
-      formatLastBeat(messagesForScene),
       formatVarietyBlock(db),
       formatEncounterConditions(db),
       formatNameOutThere(db),
@@ -336,7 +338,8 @@ export function buildNarrationPrompt(
       .join('\n\n');
 
   const assemble = (messagesForScene: RawLogEntry[]): OpenRouterMessage[] => {
-    const ruleText = localizePlaceNames(rules);
+    const fixedLore = formatLore(alwaysLore, 'WORLD (fixed reference)');
+    const ruleText = localizePlaceNames(fixedLore ? `${rules}\n\n${fixedLore}` : rules);
     const slowText = localizePlaceNames(slow);
 
     return [
@@ -1030,13 +1033,13 @@ function loreLimit(entry: AppDatabase['loreEntries'][number]) {
   return entry.always ? 1400 : 600;
 }
 
-function formatLore(lore: AppDatabase['loreEntries']) {
+function formatLore(lore: AppDatabase['loreEntries'], heading = 'RELEVANT LORE') {
   if (lore.length === 0) {
     return '';
   }
 
   return [
-    'RELEVANT LORE',
+    heading,
     ...lore.map((entry) => `- ${truncate(entry.text, loreLimit(entry))}`),
   ].join('\n');
 }
@@ -1148,7 +1151,7 @@ function formatCanonBlock(db: AppDatabase) {
     lines.push(
       'RECENTLY CONCLUDED (finished — never replay these): ' +
         concluded
-          .map((milestone) => `${milestone.id} (${truncate(milestone.title, 50)})`)
+          .map((milestone) => truncate(milestone.title, 60))
           .join('; ')
     );
   }
@@ -1339,22 +1342,10 @@ function formatRecentMessages(messages: RawLogEntry[]) {
       // The newest beat is shown nearly whole; older ones keep how they
       // opened and how they ended, so who arrived and what was set up isn't lost.
       return index === lastAssistantIndex
-        ? `Narrator: ${tail(clean, 2200)}`
+        ? `Narrator (continue directly from here): ${tail(clean, 2200)}`
         : `Narrator: ${headAndTail(clean, 1400)}`;
     }),
   ].join('\n');
-}
-
-function formatLastBeat(messages: RawLogEntry[]) {
-  const lastAssistant = [...messages].reverse().find((message) => message.role === 'assistant');
-
-  if (!lastAssistant) {
-    return 'LAST NARRATED BEAT\nThe story is just beginning.';
-  }
-
-  const clean = stripNarrationJson(lastAssistant.content).trim();
-
-  return `LAST NARRATED BEAT (continue directly from here)\n${tail(clean, 450)}`;
 }
 
 function formatTimeLine(db: AppDatabase, audience: 'narrator' | 'state' = 'narrator', mode?: SceneModeName) {

@@ -1079,7 +1079,8 @@ describe('canon endings and prompt memory', () => {
     const dynamic = prompt.messages[1].content;
 
     expect(dynamic).toContain('FINAL BEAT');
-    expect(dynamic).toContain('LAST NARRATED BEAT');
+    expect(dynamic).toContain('Narrator (continue directly from here)');
+    expect(dynamic).not.toContain('LAST NARRATED BEAT');
     expect(dynamic).toContain('CONTINUITY');
   });
 
@@ -1106,7 +1107,9 @@ describe('canon endings and prompt memory', () => {
 
     const prompt = buildNarrationPrompt(db, '*Kan waits.*');
     expect(prompt.messages[1].content).toContain('RECENTLY CONCLUDED');
-    expect(prompt.messages[1].content).toContain('itachi-vs-sasuke');
+    // Titles only: the narrator never sees ids.
+    expect(prompt.messages[1].content).toContain('Itachi falls');
+    expect(prompt.messages[1].content).not.toContain('itachi-vs-sasuke');
   });
 });
 
@@ -1373,7 +1376,7 @@ describe('world news and couriers', () => {
     const dynamic = prompt.messages[1].content;
 
     expect(dynamic).toContain('NEWS & RUMORS');
-    expect(dynamic).toContain('gaara-captured');
+    expect(dynamic).toContain('Gaara captured');
   });
 
   test('heard news disappears from the prompt queue', () => {

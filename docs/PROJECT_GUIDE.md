@@ -375,14 +375,13 @@ Each block is sent as a text part with `cache_control` for models that need expl
 1a. `formatCompanions` — `TRAVELLING WITH KAN`: each companion, how long together, why/where they joined, shared scenes, how they feel (only when someone travels with Kan). Their character cards are always in `CHARACTERS IN SCENE`, companions first.
 2. `formatTimeLine` — `Year 13 · Day 4, October · 9:40 PM` plus a nudge to state durations once `turnsWithoutTimeChange >= 2`
 2a. `formatWeatherLine` — `WEATHER (the Land of Rain, late autumn; it almost never stops raining here): steady rain. …` with what it does, shaped by the mode (§8d)
-3. `formatMatchedEntities` (with lore hearts + era notes), `formatFacts` (≤10), `formatLore`
+3. `formatMatchedEntities` (with lore hearts + era notes), `formatFacts` (≤10), `formatLore` (triggered lore only; lore marked `always`, like the geography, sits in the cached front after the rules as `WORLD (fixed reference)`)
 4. `formatNewsBlock` — `newsOffer`: the next unheard event (or one catch-up report), with location, bearers in the scene first, the living fallbacks, this turn's delivery style and urgency (none in combat)
 4a. `formatLetterBlock` — `A LETTER FOR YOU`: a reply that has arrived, or an unprompted letter (none in combat or during a catch-up report)
 5. `formatUpcomingWorldBlock` — planned world events in the next ~10 days (“RUMORS OF WHAT'S COMING”)
-6. `formatCanonBlock` — recent heard world events, pending personal beats (“do not assume”), active beats + encounter context, recently concluded
+6. `formatCanonBlock` — recent heard world events, pending personal beats (“do not assume”), active beats + encounter context, recently concluded (titles only, never ids)
 7. `formatMemories` — retrieved events (≤ retrieval limit, 400 chars each), skipping any that repeat a summary already in STORY SO FAR
-8. `formatRecentMessages` — last `contextMessages` (default 16). The newest narration keeps its last 2200 chars; older narrations keep their **start and end** (`headAndTail`, 1400 chars: ~40% opening, ~60% ending); player input 500 the same way
-9. `formatLastBeat` — final 450 chars of the newest narration
+8. `formatRecentMessages` — last `contextMessages` (default 16). The newest narration is labelled "Narrator (continue directly from here)" and keeps its last 2200 chars (the separate LAST NARRATED BEAT block that repeated its last 450 chars is gone); older narrations keep their **start and end** (`headAndTail`, 1400 chars: ~40% opening, ~60% ending); player input 500 the same way
 10. `formatEncounterConditions` — place kind, hour and how crowded it is
 11. `formatReturningCharacter` — occasionally, “A FAMILIAR FACE (optional)”: one original character Kan has not seen in a while who fits the current place (see §9)
 12. `CONTINUITY` line + location kind
