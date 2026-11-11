@@ -167,7 +167,8 @@ Write a 100-150 word summary of the supplied scene.
 - Concrete and specific.
 - No meta-text, no commentary, no greeting.
 - Mention the most important NPCs, your choices, and the consequences.
-- Preserve any timeline information.
+- Preserve any timeline information (WHEN AND WHERE gives the dates and the place).
+- Keep every promise, debt, secret learned, injury and death, and who knows what.
 
 Reply in exactly this format, nothing else:
 TITLE: a 2-6 word name for this stretch of story, no ending punctuation
@@ -478,12 +479,19 @@ export function buildSceneSummaryPrompt(
   messages: RawLogEntry[],
   options: { memoryNote?: string } = {}
 ) {
+  // Each message keeps its opening and its ending: the outcome is at the end (audit 6.5).
   const transcript = messages
     .map(
       (message) =>
-        `${message.role === 'user' ? 'You (Kan)' : 'Narrator'}: ${truncate(message.content, 1000)}`
+        `${message.role === 'user' ? 'You (Kan)' : 'Narrator'}: ${headAndTail(message.content, 1400)}`
     )
     .join('\n\n');
+  const first = messages[0]?.inStoryDate;
+  const last = messages[messages.length - 1]?.inStoryDate;
+  const when =
+    first && last
+      ? `WHEN AND WHERE: ${formatDate(first)}${formatDate(first) === formatDate(last) ? '' : ` to ${formatDate(last)}`}${messages[0]?.scene ? `; scene: ${messages[0].scene}` : ''}; you are now at ${db.state.location}.`
+      : '';
 
   const system = [
     SUMMARY_SYSTEM,
@@ -494,7 +502,7 @@ export function buildSceneSummaryPrompt(
   // The people it mattered to most also get their own side of it.
   const pov = povInstruction(povCandidates(db, messages));
   const memory = options.memoryNote ? `${options.memoryNote}\n\n` : '';
-  const user = `${memory}SCENE TRANSCRIPT:\n${transcript}\n\n${pov ? `${pov}\n\n` : ''}Write the summary now.`;
+  const user = `${memory}${when ? `${when}\n\n` : ''}SCENE TRANSCRIPT:\n${transcript}\n\n${pov ? `${pov}\n\n` : ''}Write the summary now.`;
   const promptMessages: OpenRouterMessage[] = [
     { role: 'system', content: system },
     { role: 'user', content: user },
@@ -504,6 +512,29 @@ export function buildSceneSummaryPrompt(
     messages: promptMessages,
     estimatedTokens: estimateTokens(promptMessages),
   };
+}
+
+const SAGA_SYSTEM = `You are a story archivist for a long-running interactive novel that spans many years.
+
+Keep one rolling summary of the whole story so far: fold the new arc into the saga you are given.
+- 250 words at most. The older the events, the shorter they get; never drop a death, a betrayal, a promise still open, a debt, a secret learned, or who knows what.
+- Keep the order of events and the years they happened in.
+- Second person, present tense: Kan is "you". Everyone else is named only by the names you knew them by.
+- No meta-text.
+
+Reply in exactly this format, nothing else:
+TITLE: The story so far
+SUMMARY: the saga`;
+
+/** Folds a new arc summary into the rolling saga (audit 6.5). */
+export function buildSagaPrompt(db: AppDatabase, saga: string | null, arc: string) {
+  const user = `${saga ? `THE SAGA SO FAR:\n${saga}` : 'THE SAGA SO FAR:\n(none yet: this is the first arc)'}\n\nNEW ARC:\n${arc}\n\nWrite the updated saga now.`;
+  const promptMessages: OpenRouterMessage[] = [
+    { role: 'system', content: [SAGA_SYSTEM, `Today: ${formatDate(db.state.inStoryDate)}.`].join('\n\n') },
+    { role: 'user', content: user },
+  ];
+
+  return { messages: promptMessages, estimatedTokens: estimateTokens(promptMessages) };
 }
 
 export function buildArcSummaryPrompt(
@@ -562,6 +593,8 @@ export function getRecentMessages(db: AppDatabase, limit: number): RawLogEntry[]
 }
 
 type StorySoFar = {
+  /** The rolling summary of the whole story (one, folded from every arc). */
+  saga: string | null;
   arc: string | null;
   /** Newest chapter summaries, oldest first. */
   chapters: string[];
@@ -584,21 +617,25 @@ function getStorySoFar(db: AppDatabase): StorySoFar {
     picked = chapters.slice(-2);
   }
 
+  const saga = db.summaries.filter((summary) => summary.level === 'saga').sort(byAge).pop() ?? null;
+
   return {
+    saga: saga?.text ?? null,
     arc: arc?.text ?? null,
     chapters: picked.map((summary) => summary.text),
-    ids: [...(arc ? [arc.id] : []), ...picked.map((summary) => summary.id)],
+    ids: [...(saga ? [saga.id] : []), ...(arc ? [arc.id] : []), ...picked.map((summary) => summary.id)],
   };
 }
 
 function formatStorySoFar(story: StorySoFar) {
-  if (!story.arc && story.chapters.length === 0) {
+  if (!story.saga && !story.arc && story.chapters.length === 0) {
     return 'STORY SO FAR\nThe story is just beginning.';
   }
 
   return [
     'STORY SO FAR',
-    story.arc ? `Arc: ${truncate(story.arc, 1200)}` : '',
+    story.saga ? `The whole story: ${truncate(story.saga, 1800)}` : '',
+    story.arc ? `Latest arc: ${truncate(story.arc, 1200)}` : '',
     ...story.chapters.map((text, index) =>
       `${index === story.chapters.length - 1 ? 'Latest chapter' : 'Chapter'}: ${truncate(text, 1000)}`
     ),

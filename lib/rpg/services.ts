@@ -25,7 +25,7 @@ import { applyFactDiff, applyThreadDiff, endFacts, expireFacts, recordSceneEvent
 import { applyJutsuDiff, isBareNatureName, jutsuKey } from './jutsu';
 import { settleNewlyMet } from './met';
 import { cloneDatabase } from './log';
-import { buildArcSummaryPrompt, buildExtractionPrompt, buildSceneSummaryPrompt, buildTimeSkipPrompt } from './prompt';
+import { buildArcSummaryPrompt, buildSagaPrompt, buildExtractionPrompt, buildSceneSummaryPrompt, buildTimeSkipPrompt } from './prompt';
 import { convertStateBlock, parseJsonObject, repairTruncatedJson } from './stateBlock';
 import { TURN_STATE_SCHEMA, TURN_STATE_SCHEMA_NAME } from './stateSchema';
 import { type TitledSummary, parseTitledSummary, uniqueList } from './util';
@@ -556,14 +556,36 @@ export async function summarizeTimeSkip(options: {
   });
 }
 
+/** The rolling saga stays short: it is read on every turn. */
+const SAGA_MAX_TOKENS = 1600;
+
+/** Folds a new arc into the one rolling saga summary (audit 6.5). */
+export async function foldSagaSummary(options: {
+  apiKey: string;
+  db: AppDatabase;
+  saga: string | null;
+  arc: string;
+  debugTurnId?: string;
+}): Promise<TitledSummary | null> {
+  const prompt = buildSagaPrompt(options.db, options.saga, options.arc);
+
+  return summaryChat('saga', options.debugTurnId, {
+    apiKey: options.apiKey,
+    model: options.db.settings.summaryModel,
+    messages: prompt.messages,
+    temperature: 0.2,
+    maxTokens: SAGA_MAX_TOKENS,
+    reasoning: { effort: 'low', exclude: true },
+  });
+}
+
 export async function rollArcSummary(options: {
   apiKey: string;
   db: AppDatabase;
   chapterSummaries: string[];
   debugTurnId?: string;
-  debugKind?: 'arc' | 'year';
 }): Promise<TitledSummary | null> {
-  const { apiKey, db, chapterSummaries, debugTurnId, debugKind = 'arc' } = options;
+  const { apiKey, db, chapterSummaries, debugTurnId } = options;
 
   if (chapterSummaries.length < 3) {
     return null;
@@ -571,7 +593,7 @@ export async function rollArcSummary(options: {
 
   const prompt = buildArcSummaryPrompt(db, chapterSummaries);
 
-  return summaryChat(debugKind, debugTurnId, {
+  return summaryChat('arc', debugTurnId, {
     apiKey,
     model: db.settings.summaryModel,
     messages: prompt.messages,

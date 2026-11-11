@@ -29,6 +29,7 @@ const KIND_LABEL: Record<DebugCallKind, string> = {
   scene: 'Scene summary',
   arc: 'Arc summary',
   year: 'Year summary',
+  saga: 'Saga summary',
   image: 'Scene image',
   imageAction: 'Image director',
   imageCheck: 'Image check',

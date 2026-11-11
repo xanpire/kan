@@ -60,7 +60,8 @@ export type ThreadType =
   | 'goal'
   | 'other';
 
-export type SummaryLevel = 'chapter' | 'arc' | 'year';
+/** `year` is no longer made (the saga replaced it); old saves may still hold some. */
+export type SummaryLevel = 'chapter' | 'arc' | 'year' | 'saga';
 
 export type LogKind = 'story' | 'summary' | 'extraction' | 'diff' | 'error';
 
@@ -937,7 +938,7 @@ export type SummaryRecord = {
  * Jobs live in the save so a failed or interrupted step survives a reload
  * and can be retried from the story screen.
  */
-export type MemoryJobKind = 'state' | 'timeSkip' | 'scene' | 'arc' | 'year' | 'flashback';
+export type MemoryJobKind = 'state' | 'timeSkip' | 'scene' | 'arc' | 'year' | 'saga' | 'flashback';
 
 export type MemoryJob = {
   id: string;
@@ -950,7 +951,7 @@ export type MemoryJob = {
   userMessage?: string;
   /** scene: the story messages to summarize. */
   logIds?: string[];
-  /** arc / year: the chapter summaries to roll up. */
+  /** arc: the chapter summaries to roll up. saga: the arc summary to fold in. */
   summaryIds?: string[];
   /** flashback: the memory being written up (see flashbacks.ts). */
   flashbackId?: string;

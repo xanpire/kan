@@ -60,6 +60,7 @@ import {
   applyTurnDiff,
   extractTurnDiff,
   isRest,
+  foldSagaSummary,
   rollArcSummary,
   summarizeScene,
   summarizeTimeSkip,
@@ -84,7 +85,6 @@ const MAX_SCENE_MESSAGES = 16;
 /** Fewest new messages worth a chapter summary, unless the scene ended. */
 const MIN_SCENE_MESSAGES = 4;
 const ARC_SIZE = 3;
-const YEAR_SIZE = 12;
 const SUMMARY_TAG = 'summary';
 
 // ---------------------------------------------------------------------------
@@ -177,12 +177,17 @@ export function isJobValid(db: AppDatabase, job: MemoryJob): boolean {
         (job.logIds ?? []).filter((id) => hasLog(db, id)).length >= 2 &&
         db.events.some((event) => event.tags.includes('flashback') && event.tags.includes(job.flashbackId ?? ''))
       );
-    case 'arc':
-    case 'year': {
+    case 'arc': {
       const ids = job.summaryIds ?? [];
-      const needed = job.kind === 'arc' ? ARC_SIZE : YEAR_SIZE;
-      return ids.length >= needed && ids.every((id) => db.summaries.some((s) => s.id === id));
+      return ids.length >= ARC_SIZE && ids.every((id) => db.summaries.some((s) => s.id === id));
     }
+    case 'saga': {
+      const ids = job.summaryIds ?? [];
+      return ids.length === 1 && db.summaries.some((s) => s.id === ids[0] && s.level === 'arc');
+    }
+    // Year summaries are no longer made (nothing read them); queued ones are dropped.
+    case 'year':
+      return false;
     default:
       return false;
   }
@@ -872,14 +877,19 @@ function queueSceneJob(
   return { db: withJobs(db, [...jobsOf(db), job]), jobId: job.id };
 }
 
-/** Queues arc / year roll-ups once enough chapter summaries exist. */
+/** The one rolling saga summary, if there is one yet. */
+export function latestSaga(db: AppDatabase) {
+  return db.summaries.filter((summary) => summary.level === 'saga').sort((a, b) => a.createdAt - b.createdAt).pop() ?? null;
+}
+
+/** Queues an arc roll-up once enough chapter summaries exist. */
 function queueRollups(db: AppDatabase, turnLogId: string): { db: AppDatabase; jobIds: string[] } {
   const chapters = chapterSummaries(db);
   const count = chapters.length;
   const jobIds: string[] = [];
   let next = db;
 
-  const plan = (kind: 'arc' | 'year', size: number) => {
+  const plan = (kind: 'arc', size: number) => {
     const summaryIds = chapters.slice(-size).map((summary) => summary.id);
     const alreadyDone = next.summaries.some(
       (summary) => summary.level === kind && sameIds(summary.sourceSummaryIds, summaryIds)
@@ -899,10 +909,6 @@ function queueRollups(db: AppDatabase, turnLogId: string): { db: AppDatabase; jo
 
   if (count > 0 && count % ARC_SIZE === 0) {
     plan('arc', ARC_SIZE);
-  }
-
-  if (count >= YEAR_SIZE && count % YEAR_SIZE === 0) {
-    plan('year', YEAR_SIZE);
   }
 
   return { db: next, jobIds };
@@ -1051,8 +1057,7 @@ export async function runSummaryJob(
       povs = result?.pov ? resolvePovs(povCandidates(base, messages), parsePovLines(result.pov)) : undefined;
       break;
     }
-    case 'arc':
-    case 'year': {
+    case 'arc': {
       const wanted = job.summaryIds ?? [];
       const texts = wanted
         .map((id) => base.summaries.find((summary) => summary.id === id)?.text)
@@ -1062,8 +1067,20 @@ export async function runSummaryJob(
         db: base,
         chapterSummaries: texts,
         debugTurnId: job.turnLogId,
-        debugKind: job.kind,
       });
+      break;
+    }
+    case 'saga': {
+      const arc = base.summaries.find((summary) => summary.id === job.summaryIds?.[0]);
+      result = arc
+        ? await foldSagaSummary({
+            apiKey,
+            db: base,
+            saga: latestSaga(base)?.text ?? null,
+            arc: arc.text,
+            debugTurnId: job.turnLogId,
+          })
+        : null;
       break;
     }
     default:
@@ -1244,6 +1261,29 @@ export function applySummaryJob(
       }
       break;
     }
+    case 'saga': {
+      const arcId = job.summaryIds?.[0];
+      const already = next.summaries.some((summary) => summary.level === 'saga' && summary.sourceSummaryIds?.includes(arcId ?? ''));
+
+      if (!already && arcId) {
+        const previous = latestSaga(next);
+        const first = next.summaries.find((summary) => summary.level === 'chapter');
+        const record: SummaryRecord = {
+          id: makeId('summary'),
+          level: 'saga',
+          range: { fromEventId: '', toEventId: '', from: first?.range.from ?? next.state.inStoryDate, to: next.state.inStoryDate },
+          text: output.text,
+          title: 'The story so far',
+          tokenCount: Math.ceil(output.text.length / 4),
+          eventIds: [],
+          createdAt: Date.now(),
+          sourceSummaryIds: [arcId, ...(previous ? [previous.id] : [])],
+        };
+        // Only the newest saga is ever read; older ones are dropped.
+        next = { ...next, summaries: [...next.summaries.filter((summary) => summary.level !== 'saga'), record] };
+      }
+      break;
+    }
     case 'arc':
     case 'year': {
       const summaryIds = job.summaryIds ?? [];
@@ -1267,6 +1307,13 @@ export function applySummaryJob(
           sourceSummaryIds: summaryIds,
         };
         next = { ...next, summaries: [...next.summaries, record] };
+
+        // Each new arc is folded into the one rolling saga (audit 6.5).
+        if (job.kind === 'arc') {
+          const saga = newJob('saga', job.turnLogId, { summaryIds: [record.id] });
+          next = withJobs(next, [...jobsOf(next), saga]);
+          followUpIds.push(saga.id);
+        }
       }
       break;
     }

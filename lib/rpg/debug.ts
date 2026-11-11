@@ -19,6 +19,7 @@ export type DebugCallKind =
   | 'scene'
   | 'arc'
   | 'year'
+  | 'saga'
   | 'image'
   | 'imageAction'
   | 'imageCheck'

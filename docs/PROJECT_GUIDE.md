@@ -138,7 +138,7 @@ AppDatabase {
   facts: FactRecord[]            // permanent facts with whoKnows + validity
   threads: ThreadRecord[]        // open/resolved plot threads
   loreEntries: LoreRecord[]      // keyword-triggered world lore
-  summaries: SummaryRecord[]     // chapter / arc / year summaries
+  summaries: SummaryRecord[]     // chapter / arc summaries and the one rolling saga (old saves may hold year summaries; nothing reads them)
   state: GameState
   indices: MemoryIndex
   snapshots: TurnSnapshot[]
@@ -327,7 +327,8 @@ Main file: `lib/rpg/game.tsx` (`GameProvider`).
 - Each job reads the latest save, calls the model (`runSummaryJob`), then `applySummaryJob` applies the result to the save **as it is at that moment**. If the turn it came from was undone or the job was removed, the result is discarded.
 - Summary replies are `TITLE:` / `MEMORY:` (chapter only) / `SUMMARY:` lines, read by `parseTitledSummary` (`util.ts`); a reply without labels is taken as the summary. Caps: 2000 tokens (2400 for arc/year), low reasoning excluded, and one retry with 1.75× room if a reply is cut off.
 - A chapter summary is saved only for messages no other summary covers (a job that ran twice, or overlapped one that landed, saves nothing) and never with the same text twice; `normalizeDatabase` drops duplicate summaries from older saves. It stores its `title` and the `chapter` it closes, and moves `state.chapter` on by one.
-- A finished chapter summary queues `arc` (every 3 chapters) and `year` (every 12) roll-ups, deduplicated by `sourceSummaryIds`.
+- A finished chapter summary queues an `arc` roll-up every 3 chapters, deduplicated by `sourceSummaryIds`. Each arc that lands queues a `saga` job that folds it into the one rolling **saga** summary (`buildSagaPrompt`, 250 words at most, older events shorter, deaths, betrayals, open promises, debts and secrets kept); only the newest saga is kept, and STORY SO FAR shows it first ("The whole story: …", then "Latest arc" and the chapters). `year` summaries are no longer made (nothing read them); queued year jobs are dropped.
+- The scene summariser gets each message's opening and ending (`headAndTail`, 1400), a WHEN AND WHERE line (the stretch's in-story dates, its scene name, where you are now), and is told to keep every promise, debt, secret, injury, death and who knows what.
 - Every step has its own error handling: a failure marks just that job `failed` (with `attempts` and `error`); the rest still run.
 - Jobs are stored in the save, so a step interrupted by closing the tab survives a reload.
 - Story screen: "Memory updating…" while any step runs; "Memory pending · N" with **Retry** when a step failed (`pendingMemoryCount`, `retryPendingMemory`).
