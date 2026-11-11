@@ -1,6 +1,6 @@
 import { advanceSeconds, calculateAge, dateSortValue, daysBetween, entityAge, formatClock, formatDate } from './calendar';
 import { paceMinimumSeconds } from './pacing';
-import { groupJutsuByNature } from './jutsu';
+import { normalizeJutsuNature } from './jutsu';
 import { ROMANCE_RULES, eraNoteFor, loreProfileFor } from './romance';
 import { endgameNote } from './canonEndgame';
 import { characterRefs, mentionsEntity, refByEntityId } from './characterRefs';
@@ -60,6 +60,7 @@ import type {
   EntityRecord,
   EventRecord,
   FactRecord,
+  JutsuRecord,
   OpenRouterMessage,
   RawLogEntry,
   SceneModeName,
@@ -834,33 +835,53 @@ function formatCharacterDetails(db: AppDatabase, turnText: string) {
   ].join('\n');
 }
 
-function formatJutsu(db: AppDatabase) {
-  const groups = groupJutsuByNature(db.jutsuRecords).slice(0, 5);
+/** Most of Kan's own jutsu the narrator sees, one line each. */
+const KAN_JUTSU_LIMIT = 20;
+/** Jutsu per other person in the scene. */
+const SCENE_JUTSU_PER_PERSON = 3;
 
-  if (groups.length === 0) {
+/**
+ * Kan's own jutsu first, all of them up to 20, whatever their nature (his
+ * genjutsu, taijutsu and space-time techniques too); then up to 3 each for
+ * the people in the scene. Nobody else's.
+ */
+function formatJutsu(db: AppDatabase) {
+  const isKan = (user: string) => user.trim().toLowerCase() === 'kan';
+  const used = (a: JutsuRecord, b: JutsuRecord) =>
+    Number(b.tags.includes('signature')) - Number(a.tags.includes('signature')) || b.timesUsed - a.timesUsed;
+  const own = db.jutsuRecords.filter((record) => isKan(record.user)).sort(used).slice(0, KAN_JUTSU_LIMIT);
+
+  const people = new Map(db.entities.map((entity) => [entity.id, entity]));
+  const present = sceneCastIdsOf(db)
+    .map((id) => people.get(id))
+    .filter((entity): entity is EntityRecord => Boolean(entity) && entity!.name.toLowerCase() !== 'kan');
+  const theirs = present.flatMap((entity) => {
+    const records = db.jutsuRecords
+      .filter((record) => !isKan(record.user) && resolveEntity(db, record.user)?.id === entity.id)
+      .sort(used)
+      .slice(0, SCENE_JUTSU_PER_PERSON);
+
+    return records.length > 0
+      ? [
+          `${narratorName(db, entity)}:`,
+          ...records.map((record) => `  - ${record.name}: ${truncate(record.effect, 80)}`),
+        ]
+      : [];
+  });
+
+  if (own.length === 0 && theirs.length === 0) {
     return 'KNOWN JUTSU\nNone.';
   }
 
-  const signature = db.jutsuRecords
-    .filter((record) => record.tags.includes('signature'))
-    .map(
-      (record) =>
-        `  - ${record.name} (${record.user}): used ${record.timesUsed}×; effect ${truncate(record.effect, 120)}`
-    );
-
   return [
-    ...(signature.length > 0 ? ['SIGNATURE JUTSU', ...signature] : []),
-    'KNOWN JUTSU',
-    ...groups.map((group) => {
-      const lines = group.jutsu
-        .slice(0, 3)
-        .map(
+    'KAN’S JUTSU',
+    ...(own.length > 0
+      ? own.map(
           (record) =>
-            `  - ${record.name} (${record.user}): effect ${truncate(record.effect, 60)}; visual ${truncate(record.visual, 60)}`
-        );
-
-      return `${group.nature}\n${lines.join('\n')}`;
-    }),
+            `  - ${record.name}${record.tags.includes('signature') ? ' (signature)' : ''} [${normalizeJutsuNature(record.chakraNature)}]: ${truncate(record.effect, 90)}; used ${record.timesUsed}×`
+        )
+      : ['  None yet.']),
+    ...(theirs.length > 0 ? ['JUTSU OF PEOPLE IN THE SCENE', ...theirs] : []),
   ].join('\n');
 }
 

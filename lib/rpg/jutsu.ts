@@ -44,6 +44,14 @@ const NATURE_RULES: Array<{ nature: Exclude<JutsuNature, 'Unknown'>; keywords: s
   { nature: 'Space-Time', keywords: ['space-time', 'space', 'time', 'teleport', 'summon'] },
 ];
 
+/** Every keyword, longest first, as a whole-word pattern: "yin-yang" before "yin", and "air" never in "chair". */
+const NATURE_KEYWORDS = NATURE_RULES.flatMap((rule) => rule.keywords.map((keyword) => ({ keyword, nature: rule.nature })))
+  .sort((a, b) => b.keyword.length - a.keyword.length)
+  .map(({ keyword, nature }) => ({
+    nature,
+    pattern: new RegExp(`(?<![a-z])${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z])`),
+  }));
+
 export function normalizeJutsuNature(value: string | undefined): JutsuNature {
   const nature = value?.trim().toLowerCase();
 
@@ -51,13 +59,13 @@ export function normalizeJutsuNature(value: string | undefined): JutsuNature {
     return 'Unknown';
   }
 
-  for (const rule of NATURE_RULES) {
-    if (rule.keywords.some((keyword) => nature.includes(keyword))) {
-      return rule.nature;
-    }
+  const exact = JUTSU_NATURES.find((name) => name.toLowerCase() === nature);
+
+  if (exact) {
+    return exact;
   }
 
-  return 'Unknown';
+  return NATURE_KEYWORDS.find((rule) => rule.pattern.test(nature))?.nature ?? 'Unknown';
 }
 
 export function groupJutsuByNature(records: JutsuRecord[]) {
@@ -122,6 +130,46 @@ type JutsuDiff = NonNullable<TurnDiff['jutsuUsed']>[number];
  * word ("Fire Style: Hell" = "Fire Release: Hell"), and case, spacing and the
  * colon don't matter.
  */
+/** Words that say what kind of thing a name is, not which jutsu. */
+const FILLER_WORDS = new Set(['style', 'release', 'jutsu', 'technique', 'no', 'the', 'of', 'art', 'justu']);
+
+function jutsuWords(name: string) {
+  const words = name
+    .toLowerCase()
+    .replace(/[^\p{L}\s-]/gu, ' ')
+    .split(/[\s]+/)
+    .filter((word) => word && !FILLER_WORDS.has(word));
+
+  return {
+    core: new Set(words.filter((word) => !NATURE_WORDS.has(word))),
+    natures: new Set(words.filter((word) => NATURE_WORDS.has(word))),
+  };
+}
+
+/**
+ * Two names for the same jutsu: the same words once "style / release /
+ * jutsu / technique / no" and element words are set aside, and no clash
+ * between the elements they do name.
+ */
+export function sameJutsu(a: string, b: string) {
+  const left = jutsuWords(a);
+  const right = jutsuWords(b);
+
+  if (left.core.size === 0 || left.core.size !== right.core.size) {
+    return false;
+  }
+
+  if ([...left.core].some((word) => !right.core.has(word))) {
+    return false;
+  }
+
+  if (left.natures.size > 0 && right.natures.size > 0) {
+    return [...left.natures].some((word) => right.natures.has(word));
+  }
+
+  return true;
+}
+
 export function jutsuKey(name: string) {
   return name
     .toLowerCase()
@@ -170,12 +218,13 @@ export function applyJutsuDiff(db: AppDatabase, jutsu: JutsuDiff): AppDatabase {
   }
 
   const key = jutsuKey(name);
-  const existingIndex = db.jutsuRecords.findIndex(
-    (item) =>
-      jutsuKey(item.name) === key &&
-      (item.user.toLowerCase() === user.toLowerCase() ||
-        resolveEntity(db, user)?.id === resolveEntity(db, item.user)?.id)
-  );
+  const sameUser = (item: JutsuRecord) =>
+    item.user.toLowerCase() === user.toLowerCase() || resolveEntity(db, user)?.id === resolveEntity(db, item.user)?.id;
+  const exactIndex = db.jutsuRecords.findIndex((item) => jutsuKey(item.name) === key && sameUser(item));
+  // "Fireball Jutsu" and "Fire Style: Fireball Technique" are one jutsu; the
+  // first name recorded is kept (the player's wording always wins).
+  const existingIndex =
+    exactIndex !== -1 ? exactIndex : db.jutsuRecords.findIndex((item) => sameUser(item) && sameJutsu(item.name, name));
 
   if (existingIndex === -1) {
     const record = {

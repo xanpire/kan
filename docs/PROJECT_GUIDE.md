@@ -20,7 +20,7 @@ Read it top to bottom once. Then use the file map and invariants as a checklist 
 | `facts.ts` | `applyFactDiff`, `applyThreadDiff`, `recordSceneEvent` |
 | `deaths.ts` | Who is dead: `isDeceased`, `kanKnowsDeath`, `markDeceased`, `markDeathsByName` (canon, exact names only), `markAlive`, `normalizeDeaths` (load-time backfill) |
 | `clock.ts` | `applyClockChange` (date/elapsed/clock from the diff, ageing across years), `applyClockTick` (stall counter) |
-| `jutsu.ts` | Chakra natures, grouping, and `applyJutsuDiff` (the permanent jutsu library) |
+| `jutsu.ts` | Chakra natures (`normalizeJutsuNature`: exact name first, then whole-word keywords, longest first, so "Yin-Yang" is never "Yin"), grouping, and `applyJutsuDiff` (the permanent jutsu library; the same user's "Fireball Jutsu" and "Fire Style: Fireball Technique" are one record via `sameJutsu`, keeping the first name) |
 | `log.ts` | Story log + undo snapshots: `appendStoryMessage`, `pushSnapshot`, `restoreLastSnapshot`, `cloneDatabase`, `storyMessagesSinceLastSummary` |
 | `util.ts` | `trimToSentence`, `uniqueList`, `clamp` |
 | `canonData.ts` / `canonDataMore.ts` | **Data only**: the 220 milestones (dates, place, who could know), sorted by opening date on export, canon types, courier tables, era order. `canonDataMore.ts` holds the living-world Stage 2 additions (`STAGE_TWO_WORLD`, `STAGE_TWO_PERSONAL`) |
@@ -365,7 +365,7 @@ The prompt is ordered from never-changing to changing-every-turn, so its front i
    - **STYLE** — plain English, 2–4 paragraphs, no repeats, rare encounters, new characters, Kan's `"speech"` / `*action*` markers.
    - **ROMANCE** (from `romance.ts`): lore-locked vs winnable, adults deflect under 17, explicit intimacy only 18+, rejections hold by default but can slowly thaw when the story earns it.
    - **OUTPUT** — prose only, changes legible in the prose.
-2. **Slow context** — `formatCharacterSheet`, `formatStorySoFar` (latest arc summary + up to 3 newest chapter summaries the arc doesn't cover, never fewer than 2), `formatJutsu`, `formatThreads`, `formatBonds`, `formatTheDead` (everyone dead, flagged when Kan does not know yet). Changes only when a summary lands, a jutsu is used, a thread or bond moves.
+2. **Slow context** — `formatCharacterSheet`, `formatStorySoFar` (latest arc summary + up to 3 newest chapter summaries the arc doesn't cover, never fewer than 2), `formatJutsu` (KAN’S JUTSU: all of Kan's own, signature first then most used, up to 20, one line each with nature, effect and times used; then up to 3 each for people in the scene cast; nobody else's), `formatThreads`, `formatBonds`, `formatTheDead` (everyone dead, flagged when Kan does not know yet). Changes only when a summary lands, a jutsu is used, a thread or bond moves.
 
 Each block is sent as a text part with `cache_control` for models that need explicit breakpoints (`anthropic/`, `google/`, `qwen/` — see `toWireMessages` in `lib/openrouter.ts`; Gemini uses only the last one). Other providers (OpenAI, DeepSeek, …) cache a repeated prefix automatically and get plain string content. `OpenRouterMessage.content` is always the full text; `parts` is only the split.
 
