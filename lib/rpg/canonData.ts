@@ -132,6 +132,20 @@ export const CANON_ERA_ORDER = [
   'After',
 ];
 
+/**
+ * What an era is called anywhere the player or the narrator reads it: names
+ * from inside the world, never the series' part names (audit 6b.2). The
+ * keys stay as they are in the data.
+ */
+const ERA_TITLE: Record<string, string> = {
+  'Part 1': 'The new generation',
+  Shippuden: 'The hunt for the beasts',
+};
+
+export function eraTitle(era: string): string {
+  return ERA_TITLE[era] ?? era;
+}
+
 // ---------------------------------------------------------------------------
 // How word travels
 // ---------------------------------------------------------------------------

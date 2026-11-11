@@ -382,7 +382,8 @@ describe('the scrapbook', () => {
     expect(eraOfDate({ year: 13, month: 10, day: 2, hour: 9, minute: 0 })).toBe('Ashes');
     expect(eraOfDate({ year: 30, month: 1, day: 1, hour: 9, minute: 0 })).toBe('After');
     const part1 = eraOfDate({ year: 18, month: 1, day: 1, hour: 9, minute: 0 });
-    expect(['Part 1', 'The hidden years']).toContain(part1);
+    // In-world names only (audit 6b.2): never "Part 1" or "Shippuden".
+    expect(['The new generation', 'The hidden years']).toContain(part1);
   });
 
   test('photos by era and chapter, with captions in your words', () => {

@@ -687,6 +687,72 @@ export function nameLeaks(db: AppDatabase, narration: string): string[] {
   return leaks.slice(0, 8);
 }
 
+/**
+ * Replaces names the narration used outside dialogue that Kan doesn't know
+ * yet with the label he does know (audit 6b.2), keeping quotes untouched and
+ * a capital at the start of a sentence. Returns the new text and what changed.
+ */
+export function scrubNameLeaks(db: AppDatabase, narration: string): { text: string; replaced: string[] } {
+  const known = new Set(
+    db.entities.filter((entity) => entity.type === 'character').flatMap((entity) => [lower(displayName(db, entity)), ...alsoKnownAs(db, entity).map(lower)])
+  );
+  const swaps: { name: string; label: string }[] = [];
+
+  for (const entity of db.entities) {
+    for (const candidate of unknownNames(entity)) {
+      if (known.has(lower(candidate.name)) || !namesInText(withoutQuotes(narration), candidate.name)) continue;
+
+      swaps.push({ name: candidate.name.trim(), label: displayName(db, entity) });
+    }
+  }
+
+  if (swaps.length === 0) return { text: narration, replaced: [] };
+
+  // Longest names first, so "Obito Uchiha" goes before "Obito".
+  swaps.sort((a, b) => b.name.length - a.name.length);
+  const replaced: string[] = [];
+  // Only the parts outside quotation marks change.
+  const pieces: { text: string; quoted: boolean }[] = [];
+  let cursor = 0;
+
+  for (const match of narration.matchAll(new RegExp(QUOTED.source, 'g'))) {
+    const start = match.index ?? 0;
+    if (start > cursor) pieces.push({ text: narration.slice(cursor, start), quoted: false });
+    pieces.push({ text: match[0], quoted: true });
+    cursor = start + match[0].length;
+  }
+
+  if (cursor < narration.length) pieces.push({ text: narration.slice(cursor), quoted: false });
+
+  let soFar = '';
+  const text = pieces
+    .map((piece) => {
+      if (piece.quoted) {
+        soFar += piece.text;
+        return piece.text;
+      }
+
+      let out = piece.text;
+
+      for (const swap of swaps) {
+        const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(swap.name)}(?=$|[^\\p{L}\\p{N}])`, 'gu');
+        out = out.replace(pattern, (_whole, lead: string, offset: number, all: string) => {
+          const before = soFar + all.slice(0, offset) + lead;
+          const sentenceStart = /(^\s*|[.!?]["'”’)]*\s+|\n\s*)$/.test(before);
+          const label = sentenceStart ? swap.label.charAt(0).toUpperCase() + swap.label.slice(1) : swap.label;
+          if (!replaced.includes(swap.name)) replaced.push(swap.name);
+          return `${lead}${label}`;
+        });
+      }
+
+      soFar += out;
+      return out;
+    })
+    .join('');
+
+  return { text, replaced };
+}
+
 // ---------------------------------------------------------------------------
 // Who calls them what
 

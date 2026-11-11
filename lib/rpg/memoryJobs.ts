@@ -54,7 +54,7 @@ import { makeId } from './id';
 import { inferScenePace, resolveTurnClock, validateScenePace } from './pacing';
 import { CONVERSATION_MODE_MINIMUM_SECONDS, applySceneBeat, cleanFightOptions } from './sceneMode';
 import { resolveEntity } from './entities';
-import { applyNameStep, displayName, nameLeaks } from './names';
+import { applyNameStep, displayName, nameLeaks, scrubNameLeaks } from './names';
 import { fallbackDiffFromProse, preferPlayerJutsuNames } from './proseFallback';
 import {
   applyTurnDiff,
@@ -542,7 +542,20 @@ export function applyStateStep(
     }
   }
 
-  return { db: next, followUpIds, notice, appliedDiff: effectiveDiff, nameLeaks: nameLeaks(next, turn.narration), events };
+  // A name Kan doesn't know yet, used outside dialogue, becomes the label he
+  // knows in the saved prose (audit 6b.2); the Debug panel keeps a note.
+  const leaks = nameLeaks(next, turn.narration);
+  const scrubbed = leaks.length > 0 ? scrubNameLeaks(next, turn.narration) : null;
+
+  if (scrubbed && scrubbed.replaced.length > 0) {
+    next = {
+      ...next,
+      rawLog: next.rawLog.map((entry) => (entry.id === turn.turnLogId ? { ...entry, content: scrubbed.text } : entry)),
+    };
+    events.push({ kind: 'mode', text: `Names Kan doesn't know yet replaced in the prose: ${scrubbed.replaced.join(', ')}.` });
+  }
+
+  return { db: next, followUpIds, notice, appliedDiff: effectiveDiff, nameLeaks: leaks, events };
 }
 
 /**

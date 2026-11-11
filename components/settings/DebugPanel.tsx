@@ -2,6 +2,8 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ChevronDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react-native';
 
+import { router } from 'expo-router';
+
 import { ListCard, ListRow } from '@/components/List';
 import { useToast } from '@/components/Toast';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
@@ -137,6 +139,15 @@ export function DebugPanel() {
           </View>
         }
       />
+
+      {open ? (
+        <ListRow
+          meta="Shows what canon is about to do: spoilers for your story."
+          onPress={() => router.push('/world-clock')}
+          title="World clock"
+          trailing={<ChevronRight color={colors.textDim} size={16} strokeWidth={2} />}
+        />
+      ) : null}
 
       {open ? (
         <View style={styles.body}>

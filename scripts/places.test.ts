@@ -98,3 +98,20 @@ describe('app-written lines use the names Kan knows (audit 6b.2)', () => {
     }
   });
 });
+
+import { scrubNameLeaks } from '../lib/rpg/names';
+
+describe('name leaks are fixed, not just logged (audit 6b.2)', () => {
+  test('a name Kan does not know becomes his label outside quotes', () => {
+    const db = normalizeDatabase(seedDatabase('slot_leaks', 'Leaks'));
+    const kisame = db.entities.find((entity) => entity.name === 'Kisame Hoshigaki')!;
+    const label = displayName(db, kisame);
+    if (label === kisame.name) return; // Kan already knows him in this seed.
+
+    const { text, replaced } = scrubNameLeaks(db, 'Kisame grins at you. "Kisame," the other man says, and Kisame laughs.');
+    expect(replaced).toContain('Kisame');
+    expect(text.startsWith(label.charAt(0).toUpperCase() + label.slice(1))).toBe(true);
+    expect(text).toContain('"Kisame,"');
+    expect(text).toContain(`and ${label} laughs`);
+  });
+});

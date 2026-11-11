@@ -6,7 +6,7 @@
 // story log (rawLog[].image and imageMeta), the chapters and your road.
 
 import { calculateAge, dateSortValue } from './calendar';
-import { CANON_ERA_ORDER, CANON_MILESTONES } from './canonData';
+import { CANON_ERA_ORDER, CANON_MILESTONES, eraTitle } from './canonData';
 import { localizePlaceNames } from './glossary';
 import { FLASHBACK_BY_ID } from './flashbackData';
 import type { AppDatabase, CalendarDate, RawLogEntry } from './types';
@@ -63,7 +63,7 @@ export function eraOfDate(date: CalendarDate): string {
     }
   }
 
-  return era;
+  return eraTitle(era);
 }
 
 const CAPTION_LENGTH = 150;

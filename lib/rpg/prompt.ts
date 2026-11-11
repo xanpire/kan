@@ -3,6 +3,7 @@ import { paceMinimumSeconds } from './pacing';
 import { normalizeJutsuNature } from './jutsu';
 import { ROMANCE_RULES, eraNoteFor, loreProfileFor } from './romance';
 import { endgameNote } from './canonEndgame';
+import { eraTitle } from './canonData';
 import { characterRefs, mentionsEntity, refByEntityId } from './characterRefs';
 import {
   activeCanonMilestones,
@@ -1140,7 +1141,7 @@ function formatUpcomingWorldBlock(db: AppDatabase) {
   ];
 
   for (const item of upcoming) {
-    lines.push(`- ${item.milestone.title}: about ${item.daysUntil} day(s) away (${item.milestone.era}).`);
+    lines.push(`- ${item.milestone.title}: about ${item.daysUntil} day(s) away (${eraTitle(item.milestone.era)}).`);
   }
 
   return lines.join('\n');
@@ -1202,7 +1203,7 @@ function formatCanonBlock(db: AppDatabase) {
 
   for (const beat of upcoming) {
     lines.push(
-      `PERSONAL STORY BEAT — do not assume it happened (era ${beat.era}): ${truncate(beat.title, 70)} — ${truncate(beat.description, 130)}`
+      `PERSONAL STORY BEAT — do not assume it happened (era ${eraTitle(beat.era)}): ${truncate(beat.title, 70)} — ${truncate(beat.description, 130)}`
     );
     lines.push(
       '  This only occurs if Kan actually does it in the scene. Never state it has happened because time passed.'
