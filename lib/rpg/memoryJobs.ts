@@ -45,7 +45,7 @@ import {
   kanAgeAt,
 } from './flashbacks';
 import { parsePovLines, povCandidates, resolvePovs } from './povMemories';
-import { filterCanonMarks, newsAllowance } from './newsDelivery';
+import { filterCanonMarks, newsAllowance, newsOffer } from './newsDelivery';
 import type { DebugEvent } from './debugEvents';
 import { daysBetween, secondsBetween, shiftDatesAfter, shiftSeconds } from './calendar';
 import { mentionsEntity } from './characterRefs';
@@ -399,6 +399,18 @@ export function applyStateStep(
 
   next = applyCanonMarks(next, marks.completed, marks.engaged, marks.passed);
   next = markNewsHeard(next, relays, allowance);
+
+  // Old minor news folded into this turn's delivery was heard in passing,
+  // once the turn delivered any news at all.
+  const folded = newsOffer(latest, { ignoreCombat: true })?.inPassing ?? [];
+
+  if (relays.length > 0 && folded.length > 0) {
+    next = markNewsHeard(
+      next,
+      folded.map((item) => ({ id: item.milestoneId, from: 'in passing' })),
+      folded.length
+    );
+  }
   next = advanceCanon(next, { inCombat });
   // Names Kan heard, read or recognised this turn, and identities the world
   // revealed to him (the mask breaking); labels for anyone he can't name.

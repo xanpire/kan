@@ -44,9 +44,21 @@ export const CATCH_UP_QUIET_DAYS = 14;
 /** At most this many events in one catch-up report. */
 export const CATCH_UP_MAX = 4;
 
+/** Minor news older than this is only heard in passing. */
+export const STALE_MINOR_NEWS_DAYS = 60;
+
+/** At most this many old minor items in the passing sentence. */
+const IN_PASSING_MAX = 5;
+
 export type NewsOffer = {
   mode: 'single' | 'catch-up';
   items: OfferedNews[];
+  /**
+   * Minor news more than 60 days old, folded into this delivery as one
+   * passing sentence instead of each demanding a turn. Marked heard "in
+   * passing" once the turn relays any news (audit 6.15).
+   */
+  inPassing?: UnheardNews[];
   /** How it reaches Kan this time. */
   style: string;
   /** catch-up: days since Kan last heard any news. */
@@ -315,11 +327,20 @@ export function newsOffer(db: AppDatabase, options: { ignoreCombat?: boolean } =
     return null;
   }
 
-  const unheard = unheardCanonNews(db, 99);
+  const all = unheardCanonNews(db, 99);
 
-  if (unheard.length === 0) {
+  if (all.length === 0) {
     return null;
   }
+
+  // Old minor news no longer demands its own turn: it rides along in passing.
+  const isStale = (item: UnheardNews) =>
+    !item.major && item.daysOld > STALE_MINOR_NEWS_DAYS && item.knowledge !== 'secret' && item.knowledge !== 'witnesses';
+  const fresh = all.filter((item) => !isStale(item));
+  const stale = all.filter(isStale);
+  const unheard = fresh.length > 0 ? fresh : stale.slice(0, 1);
+  const inPassing = stale.filter((item) => !unheard.includes(item)).slice(0, IN_PASSING_MAX);
+  const passing = inPassing.length > 0 ? { inPassing } : {};
 
   const present = sceneEntities(db);
   const quietDays = Math.max(0, daysBetween(lastNewsHeardDate(db), db.state.inStoryDate));
@@ -332,12 +353,15 @@ export function newsOffer(db: AppDatabase, options: { ignoreCombat?: boolean } =
       items: bundleable.slice(0, CATCH_UP_MAX).map((item) => offered(db, item, present)),
       style: catchUpStyle(db, present),
       quietDays,
+      ...passing,
     };
   }
 
-  const item = offered(db, unheard[0], present);
+  const first = offered(db, unheard[0], present);
+  // Old minor news alone is never overdue.
+  const item = isStale(unheard[0]) ? { ...first, urgency: 'fresh' as const } : first;
 
-  return { mode: 'single', items: [item], style: singleStyle(db, item, present), quietDays };
+  return { mode: 'single', items: [item], style: singleStyle(db, item, present), quietDays, ...passing };
 }
 
 /** How many news relays the state step may record for a turn built on `db`. */
@@ -374,15 +398,27 @@ const URGENCY_TEXT: Record<OfferedNews['urgency'], (item: OfferedNews) => string
   overdue: (item) => ` OVERDUE: deliver it this turn; if nobody here could know, it comes to you (${item.channel}).`,
 };
 
+/** One line of what happened, so the narrator tells it as this story has it (audit 6.15). */
+function newsDetail(item: UnheardNews) {
+  const text = item.summary.replace(/\s+/g, ' ').trim();
+  const cut = text.length > 160 ? `${text.slice(0, 159).replace(/\s+\S*$/, '')}…` : text;
+  return /[.!?…]$/.test(cut) ? cut : `${cut}.`;
+}
+
 export function formatNewsOffer(offer: NewsOffer | null): string {
   if (!offer) {
     return '';
   }
 
+  const passingLine = offer.inPassing?.length
+    ? [`Also, in one passing sentence, smaller things you would have heard on any road by now: ${offer.inPassing.map((item) => item.title).join('; ')}.`]
+    : [];
+
   if (offer.mode === 'catch-up') {
     return [
       `NEWS & RUMORS — CATCH-UP (you have heard no news for about ${offer.quietDays} days, and these events piled up). Deliver them together as ONE report this turn, not one at a time: ${offer.style}. Each event can only come from someone or something that could know it (listed per line), so split the report between sources where needed, like public news from the bundle and organization business from a comrade. Make clear who or what brings each part, and that some of it is old news by now. Never deliver any other world news.`,
-      ...offer.items.map((item) => `- ${item.title} (${item.location}, ${item.region}). ${bearerLine(item)}`),
+      ...offer.items.map((item) => `- ${item.title} (${item.location}, ${item.region}): ${newsDetail(item)} ${bearerLine(item)}`),
+      ...passingLine,
     ].join('\n');
   }
 
@@ -390,7 +426,8 @@ export function formatNewsOffer(offer: NewsOffer | null): string {
 
   return [
     'NEWS & RUMORS (an event Kan has NOT learned yet; deliver at most this one this turn). Prefer a bearer already in the scene. Make clear who tells him. Never deliver any other world news.',
-    `- ${item.title} (${item.location}, ${item.region}). ${bearerLine(item)} Delivery this time: ${offer.style}.${URGENCY_TEXT[item.urgency](item)}`,
+    `- ${item.title} (${item.location}, ${item.region}): ${newsDetail(item)} ${bearerLine(item)} Delivery this time: ${offer.style}.${URGENCY_TEXT[item.urgency](item)}`,
+    ...passingLine,
   ].join('\n');
 }
 

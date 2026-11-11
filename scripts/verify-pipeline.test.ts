@@ -3039,7 +3039,13 @@ describe('news delivery: bearers, styles, escalation, catch-up', () => {
   });
 
   test('the delivery style varies from turn to turn and holds on a regenerate', () => {
-    const db = fired(lateDate, lateDate);
+    let db = fired(lateDate, lateDate);
+    // Secrets only ever travel face to face (one fixed style): hear those first.
+    for (let guard = 0; guard < 50; guard += 1) {
+      const first = newsOffer(db)?.items[0];
+      if (!first || (first.knowledge !== 'secret' && first.knowledge !== 'witnesses')) break;
+      db = { ...db, state: { ...db.state, canonProgress: { ...db.state.canonProgress!, heard: { ...db.state.canonProgress!.heard, [first.eventId]: { from: 'x', date: lateDate } } } } };
+    }
     const withTurns = (n: number): AppDatabase => ({
       ...db,
       state: { ...db.state, scenePace: 'conversation', locationKind: 'settlement', location: 'Market street' },
