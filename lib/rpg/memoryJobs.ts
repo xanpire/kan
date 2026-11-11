@@ -20,7 +20,8 @@
 import { bingoListings, formatRyo } from './reputation';
 import { CANON_MILESTONES } from './canonData';
 import { syncBondSides } from './bonds';
-import { markKnownDeathsOnBonds } from './deaths';
+import { isDeceased, markKnownDeathsOnBonds } from './deaths';
+import { castWithCompanions } from './companions';
 import { markMet } from './met';
 import { applyStoryHooks } from './hooks';
 import { advanceCanon, applyCanonMarks, isCombatPace, markNewsHeard } from './canon';
@@ -311,6 +312,23 @@ export function applyStateStep(
   const effectiveDiff: TurnDiff = merged;
 
   let next = applyTurnDiff(latest, effectiveDiff, { events });
+
+  // No tracker reply: people the prose shows join the scene cast, but only
+  // people Kan has already met (the fallback never meets anyone new). Nobody
+  // is taken out: someone silent in a reply may still be in the room.
+  if (!stateReply && extraction?.suggestedCast?.length) {
+    const current = next.state.sceneCast ?? [];
+    const joined = extraction.suggestedCast.filter((name) => {
+      const entity = resolveEntity(next, name);
+      return entity && entity.met !== false && !isDeceased(entity) && !current.includes(entity.name);
+    });
+
+    if (joined.length > 0) {
+      next = { ...next, state: { ...next.state, sceneCast: castWithCompanions(next, [...current, ...joined]) } };
+      events.push({ kind: 'fallback', text: `Added to the scene from the prose: ${joined.join(', ')}.` });
+    }
+  }
+
   // Someone Kan had not seen in a long time is here again.
   next = markReunions(latest, next);
   const appliedSeconds = Math.max(0, secondsBetween(beforeDate, next.state.inStoryDate));

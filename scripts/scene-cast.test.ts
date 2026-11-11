@@ -112,3 +112,19 @@ describe('who someone is never changes by accident (audit 6.11)', () => {
     expect(itachi(db).personality).toBe(canonBefore);
   });
 });
+
+describe('the prose fallback sets the cast (audit 6.16)', () => {
+  test('a failed state turn puts people Kan has met into the scene, never new people', () => {
+    const met = play(seed(), 'Itachi stands beside you.', { characters_present: ['itachi-uchiha'], location: 'A riverbank' });
+    const left = play(met.db, 'You walk on alone.', { characters_present: [], location: 'A forest trail' });
+    expect(left.db.state.sceneCast).toEqual([]);
+
+    let next = appendStoryMessage(left.db, 'user', '*I wait.*', null, 0, 0);
+    const narration = 'Itachi steps out of the trees. Itachi studies you without a word.';
+    next = appendStoryMessage(next, 'assistant', narration, null, 0, 0);
+    const turnLogId = next.rawLog[next.rawLog.length - 1].id;
+    const result = applyStateStep(next, null, { turnLogId, userMessage: '*I wait.*', narration }, new Set());
+    expect(result.db.state.sceneCast).toEqual(['Itachi Uchiha']);
+    expect(result.events.some((event) => event.kind === 'fallback')).toBe(true);
+  });
+});

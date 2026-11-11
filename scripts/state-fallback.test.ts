@@ -89,7 +89,9 @@ describe('prose fallback', () => {
     const before = db.entities.find((e) => e.name === 'Itachi Uchiha');
     const itachi = result.db.entities.find((e) => e.name === 'Itachi Uchiha');
     expect(itachi?.lastSeen).toEqual(before?.lastSeen);
-    expect(result.db.state.sceneCast ?? []).toEqual(db.state.sceneCast ?? []);
+    // People Kan has met join the scene cast (audit 6.16); nobody new is met.
+    const expected = before?.met === false ? (db.state.sceneCast ?? []) : [...(db.state.sceneCast ?? []), 'Itachi Uchiha'];
+    expect(result.db.state.sceneCast ?? []).toEqual(expected);
   });
 });
 
