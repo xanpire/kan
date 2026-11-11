@@ -253,6 +253,14 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
   }
 
   if (typeof state.location === 'string' && state.location.trim()) {
+    const moved = state.location.trim().toLowerCase() !== (db.state.location ?? '').trim().toLowerCase();
+
+    // Kan left, and the tracker didn't say who came along: only companions
+    // (added back by the caller) are with him now.
+    if (moved && !Array.isArray(state.sceneCast)) {
+      next.state.sceneCast = [];
+    }
+
     next.state.location = state.location.trim().slice(0, 100);
     next.state.locationKind = validateLocationKind(next.state.location, state.locationKind);
   } else if (state.locationKind) {

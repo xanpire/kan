@@ -370,20 +370,24 @@ export function convertStateBlock(
     };
   }
 
-  const charactersPresent = Array.isArray(block.characters_present)
-    ? block.characters_present
+  // characters_present is always authoritative when it is there: [] means
+  // Kan is alone now (companions are added back later). Only a missing field
+  // means "unchanged" (audit 6.10).
+  const listedPresent = Array.isArray(block.characters_present);
+  const charactersPresent = listedPresent
+    ? (block.characters_present as unknown[])
         .filter((name): name is string => typeof name === 'string' && name.trim().length > 0 && name.trim().toLowerCase() !== 'kan')
         .slice(0, 8)
     : [];
 
-  if (charactersPresent.length > 0) {
+  if (listedPresent) {
     diff.state = { ...diff.state, sceneCast: charactersPresent };
   }
 
-  if (sceneEnded || charactersPresent.length > 0) {
+  if (sceneEnded || listedPresent) {
     diff.scene = {
       ended: sceneEnded,
-      ...(charactersPresent.length > 0 ? { entities: charactersPresent } : {}),
+      ...(listedPresent ? { entities: charactersPresent } : {}),
     };
   }
 

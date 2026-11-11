@@ -2147,7 +2147,7 @@ describe('two-call turn: prose narrator + structured state call', () => {
     expect(diff?.canonCompleted).toEqual([]);
   });
 
-  test('an all-unchanged structured reply is no diff', () => {
+  test('an all-unchanged structured reply says only that Kan is alone (characters_present [] is authoritative)', () => {
     const { diff } = convertStateBlock({
       time: { elapsed: null, unit: null, clock_time: null },
       scene_pace: null, location: null, location_kind: null, mood: null,
@@ -2157,7 +2157,10 @@ describe('two-call turn: prose narrator + structured state call', () => {
       canon_engaged: [], canon_completed: [], canon_passed: [], news_relayed: [],
     });
 
-    expect(diff).toBeNull();
+    expect(diff?.state).toEqual({ sceneCast: [] });
+    expect(diff?.scene).toEqual({ ended: false, entities: [] });
+    expect(diff?.bonds ?? []).toEqual([]);
+    expect(diff?.facts ?? []).toEqual([]);
   });
 
   test('state prompt carries the turn prose and canon ids', () => {
