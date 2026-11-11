@@ -101,6 +101,35 @@ export function resolveElapsedSeconds(options: {
   return Math.min(desired, paceCapSeconds(options.pace, options.sceneEnded));
 }
 
+/** Longer than this needs two sources to agree, or a skip the player asked for (audit 4.5). */
+export const LONG_JUMP_SECONDS = 36 * 3600;
+
+/**
+ * resolveElapsedSeconds, with a sanity guard: a jump of more than 36 hours
+ * stands only when the prose parser and the tracker agree (within 25%).
+ * Otherwise the tracker's own value is used, capped by pace.
+ */
+export function guardLongJump(options: {
+  reportedSeconds: number;
+  detectedSeconds: number;
+  pace: ScenePace | undefined;
+  sceneEnded: boolean;
+}) {
+  const reported = Math.max(0, options.reportedSeconds);
+  const detected = Math.max(0, options.detectedSeconds);
+  const desired = Math.max(reported, detected);
+
+  if (desired > LONG_JUMP_SECONDS) {
+    const agree = reported > 0 && detected > 0 && Math.abs(reported - detected) <= Math.max(reported, detected) * 0.25;
+
+    if (!agree) {
+      return Math.min(reported, paceCapSeconds(options.pace, options.sceneEnded));
+    }
+  }
+
+  return resolveElapsedSeconds(options);
+}
+
 /** A stated hour this close behind the clock is the narrator restating "now". */
 const RESTATED_CLOCK_SECONDS = 3600;
 
@@ -178,16 +207,29 @@ export function resolveTurnClock(options: {
   current: CalendarDate;
   /** Replaces the pace minimum (a conversation-mode turn is a line or two). */
   minimumSeconds?: number;
+  /** A time skip the player asked for and the tracker agreed with (timeSkip.ts): replaces the pace cap. */
+  skipSeconds?: number | null;
+  /** No tracker reply this turn (the prose fallback): the prose is the only source, so no agreement is needed. */
+  proseOnly?: boolean;
 }) {
   const { current, pace, sceneEnded } = options;
   const frozen = (pace === 'combat' || pace === 'chase') && !sceneEnded;
   const minimumSeconds = options.minimumSeconds ?? paceMinimumSeconds(pace);
-  const storySeconds = resolveElapsedSeconds({
-    reportedSeconds: options.reportedSeconds,
-    detectedSeconds: options.detected.elapsedSeconds,
-    pace,
-    sceneEnded,
-  });
+  const storySeconds = options.skipSeconds
+    ? options.skipSeconds
+    : options.proseOnly
+      ? resolveElapsedSeconds({
+          reportedSeconds: options.reportedSeconds,
+          detectedSeconds: options.detected.elapsedSeconds,
+          pace,
+          sceneEnded,
+        })
+      : guardLongJump({
+        reportedSeconds: options.reportedSeconds,
+        detectedSeconds: options.detected.elapsedSeconds,
+        pace,
+        sceneEnded,
+      });
   const now = dateSortValue(current);
   let target = advanceSeconds(current, storySeconds);
   let storyTimed = storySeconds > 0;

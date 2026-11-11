@@ -510,6 +510,17 @@ Before they are applied, `filterCanonMarks` (`newsDelivery.ts`) keeps only ids t
 - `canon_engaged` → record the event, add to `active` + `engaged` (not completed).
 - `canon_passed` → complete without attendance, log a “never crossed paths” fact.
 
+### Time skips (`timeSkip.ts`, audit 4.4 and 4.5)
+
+Decided by Xan. A turn may cover a long stretch only when the player asks for it: `requestedSkip` reads "time skip", "skip ahead", "let time pass", "N weeks/months/years later / pass", "train/wait/travel/rest/stay/… for N units", "until spring" (2 days at least). The Story status sheet's **Let time pass** asks how long (a week to 3 years) and what Kan does meanwhile, and sends `*Time passes: 3 months. …*`.
+
+- **Limit** (`skipLimit`): at most 3 years (`MAX_SKIP_SECONDS`), and never past the day before the next personal canon beat opens (`nextPersonalBeat`), so nothing personal is lost by accident. Never in a fight or a chase.
+- **Narrator**: a `TIME SKIP` line in the dynamic block (compress the stretch into one reply, say plainly how long passed, end at the first moment that needs Kan; if it stops early, say how long actually passed; the world's news still comes only through people). NARRATION_SYSTEM carries the same rule.
+- **Clock** (`allowedSkip` in `applyStateStep`): the skip stands only when the tracker's `time.elapsed` agrees within 25% with what was asked or what was allowed; then `resolveTurnClock({ skipSeconds })` replaces the pace cap. A `mode` event in Debug says how long. The tracker's units now include weeks, months and years (`TIME_UNITS`), read up to 3 years.
+- **Catching up**: the rest is the ordinary state step on the new date: `advanceCanon` fires every world milestone in the stretch, lives, letters, rent, weather and ages follow the date, a stretch of 180 days or more queues the `timeSkip` summary, and the news comes as a catch-up report on the following turns.
+- **Long jumps** (`guardLongJump`, 4.5): without a requested skip, a jump of more than 36 hours stands only when the prose parser and the tracker agree within 25%; otherwise the tracker's value, capped by pace. With no tracker reply (the prose fallback) the prose alone is used, as before.
+- **Corrections** (`correctTurnTime`): the time chip goes up to 3 years. Corrected backwards, `unfireFutureMilestones` takes back world milestones whose date is now ahead (their event, facts, threads, deaths and heard record), so they fire again when the clock gets there.
+
 ### Canon protects itself (`canonRoles.ts`)
 
 Decided by Xan: anyone with a canon role still ahead cannot die early. `milestoneNeeds` lists who a milestone needs: its own `needs` when set, otherwise the canon people its title and description name plus its `deaths`, leaving out anyone canon has already killed by then. `canonRoleAhead(db, entity)` is the first not-completed milestone (a closed personal beat doesn't count) that needs them; Kan and original characters never have one.

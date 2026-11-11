@@ -24,7 +24,7 @@ import { isDeceased, markKnownDeathsOnBonds } from './deaths';
 import { castWithCompanions } from './companions';
 import { markMet } from './met';
 import { applyStoryHooks } from './hooks';
-import { advanceCanon, applyCanonMarks, isCombatPace, markNewsHeard } from './canon';
+import { advanceCanon, applyCanonMarks, isCombatPace, markNewsHeard, unfireFutureMilestones } from './canon';
 import { applyCanonEndgames } from './canonEndgame';
 import { deliverLetters, receiveLetters, sendLetters, turnLetterOffer } from './letters';
 import { advanceLives, applyLifeEvents, markReunions } from './lives';
@@ -47,6 +47,7 @@ import {
 import { parsePovLines, povCandidates, resolvePovs } from './povMemories';
 import { filterCanonMarks, newsAllowance, newsOffer } from './newsDelivery';
 import type { DebugEvent } from './debugEvents';
+import { MAX_SKIP_SECONDS, allowedSkip, describeSpan } from './timeSkip';
 import { daysBetween, secondsBetween, shiftDatesAfter, shiftSeconds } from './calendar';
 import { mentionsEntity } from './characterRefs';
 import { buildIndices } from './db';
@@ -293,7 +294,16 @@ export function applyStateStep(
   const sceneEnded = extraction?.scene?.ended ?? false;
   // The mode the reply was narrated in (set when it was saved).
   const modeUsed = latest.rawLog.find((entry) => entry.id === turn.turnLogId)?.sceneMode;
+  // A time skip the player asked for, if the tracker agrees (audit 4.4).
+  const skipSeconds = allowedSkip(latest, turn.userMessage, reportedSeconds, isCombatPace(pace) && !sceneEnded);
+
+  if (skipSeconds) {
+    events.push({ kind: 'mode', text: `Time skip: ${describeSpan(skipSeconds)}.` });
+  }
+
   const clock = resolveTurnClock({
+    skipSeconds,
+    proseOnly: !stateReply,
     reportedSeconds,
     reportedClock: extraction?.state?.clockTime,
     detected: parsedTime,
@@ -590,6 +600,11 @@ function applyMemoryStep(latest: AppDatabase, stateReply: TurnDiff | null, turn:
   return { db: next, followUpIds, notice: null, appliedDiff: stateReply, events: [] };
 }
 
+/** The save with its indices rebuilt (after records were removed). */
+function buildIndexed(db: AppDatabase): AppDatabase {
+  return { ...db, indices: buildIndices(db) };
+}
+
 /** A chapter is long: a break only counts once this much story has passed in it. */
 export const CHAPTER_MIN_TURNS = 6;
 export const CHAPTER_MIN_HOURS = 12;
@@ -799,7 +814,8 @@ export function correctTurnTime(db: AppDatabase, logId: string, seconds: number)
     return null;
   }
 
-  const target = Math.max(0, Math.min(30 * 86400, Math.round(seconds)));
+  // Up to the longest time skip (audit 4.5).
+  const target = Math.max(0, Math.min(MAX_SKIP_SECONDS, Math.round(seconds)));
   const delta = target - (entry.elapsedSeconds ?? 0);
 
   if (delta === 0) {
@@ -839,7 +855,8 @@ export function correctTurnTime(db: AppDatabase, logId: string, seconds: number)
     ),
   };
 
-  return delta > 0 ? applyCanonEndgames(advanceCanon(next)) : next;
+  // Backwards: anything canon fired that now lies in the future is taken back (audit 4.5).
+  return delta > 0 ? applyCanonEndgames(advanceCanon(next)) : buildIndexed(unfireFutureMilestones(next));
 }
 
 /**

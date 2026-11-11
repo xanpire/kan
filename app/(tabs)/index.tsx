@@ -101,6 +101,17 @@ const MODE_CHOICES: { value: SceneModeName | null; title: string; body: string }
   { value: 'normal', title: 'Normal narration', body: 'Full prose until this conversation or fight is over.' },
 ];
 
+/** The spans the Let time pass sheet offers (the longest skip is 3 years). */
+const SKIP_SPANS = [
+  { value: '1 week', label: 'A week' },
+  { value: '1 month', label: 'A month' },
+  { value: '3 months', label: '3 months' },
+  { value: '6 months', label: '6 months' },
+  { value: '1 year', label: 'A year' },
+  { value: '2 years', label: '2 years' },
+  { value: '3 years', label: '3 years' },
+];
+
 const TIME_PRESETS: { value: string; label: string; seconds: number }[] = [
   { value: '15', label: '15 s', seconds: 15 },
   { value: '60', label: '1 min', seconds: 60 },
@@ -312,6 +323,10 @@ export default function StoryScreen() {
   const [retouchDraft, setRetouchDraft] = useState<PaintedTake | null>(null);
   const [isRetouching, setIsRetouching] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
+  // Let time pass (audit 4.4): how long, and what you do meanwhile.
+  const [skipOpen, setSkipOpen] = useState(false);
+  const [skipSpan, setSkipSpan] = useState<string>('1 month');
+  const [skipWhat, setSkipWhat] = useState('');
   const [timeTarget, setTimeTarget] = useState<{ id: string; seconds: number } | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [customUnit, setCustomUnit] = useState<TimeUnit>('min');
@@ -1187,9 +1202,49 @@ export default function StoryScreen() {
               ) : null}
               <ListRow meta={`Chapter ${state.chapter}`} title={state.scene} />
             </ListCard>
+            {skipOpen ? (
+              <>
+                <SectionLabel>Let time pass</SectionLabel>
+                <Text style={type.rowBody}>
+                  How long, and what you do meanwhile. It stops early if something of your own is about to begin.
+                </Text>
+                <FilterPills onChange={setSkipSpan} options={SKIP_SPANS} value={skipSpan} />
+                <TextInput
+                  accessibilityLabel="What you do meanwhile"
+                  multiline
+                  onChangeText={setSkipWhat}
+                  placeholder="You train with Itachi, out of sight of the patrols."
+                  placeholderTextColor={colors.textDim}
+                  style={styles.skipInput}
+                  value={skipWhat}
+                />
+                <AppButton
+                  disabled={isNarrating}
+                  label="Let it pass"
+                  onPress={() => {
+                    const what = skipWhat.trim().replace(/^\*+|\*+$/g, '');
+                    setSkipOpen(false);
+                    setStatusOpen(false);
+                    setSkipWhat('');
+                    void submit(`*Time passes: ${skipSpan}. ${what || 'You keep to yourself and let the days go by.'}*`);
+                  }}
+                />
+              </>
+            ) : (
+              <AppButton
+                disabled={isNarrating}
+                label="Let time pass"
+                onPress={() => setSkipOpen(true)}
+                style={styles.sheetClose}
+                variant="secondary"
+              />
+            )}
             <AppButton
               label="Close"
-              onPress={() => setStatusOpen(false)}
+              onPress={() => {
+                setSkipOpen(false);
+                setStatusOpen(false);
+              }}
               style={styles.sheetClose}
               variant="secondary"
             />
@@ -1778,6 +1833,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textDim,
     fontVariant: ['tabular-nums'],
+  },
+  skipInput: {
+    minHeight: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    color: colors.text,
+    textAlignVertical: 'top',
   },
   timeCustomRow: {
     flexDirection: 'row',

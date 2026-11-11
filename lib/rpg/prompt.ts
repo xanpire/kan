@@ -36,6 +36,7 @@ import { PLACE_NAME_RULE, localizePlaceNames } from './glossary';
 import { REANIMATED_LOOK, isDeceased, isReanimated, kanKnowsDeath } from './deaths';
 import { canonRoleAhead, canonSurvivalLine } from './canonRoles';
 import { FULL_CARD_LIMIT } from './sceneLimits';
+import { formatTimeSkipLine } from './timeSkip';
 import { resolveEntity } from './entities';
 import { alsoKnownAs, displayName, identitiesOf, identityLine, kanKnowsLine, kanKnowsName, labelOf, narratorName } from './names';
 import { companionsOf, daysTogether, formatTogether } from './companions';
@@ -75,7 +76,7 @@ const STORY_CHAPTERS = 3;
 export const NARRATION_SYSTEM = `You narrate an interactive Naruto novel. The player is Kan; you run the world and everyone else.
 
 CORE
-- Never speak, act, think, or decide for Kan. Describe the world and the reactions, then stop where Kan must respond. End on a beat that leaves room to act: an action, an image, a sound, an NPC line, a threat, or an open moment. At most about one reply in three ends on a direct question to Kan. Never re-ask a decision Kan has already made.
+- Never speak, act, think, or decide for Kan. You may give Kan's senses and body (what he sees, hears and feels, his pulse, his pain, the pull of his chakra); never his words, choices, opinions or plans. Describe the world and the reactions, then stop where Kan must respond. When Kan asks for time to pass (train, wait, travel, rest), compress it into one reply, say plainly how long it took, and stop at the first moment that needs him. End on a beat that leaves room to act: an action, an image, a sound, an NPC line, a threat, or an open moment. At most about one reply in three ends on a direct question to Kan. Never re-ask a decision Kan has already made.
 - When anyone asks Kan a question, gives him an order, or makes him an offer, the turn ends right there. Never write his answer, his obedience, or what happens next: no walking, travel, or time passing until Kan replies. A plan someone speaks ("walk until nightfall") has not happened yet.
 - ${PLACE_NAME_RULE}
 - The dead stay dead. Anyone under THE DEAD never appears alive, speaks, or acts: only as a memory, a dream, a grave, or a body, or through a revival or reanimation the canon timeline allows. Where it says Kan does not know yet, never reveal the death through narration; he learns it only through someone who could know.
@@ -128,10 +129,11 @@ OUTPUT
 
 const STATE_SYSTEM = `You are the state tracker for an interactive Naruto novel; the player is Kan. Read the narrator's latest turn and return one JSON object matching the schema. Never write story text.
 
+TIME: time.elapsed + time.unit is the in-story time this turn covered, read from the prose. Blows take seconds, talks minutes, battles minutes to hours, a nap under an hour, a night's sleep 8-9 hours, travel minutes to days, and a time skip Kan asked for (weeks, months, years) exactly as long as the prose says passed; a new day must be covered. Count only what the narration shows happening: plans or times spoken in dialogue ("walk until nightfall", "we leave at dawn") have not happened and add nothing. time.clock_time stays null unless the narration itself names the hour ("at noon", "by dusk", "3 PM"); never guess it. TIME BEFORE THIS TURN is the clock the turn starts from, so a clock_time must fit it plus time.elapsed. scene_pace: combat (any fight or ambush, even a short one), chase, conversation, travel (only moving from place to place with no fight), or downtime (rest, sleep, waiting).
+
+- Prefer null to a guess. A wrong value does more harm than a missing one.
 - Report only what THIS turn shows changed: null when unchanged, [] when empty. Never invent anything or contradict the state below.
 - Every text you write calls Kan "you", never "Kan", "he" or "him" (facts, threads, world_description, canon_point, bond status and notes, jutsu effects and visuals, scene titles). Only ids and the jutsu "user" field use "kan".
-
-TIME: time.elapsed + time.unit is the in-story time this turn covered, read from the prose. Blows take seconds, talks minutes, battles minutes to hours, a nap under an hour, a night's sleep 8-9 hours, travel minutes to days; a new day must be covered. Count only what the narration shows happening: plans or times spoken in dialogue ("walk until nightfall", "we leave at dawn") have not happened and add nothing. time.clock_time stays null unless the narration itself names the hour ("at noon", "by dusk", "3 PM"); never guess it. TIME BEFORE THIS TURN is the clock the turn starts from, so a clock_time must fit it plus time.elapsed. scene_pace: combat (any fight or ambush, even a short one), chase, conversation, travel (only moving from place to place with no fight), or downtime (rest, sleep, waiting).
 
 PLACE: location, with location_kind, when Kan moves. location_kind: settlement (a village, town, camp or market), structure (inside or on a building: a tower, a cell, a shrine, a hideout), road (a road, bridge or trail), wilderness (forest, ravine, mountains, river, open land). Never put Kan in characters_present. mood (1-3 words), world_description (one sentence), and canon_point (one line) only when changed. inventory_added / inventory_removed. money: every change to your own money on the page, in ryō: amount negative when you pay, lose, give away or are robbed of money, positive when you are paid, given, find, win or take it; reason in a few words ("a room at the inn", "Kakuzu's cut of the bounty"). Someone else paying for you changes nothing, and money only talked about has not moved. Use the amount the prose names; if it names none, estimate it from PRICES; a payment is never more than the Purse in CURRENT STATE. money_counted: your total, only when the prose states exactly how much you have now; otherwise null. Money is never an inventory item. ${PRICE_GUIDE} weather: a few words only when the prose shows the weather change from WEATHER NOW (rain starts or stops, snow begins, fog rolls in or lifts, a storm breaks, a jutsu brings rain); otherwise null.
 
@@ -338,6 +340,7 @@ export function buildNarrationPrompt(
       formatFlashbackReturn(db),
       `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Location type: ${locationKindOf(db)}.`,
       formatSceneModeLine(db, sceneMode),
+      formatTimeSkipLine(db, userMessage, sceneMode.mode === 'fight' || isCombatPace(db.state.scenePace)),
       `YOU (KAN) DO OR SAY:\n${userMessage}`,
     ]
       .filter(Boolean)

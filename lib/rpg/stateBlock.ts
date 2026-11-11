@@ -2,6 +2,7 @@
 
 import { readRyo } from './money';
 import { THREAD_TYPES } from './stateSchema';
+import { MAX_SKIP_SECONDS } from './timeSkip';
 import type {
   Audience,
   ConsequenceKind,
@@ -274,6 +275,12 @@ export function convertStateBlock(
       hours: 3600,
       day: 86400,
       days: 86400,
+      week: 7 * 86400,
+      weeks: 7 * 86400,
+      month: 30 * 86400,
+      months: 30 * 86400,
+      year: 365 * 86400,
+      years: 365 * 86400,
     };
 
     if (typeof rawTime.elapsed === 'number' && Number.isFinite(rawTime.elapsed)) {
@@ -282,12 +289,13 @@ export function convertStateBlock(
 
       diff.state = {
         ...diff.state,
-        elapsedSeconds: Math.max(0, Math.min(30 * 86400, Math.round(rawTime.elapsed * multiplier))),
+        // Up to a three-year skip; the clock step decides how much of it stands.
+        elapsedSeconds: Math.max(0, Math.min(MAX_SKIP_SECONDS, Math.round(rawTime.elapsed * multiplier))),
       };
     } else if (typeof rawTime.days_passed === 'number' && Number.isFinite(rawTime.days_passed)) {
       diff.state = {
         ...diff.state,
-        elapsedSeconds: Math.max(0, Math.min(30 * 86400, Math.round(rawTime.days_passed * 86400))),
+        elapsedSeconds: Math.max(0, Math.min(MAX_SKIP_SECONDS, Math.round(rawTime.days_passed * 86400))),
       };
     }
 

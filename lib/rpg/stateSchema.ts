@@ -33,7 +33,7 @@ function list(properties: Record<string, unknown>) {
   return { type: 'array', items: object(properties) };
 }
 
-export const TIME_UNITS = ['seconds', 'minutes', 'hours', 'days'] as const;
+export const TIME_UNITS = ['seconds', 'minutes', 'hours', 'days', 'weeks', 'months', 'years'] as const;
 export const SCENE_PACES = ['combat', 'chase', 'conversation', 'travel', 'downtime'] as const;
 export const SCENE_BEATS = ['exchange', 'instruction', 'remark', 'action', 'travel', 'combat'] as const;
 export const LOCATION_KINDS = ['settlement', 'road', 'wilderness', 'structure'] as const;

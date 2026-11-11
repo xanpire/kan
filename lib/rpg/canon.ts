@@ -605,6 +605,59 @@ export function advanceCanon(db: AppDatabase, options: { inCombat?: boolean } = 
   return withProgress(next, progress);
 }
 
+/**
+ * After the clock was corrected backwards (the time chip): world milestones
+ * that fired but whose date is now in the future are taken back, with the
+ * event, facts, threads and deaths they added, so `advanceCanon` fires them
+ * again when the clock gets there (audit 4.5). Personal beats played on the
+ * page stay played.
+ */
+export function unfireFutureMilestones(db: AppDatabase): AppDatabase {
+  const progress = normalizeProgress(db);
+  const today = dayKey(db.state.inStoryDate);
+  const expired = new Set(progress.expired ?? []);
+  const back = progress.completed.filter((id) => {
+    const milestone = byId.get(id);
+    return Boolean(milestone) && !milestone!.playerDriven && !expired.has(id) && dayKey(milestoneOpensAt(milestone!)) > today;
+  });
+
+  if (back.length === 0) {
+    return db;
+  }
+
+  const eventIds = new Set(back.map(eventIdFor));
+  const heard = { ...(progress.heard ?? {}) };
+
+  for (const eventId of eventIds) {
+    delete heard[eventId];
+  }
+
+  const next: AppDatabase = {
+    ...db,
+    events: db.events.filter((event) => !eventIds.has(event.id)),
+    eventEntities: db.eventEntities.filter((link) => !eventIds.has(link.eventId)),
+    facts: db.facts.filter((fact) => !(fact.sourceEventId && eventIds.has(fact.sourceEventId))),
+    threads: db.threads.filter((thread) => !(thread.sourceEventId && eventIds.has(thread.sourceEventId))),
+    entities: db.entities.map((entity) => {
+      if (entity.deceased?.canonEventId && eventIds.has(entity.deceased.canonEventId)) {
+        const alive = { ...entity, status: entity.status === 'Deceased' ? 'Alive' : entity.status };
+        delete alive.deceased;
+        return alive;
+      }
+
+      return entity;
+    }),
+  };
+
+  return withProgress(next, {
+    ...progress,
+    completed: progress.completed.filter((id) => !back.includes(id)),
+    active: progress.active.filter((id) => !back.includes(id)),
+    engaged: progress.engaged.filter((id) => !back.includes(id)),
+    heard,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Queries used by the prompt
 // ---------------------------------------------------------------------------
