@@ -50,7 +50,7 @@ import {
 } from '@/lib/rpg/calendar';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { streamingPreview, stripNarrationJson } from '@/lib/rpg/prompt';
-import { useGame } from '@/lib/rpg/game';
+import { REDO_WINDOW_MS, useGame } from '@/lib/rpg/game';
 import { loadDraft, saveDraft } from '@/lib/rpg/draft';
 import { companionsOf } from '@/lib/rpg/companions';
 import { useToast } from '@/components/Toast';
@@ -290,6 +290,7 @@ export default function StoryScreen() {
     sendTurn,
     regenerate,
     undoLastTurn,
+    redoLastUndo,
     attachImage,
     correctTurnTime,
     updateSettings,
@@ -613,6 +614,30 @@ export default function StoryScreen() {
     inputRef.current?.focus();
   }, []);
 
+  // Retry and Undo need the snapshot taken before the turn. An imported save
+  // starts without one, and undo can use them up.
+  const canUndo = (db?.snapshots.length ?? 0) > 0;
+
+  const undo = useCallback(async () => {
+    if (!(await undoLastTurn())) {
+      return;
+    }
+
+    showToast('Turn undone.', 'info', {
+      durationMs: REDO_WINDOW_MS,
+      action: {
+        label: 'Redo',
+        onPress: () => {
+          void redoLastUndo().then((done) => {
+            if (!done) {
+              showToast('That turn can’t come back now.', 'info');
+            }
+          });
+        },
+      },
+    });
+  }, [redoLastUndo, showToast, undoLastTurn]);
+
   const retry = useCallback(async () => {
     const action = lastActionRef.current;
 
@@ -834,16 +859,20 @@ export default function StoryScreen() {
                       onLongPress={() => setShotMenuOpen(true)}
                       onPress={() => void generateSceneImage()}
                     />
-                    <InlineAction
-                      icon={<RotateCcw color={colors.textMuted} size={15} strokeWidth={2} />}
-                      label="Retry"
-                      onPress={() => void regenerate()}
-                    />
-                    <InlineAction
-                      icon={<Undo2 color={colors.textMuted} size={15} strokeWidth={2} />}
-                      label="Undo"
-                      onPress={() => void undoLastTurn()}
-                    />
+                    {canUndo ? (
+                      <>
+                        <InlineAction
+                          icon={<RotateCcw color={colors.textMuted} size={15} strokeWidth={2} />}
+                          label="Retry"
+                          onPress={() => void regenerate()}
+                        />
+                        <InlineAction
+                          icon={<Undo2 color={colors.textMuted} size={15} strokeWidth={2} />}
+                          label="Undo"
+                          onPress={() => void undo()}
+                        />
+                      </>
+                    ) : null}
                   </View>
                 ) : message.elapsedSeconds !== undefined ? (
                   <View style={styles.inlineActions}>

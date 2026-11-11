@@ -122,6 +122,19 @@ async function withStoredImages(db: AppDatabase): Promise<AppDatabase> {
   }
 }
 
+/** How long Redo is offered after an undo. */
+export const REDO_WINDOW_MS = 8000;
+
+function lastStoryId(db: AppDatabase) {
+  for (let index = db.rawLog.length - 1; index >= 0; index -= 1) {
+    if (db.rawLog[index].kind === 'story') {
+      return db.rawLog[index].id;
+    }
+  }
+
+  return null;
+}
+
 /** Wait before the one automatic retry of a narrator call that failed before writing anything. */
 const NARRATOR_RETRY_DELAY_MS = 1500;
 
@@ -183,7 +196,10 @@ type GameContextValue = {
   /** Sends Kan's input. `remember` follows the offered flashback into the memory (the "Remember" chip). */
   sendTurn: (input: string, options?: { remember?: string }) => Promise<void>;
   regenerate: () => Promise<void>;
-  undoLastTurn: () => Promise<void>;
+  /** Resolves true when a turn was undone (it can be redone for a few seconds). */
+  undoLastTurn: () => Promise<boolean>;
+  /** Puts back the turn the last undo took away, if nothing has happened since. */
+  redoLastUndo: () => Promise<boolean>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   switchSlotById: (slotId: string) => Promise<void>;
   createNewSlot: (slotName: string) => Promise<void>;
@@ -258,6 +274,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const abortRef = useRef<AbortController | null>(null);
   /** True when the player pressed Stop (not a timeout or a dropped call). */
   const stoppedRef = useRef(false);
+  /** The save as it was before the last undo, for Redo. */
+  const undoneRef = useRef<{ undone: AppDatabase; after: string | null; expires: number } | null>(null);
   /** Saves run one at a time, in order, so an older copy never lands last. */
   const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   /** Serializes read-modify-write on slots that aren't open right now. */
@@ -1112,8 +1130,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
 
   const undoLastTurn = useCallback(async () => {
-    if (openElsewhereRef.current) {
-      return;
+    if (openElsewhereRef.current || abortRef.current) {
+      return false;
     }
 
     if (backgroundPromiseRef.current) {
@@ -1123,18 +1141,44 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const current = dbRef.current;
 
     if (!current) {
-      return;
+      return false;
     }
 
     const restored = restoreLastSnapshot(current);
 
     if (!restored) {
-      return;
+      return false;
     }
 
-    await commitDb(carryOverMemory(current, restored));
+    const next = carryOverMemory(current, restored);
+    await commitDb(next);
+    undoneRef.current = { undone: current, after: lastStoryId(next), expires: Date.now() + REDO_WINDOW_MS };
     setStreamingText('');
     setError(null);
+    return true;
+  }, [commitDb]);
+
+  const redoLastUndo = useCallback(async () => {
+    const held = undoneRef.current;
+    undoneRef.current = null;
+    const live = dbRef.current;
+
+    // Only straight after the undo: a new turn or another story ends it.
+    if (
+      !held ||
+      !live ||
+      openElsewhereRef.current ||
+      abortRef.current ||
+      Date.now() > held.expires ||
+      live.meta.slotId !== held.undone.meta.slotId ||
+      lastStoryId(live) !== held.after
+    ) {
+      return false;
+    }
+
+    await commitDb({ ...held.undone, settings: live.settings, meta: live.meta });
+    setError(null);
+    return true;
   }, [commitDb]);
 
   const regenerate = useCallback(async () => {
@@ -1160,7 +1204,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const lastUser = [...current.rawLog].reverse().find((entry) => entry.kind === 'story' && entry.role === 'user');
     const snapshot = restoreLastSnapshot(current);
-    const restored = snapshot ? carryOverMemory(current, snapshot) : current;
+
+    // Without a snapshot (an imported save, or undo used up) a retry would
+    // send the action again on top of the turn, so it shows twice.
+    if (!snapshot) {
+      return;
+    }
+
+    const restored = carryOverMemory(current, snapshot);
+    undoneRef.current = null;
     await commitDb(restored);
     // The turn that stepped into a memory steps into it again.
     const remember =
@@ -1768,6 +1820,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       sendTurn,
       regenerate,
       undoLastTurn,
+      redoLastUndo,
       updateSettings,
       switchSlotById,
       createNewSlot,
@@ -1840,6 +1893,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       switchSlotById,
       toggleMemoryPin,
       undoLastTurn,
+      redoLastUndo,
       updateBond,
       mergeCharacters,
       setCharacterDeceased,

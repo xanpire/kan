@@ -341,7 +341,11 @@ Main file: `lib/rpg/game.tsx` (`GameProvider`).
 ### `undoLastTurn` / `regenerate`
 
 - Undo restores the most recent snapshot (taken just before the turn was saved), then `carryOverMemory` keeps summaries that finished later if everything they were written from still exists (`sourceLogIds` / `sourceSummaryIds`), plus pending jobs that still apply.
+- `carryOverMemory` also keeps the live `settings` and `meta`: undo takes back story, not the model you just picked, the story's name or when you last exported.
+- Undo keeps the last 5 turns (`SNAPSHOT_LIMIT`). After an undo a toast offers **Redo** for 8 s (`REDO_WINDOW_MS`, `redoLastUndo`): the save as it was before the undo is held in memory and put back only if no new turn happened since and the same story is open.
 - Regenerate re-sends the last user message from the pre-turn state (same carry-over).
+- Without a snapshot (an imported or duplicated save starts with none, and undo can use them up) Retry and Undo are hidden under the last reply, and `regenerate` does nothing, so a turn can never be sent twice.
+- Undo and Redo do nothing while a reply is being written.
 
 ---
 
@@ -910,7 +914,7 @@ Goal: wide, cinematic anime key frames, not evenly lit mid-shots. `paintScene.ts
 - `app/_layout.tsx` — fonts (Manrope), navigation, GameProvider, toasts, Android nav bar.
 Three tabs: **Story / Kan / Settings** (the Kan tab switches Bonds / Jutsu / Journal / Map). All list screens use the shared kit in `components/List.tsx` (`SectionLabel`, `ListCard`, `ListRow`, `FilterPills`, `Segmented`) and the type tokens in `constants/theme.ts` (`sectionLabel`, `rowTitle` 15 bold, `rowBody` 13, `rowMeta` 12, `prose` 16) — use them for new screens instead of one-off styles.
 
-- `app/(tabs)/index.tsx` — Story: narration as plain prose, Kan's turns as tinted blocks (`*actions*` italic), header with clock/date/location (tap → status sheet with mood, date, scene), news strip, a `+N min` time chip under each reply (tap to correct), Image / Retry / Undo under the latest reply, single-row composer with `"` and `*` markers, fullscreen image viewer.
+- `app/(tabs)/index.tsx` — Story: narration as plain prose, Kan's turns as tinted blocks (`*actions*` italic), header with clock/date/location (tap → status sheet with mood, date, scene), news strip, a `+N min` time chip under each reply (tap to correct), Image / Retry / Undo under the latest reply (Retry and Undo only when a snapshot exists), the send button turning into Stop while narrating, single-row composer with `"` and `*` markers, fullscreen image viewer.
 - `app/(tabs)/kan.tsx` — Kan hub: `components/kan/PortraitHeader.tsx` (current portrait, outdated reason, Refresh, history strip) plus a sticky Bonds / Jutsu / Journal / Map switch.
   - `BondsSection.tsx` — search + compact rows (people you have met; unmet canon cast is hidden) (avatar — their latest portrait when painted, name, Major tag, affinity bar, relationship · last seen), sorted by most recent contact; rows open `app/(tabs)/bond/[id].tsx` (portrait with Paint/Repaint and face reference, bond meter, chips, mood/personality/speech/appearance, shared memories, Merge with…).
   - **Only what Kan could know** (`lib/rpg/disclosure.ts`): the bond meter and list bar show *your* feelings (`yourFeelings`); theirs only as a word ("Toward you they seem warm", `howTheySeem`), with no note, attraction chip or romance note. Mood shows only while they are with you; otherwise "Last you saw them" with the date. A grudge (bond page, list label, enemies group, Journal thread) shows only once they have struck (`grudgeKnown`). Profile fields and portrait prompts use `shownField`: canon secrets in the seed (Sasori inside Hiruko, Tobi, Kabuto the spy, Minato and Kushina as Naruto's parents, Yagura's genjutsu…) show a version Kan could know until the milestone in `DISCLOSURES` is known; text the story itself wrote shows as it is. The narrator still gets everything. The bingo-book card never hints at listings you haven't seen. Tests: `scripts/immersion.test.ts`.

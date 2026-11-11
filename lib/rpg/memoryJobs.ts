@@ -1365,6 +1365,10 @@ export function carryOverMemory(current: AppDatabase, restored: AppDatabase): Ap
 
   const merged: AppDatabase = {
     ...restored,
+    // Undo takes back story, not choices made since: the model you just
+    // picked, the story's new name and when you last exported all stay.
+    settings: current.settings,
+    meta: current.meta,
     summaries: [...restored.summaries, ...extraSummaries],
     events: [...restored.events, ...extraEvents],
     eventEntities: [

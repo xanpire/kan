@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, Info } from 'lucide-react-native';
 import {
   Animated,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -20,17 +21,30 @@ import {
 
 import { colors, fonts, radius } from '@/constants/theme';
 
-type ToastTone = 'success' | 'error' | 'info';
+import { toastDuration, type ToastTone } from './toastTiming';
+
+type ToastAction = { label: string; onPress: () => void };
+
+export type ToastOptions = {
+  /** A button on the toast (e.g. "Redo"). Tapping it closes the toast. */
+  action?: ToastAction;
+  /** How long it stays. Defaults to the time it takes to read; errors stay until tapped. */
+  durationMs?: number;
+};
 
 type ToastState = {
   id: number;
   message: string;
   tone: ToastTone;
+  action?: ToastAction;
+  /** Null: stays until tapped. */
+  durationMs: number | null;
 };
 
 type ToastContextValue = {
-  showToast: (message: string, tone?: ToastTone) => void;
+  showToast: (message: string, tone?: ToastTone, options?: ToastOptions) => void;
 };
+
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 const useNativeDriver = Platform.OS !== 'web';
@@ -42,9 +56,35 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const insets = useSafeAreaInsets();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = useCallback((message: string, tone: ToastTone = 'info') => {
-    setToast({ id: Date.now(), message, tone });
+  const showToast = useCallback((message: string, tone: ToastTone = 'info', options?: ToastOptions) => {
+    setToast({
+      id: Date.now(),
+      message,
+      tone,
+      action: options?.action,
+      durationMs: toastDuration(message, tone, options),
+    });
   }, []);
+
+  const hide = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver,
+      }),
+      Animated.timing(translateY, {
+        toValue: 6,
+        duration: 180,
+        useNativeDriver,
+      }),
+    ]).start(() => setToast(null));
+  }, [opacity, translateY]);
 
   useEffect(() => {
     if (!toast) {
@@ -70,27 +110,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       }),
     ]).start();
 
-    timer.current = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver,
-        }),
-        Animated.timing(translateY, {
-          toValue: 6,
-          duration: 180,
-          useNativeDriver,
-        }),
-      ]).start(() => setToast(null));
-    }, 2800);
+    if (toast.durationMs !== null) {
+      timer.current = setTimeout(hide, toast.durationMs);
+    }
 
     return () => {
       if (timer.current) {
         clearTimeout(timer.current);
       }
     };
-  }, [opacity, toast, translateY]);
+  }, [hide, opacity, toast, translateY]);
 
   const value = useMemo(() => ({ showToast }), [showToast]);
   const ToneIcon =
@@ -111,7 +140,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {toast ? (
         <Animated.View
-          pointerEvents="none"
+          pointerEvents="box-none"
           style={[
             styles.toastDock,
             {
@@ -121,10 +150,29 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             },
           ]}
         >
-          <View accessibilityLiveRegion="polite" style={styles.toast}>
+          <Pressable
+            accessibilityHint="Closes this message"
+            accessibilityLiveRegion="polite"
+            onPress={hide}
+            style={styles.toast}
+          >
             <ToneIcon color={toneColor} size={18} strokeWidth={2} />
             <Text style={styles.message}>{toast.message}</Text>
-          </View>
+            {toast.action ? (
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => {
+                  const action = toast.action;
+                  hide();
+                  action?.onPress();
+                }}
+                style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+              >
+                <Text style={styles.actionLabel}>{toast.action.label}</Text>
+              </Pressable>
+            ) : null}
+          </Pressable>
         </Animated.View>
       ) : null}
     </ToastContext.Provider>
@@ -165,6 +213,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 24,
     elevation: 12,
+  },
+  action: {
+    minHeight: 32,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+  },
+  actionPressed: {
+    opacity: 0.6,
+  },
+  actionLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.accentTint,
   },
   message: {
     flex: 1,
