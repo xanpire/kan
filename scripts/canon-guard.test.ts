@@ -71,3 +71,77 @@ describe('canon marks (audit 6.18)', () => {
     expect(filterCanonMarks(db, { passed: ['jiraiya-dies'] }).passed).toEqual([]);
   });
 });
+
+import { advanceCanon } from '../lib/rpg/canon';
+import { CANON_MILESTONES } from '../lib/rpg/canonData';
+import { canonRoleAhead, milestoneKeyActors, milestoneNeeds } from '../lib/rpg/canonRoles';
+import { markDeceased } from '../lib/rpg/deaths';
+import { buildNarrationPrompt } from '../lib/rpg/prompt';
+
+const atYear = (db: AppDatabase, year: number, month = 1): AppDatabase => ({
+  ...db,
+  state: { ...db.state, inStoryDate: { ...db.state.inStoryDate, year, month, day: 1 } },
+});
+const person = (db: AppDatabase, name: string) => db.entities.find((entity) => entity.name === name);
+
+describe('canon protects itself (audit 6.19)', () => {
+  test('the tracker cannot kill Hidan in year 15; Asuma still dies on his date', () => {
+    let db = advanceCanon(atYear(seed(), 15));
+    expect(person(db, 'Hidan')).toBeDefined();
+    const turn = { turnLogId: lastReply(db), userMessage: '*I strike.*', narration: 'Your blade takes Hidan through the chest.' };
+    const result = applyStateStep(db, { deaths: [{ name: 'Hidan' }] }, turn, new Set());
+    expect(isDeceased(person(result.db, 'Hidan')!)).toBe(false);
+    expect(result.events.some((event) => event.kind === 'refused' && event.text.includes('Hidan'))).toBe(true);
+
+    db = advanceCanon(atYear(result.db, 21, 11), { inCombat: false });
+    expect(isDeceased(person(db, 'Asuma Sarutobi')!)).toBe(true);
+  });
+
+  test('an old save with Hidan already dead skips the milestone instead of firing it as written', () => {
+    let db = advanceCanon(atYear(seed(), 15));
+    db = markDeceased(db, person(db, 'Hidan')!.id, { cause: 'an old save', known: true });
+    db = advanceCanon(atYear(db, 21, 11));
+    expect(isDeceased(person(db, 'Asuma Sarutobi')!)).toBe(false);
+    expect(db.state.canonProgress?.expired).toContain('hidan-kakuzu');
+  });
+
+  test('original characters and people whose role is over can die', () => {
+    const db = seed();
+    expect(canonRoleAhead(db, { name: 'Ren Kisaragi', aliases: [] })).toBeNull();
+    expect(canonRoleAhead(db, { name: 'Kan', aliases: [] })).toBeNull();
+    expect(canonRoleAhead(db, { name: 'Jiraiya', aliases: [] })?.id).toBeDefined();
+  });
+
+  test('in a fight, the card tells the narrator they must come out alive', () => {
+    let db = advanceCanon(atYear(seed(), 15));
+    const hidan = person(db, 'Hidan')!;
+    db = {
+      ...db,
+      entities: db.entities.map((entity) => (entity.id === hidan.id ? { ...entity, met: true } : entity)),
+      state: { ...db.state, scenePace: 'combat', sceneCast: ['Hidan'] },
+    };
+    const text = buildNarrationPrompt(db, '*I strike.*').messages.map((message) => message.content).join('\n');
+    expect(text).toContain('[CANON: cannot die here');
+  });
+
+  test('data: everyone a milestone needs or kills is alive in canon up to it', () => {
+    const dead = new Set<string>();
+
+    for (const milestone of CANON_MILESTONES) {
+      for (const name of [...milestoneNeeds(milestone), ...(milestone.deaths ?? [])]) {
+        expect(`${milestone.id}: ${name} ${dead.has(name) ? 'is already dead' : 'ok'}`).toBe(`${milestone.id}: ${name} ok`);
+      }
+
+      for (const name of milestone.deaths ?? []) {
+        dead.add(name);
+      }
+    }
+
+    expect(milestoneNeeds(CANON_MILESTONES.find((item) => item.id === 'hidan-kakuzu')!)).toEqual(
+      expect.arrayContaining(['Asuma Sarutobi', 'Hidan', 'Kakuzu'])
+    );
+    expect(milestoneKeyActors(CANON_MILESTONES.find((item) => item.id === 'hidan-kakuzu')!)).toEqual(
+      expect.arrayContaining(['Hidan', 'Kakuzu', 'Asuma Sarutobi'])
+    );
+  });
+});

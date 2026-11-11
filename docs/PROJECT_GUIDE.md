@@ -507,6 +507,15 @@ Before they are applied, `filterCanonMarks` (`newsDelivery.ts`) keeps only ids t
 - `canon_engaged` → record the event, add to `active` + `engaged` (not completed).
 - `canon_passed` → complete without attendance, log a “never crossed paths” fact.
 
+### Canon protects itself (`canonRoles.ts`)
+
+Decided by Xan: anyone with a canon role still ahead cannot die early. `milestoneNeeds` lists who a milestone needs: its own `needs` when set, otherwise the canon people its title and description name plus its `deaths`, leaving out anyone canon has already killed by then. `canonRoleAhead(db, entity)` is the first not-completed milestone (a closed personal beat doesn't count) that needs them; Kan and original characters never have one.
+
+- A tracker death for someone canon still needs is refused (`applyTurnDiff`; a `refused` event in Debug). Someone already dead is only being learned about, so that report always goes through. **Mark as dead** on the bond page is the player's own override and is not guarded.
+- In a fight (combat or chase pace, or fight mode) their card in CHARACTERS IN SCENE carries `[CANON: cannot die here; still needed for "…". If this scene would kill them, they get out alive: …]`.
+- Safety net for old saves: when a key actor (named in the title, or killed by it) is already dead in the save, `advanceCanon` skips the milestone (completed and expired) instead of firing it as written.
+- A data test checks that every milestone's needs and deaths are alive in canon up to it.
+
 ### News & rumors
 
 - Every fired world event is **unheard** until delivered.

@@ -98,6 +98,11 @@ export type CanonMilestone = {
   grantsJutsu?: CanonJutsuGrant[];
   facts: string[];
   /**
+   * Who must be alive for it to happen as written. Optional: by default the
+   * canon people its title and description name (canonRoles.ts).
+   */
+  needs?: string[];
+  /**
    * People this milestone kills, by name. When it fires they are marked dead
    * on their own record (deaths.ts); anyone the save does not have is skipped.
    */

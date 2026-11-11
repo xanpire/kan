@@ -33,6 +33,7 @@ import { estimateTokens } from '../openrouter';
 import { DEFAULT_SETTINGS } from './defaults';
 import { PLACE_NAME_RULE, localizePlaceNames } from './glossary';
 import { isDeceased, kanKnowsDeath } from './deaths';
+import { canonRoleAhead, canonSurvivalLine } from './canonRoles';
 import { resolveEntity } from './entities';
 import { alsoKnownAs, displayName, identitiesOf, identityLine, kanKnowsLine, kanKnowsName, labelOf, narratorName } from './names';
 import { companionsOf, daysTogether, formatTogether } from './companions';
@@ -728,11 +729,22 @@ function formatMatchedEntities(db: AppDatabase, entityIds: Set<string>) {
     return `\n  ${kanKnowsLine(db, entity)}.${line ? `\n${line}` : ''}`;
   };
 
+  // In a fight, anyone canon still needs is told to come out of it alive.
+  const fighting = isCombatPace(db.state.scenePace) || db.state.sceneMode?.current === 'fight';
+  const survives = (entity: EntityRecord) => {
+    if (!fighting || isDeceased(entity) || !present.includes(entity.id)) {
+      return '';
+    }
+
+    const ahead = canonRoleAhead(db, entity);
+    return ahead ? `\n  ${canonSurvivalLine(ahead)}` : '';
+  };
+
   return [
     'CHARACTERS IN SCENE',
     ...characters.map(
       (entity) =>
-        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}`
+        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${survives(entity)}`
     ),
   ].join('\n');
 }

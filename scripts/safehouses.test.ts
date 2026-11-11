@@ -39,6 +39,15 @@ import { convertStateBlock } from '../lib/rpg/stateBlock';
 import { TURN_STATE_SCHEMA } from '../lib/rpg/stateSchema';
 import type { AppDatabase, CalendarDate } from '../lib/rpg/types';
 
+import { CANON_MILESTONES } from '../lib/rpg/canonData';
+
+/** Every canon role played out, so canon no longer protects anyone (canonRoles.ts). */
+function canonDone<T extends { state: { canonProgress?: unknown } }>(db: T): T {
+  const ids = CANON_MILESTONES.map((milestone) => milestone.id);
+  const progress = (db.state.canonProgress ?? {}) as Record<string, unknown>;
+  return { ...db, state: { ...db.state, canonProgress: { version: 3, active: [], engaged: [], ...progress, completed: ids } } } as T;
+}
+
 const NOW: CalendarDate = { year: 14, month: 7, day: 10, hour: 21, minute: 0, second: 0 };
 
 function save(change: Partial<AppDatabase['state']> = {}): AppDatabase {
@@ -436,7 +445,7 @@ describe('being found', () => {
   });
 
   test('a borrowed place ends when Kan knows the host died', () => {
-    let db = save({ location: "Hana's attic in the Hidden Leaf", locationKind: 'structure', sceneCast: ['Hana Inuzuka'] });
+    let db = canonDone(save({ location: "Hana's attic in the Hidden Leaf", locationKind: 'structure', sceneCast: ['Hana Inuzuka'] }));
     db = play(db, '*You sleep in the attic.*', 'Hana lets you sleep in her attic.', {
       ...night,
       characters_present: ['hana-inuzuka'],

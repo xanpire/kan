@@ -49,6 +49,14 @@ function loadSave(_path?: string): AppDatabase {
   return normalizeDatabase(seedDatabase('slot_test', 'Test story'));
 }
 
+
+/** Every canon role played out, so canon no longer protects anyone (canonRoles.ts). */
+function canonDone<T extends { state: { canonProgress?: unknown } }>(db: T): T {
+  const ids = CANON_MILESTONES.map((milestone) => milestone.id);
+  const progress = (db.state.canonProgress ?? {}) as Record<string, unknown>;
+  return { ...db, state: { ...db.state, canonProgress: { version: 3, active: [], engaged: [], ...progress, completed: ids } } } as T;
+}
+
 describe('seed save compatibility', () => {
   {
     test('loads and normalizes the seeded story', () => {
@@ -2540,7 +2548,7 @@ describe('deaths', () => {
   });
 
   test('the state tracker reports a death on screen, including someone new this turn', () => {
-    let db = loadSave();
+    let db = canonDone(loadSave());
     const { diff } = convertStateBlock({
       new_characters: [{ is_new: true, name: 'Goro the Bandit', age: 30, role: 'Bandit', personality: null, speech_style: null, appearance: null }],
       deaths: [
@@ -2850,7 +2858,7 @@ describe('companions', () => {
     expect(parted.state.sceneCast ?? []).not.toContain('Itachi Uchiha');
     expect(parted.facts.some((fact) => fact.text.startsWith('Itachi Uchiha parted ways with you'))).toBe(true);
 
-    const died = applyTurnDiff(db, { deaths: [{ entityId: id, name: 'Itachi Uchiha', cause: 'illness' }] });
+    const died = applyTurnDiff(canonDone(db), { deaths: [{ entityId: id, name: 'Itachi Uchiha', cause: 'illness' }] });
     expect(companionsOf(died)).toHaveLength(0);
     expect(itachiOf(died).companion).toBeUndefined();
   });

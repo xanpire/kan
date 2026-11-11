@@ -9,11 +9,12 @@ import { applyCanonEndgames } from './canonEndgame';
 import { daysBetween, formatDate } from './calendar';
 import { applyClockChange, applyClockTick } from './clock';
 import { applyCompanionChanges, applySharedScene, castWithCompanions } from './companions';
-import { markAlive, markDeceased } from './deaths';
+import { isDeceased, markAlive, markDeceased } from './deaths';
 import { buildIndices } from './db';
 import { type DebugCallKind, recordDebugCall, recordDebugState } from './debug';
 import { validateLocationKind } from './encounters';
 import { guardBondDiff, isBigTurn } from './bondGuard';
+import { canonRoleAhead } from './canonRoles';
 import type { DebugEvent } from './debugEvents';
 import { applyEntityDiff, mergeDuplicateEntities, recordPresence, resolveCharacterRefs, resolveEntity } from './entities';
 import { applyGrudgeChanges } from './grudges';
@@ -88,9 +89,23 @@ export function applyTurnDiff(
         ? next.entities.find((item) => item.id === death.entityId)
         : resolveEntity(next, death.name);
 
-      if (entity) {
-        next = markDeceased(next, entity.id, { cause: death.cause, known: true });
+      if (!entity) {
+        continue;
       }
+
+      // Canon protects itself: someone canon still needs cannot die early.
+      // (Someone already dead is only being learned about: always allowed.)
+      const ahead = isDeceased(entity) ? null : canonRoleAhead(next, entity);
+
+      if (ahead) {
+        options.events?.push({
+          kind: 'refused',
+          text: `Death of ${entity.name} refused: still needed for "${ahead.title}".`,
+        });
+        continue;
+      }
+
+      next = markDeceased(next, entity.id, { cause: death.cause, known: true });
     }
   }
 

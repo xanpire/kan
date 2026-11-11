@@ -23,6 +23,7 @@ import {
   type CanonWindow,
 } from './canonData';
 import { markDeathsByName } from './deaths';
+import { missingKeyActor } from './canonRoles';
 import { castAppearingWith, ensureCanonCast } from './canonCast';
 import { knowersOf } from './facts';
 import { resolveEntity } from './entities';
@@ -542,6 +543,14 @@ export function advanceCanon(db: AppDatabase, options: { inCombat?: boolean } = 
 
     if (!started || !worldChainIntact) {
       worldChainIntact = false;
+      continue;
+    }
+
+    // Safety net: someone it is about is already dead in this save (an old
+    // save from before canon protected itself). Skip it; never fire it as written.
+    if (missingKeyActor(next, milestone)) {
+      complete(id);
+      progress = { ...progress, expired: addId(progress.expired ?? [], id) };
       continue;
     }
 
