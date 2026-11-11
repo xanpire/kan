@@ -409,7 +409,9 @@ The current action appears **once** (it is excluded from the recent-message bloc
   - tag/keyword overlap,
   - importance,
   - recency (in-story date),
-  - pinning.
+  - pinning,
+  - +6 when someone in the scene cast (or a companion) was `present` / `participant` in it (sharing it, not just being named).
+  A memory whose source turns are still in RECENT SCENE (`sourceLogId`, `turnLogId`, or its chapter summary's `sourceLogIds`) is never recalled: the page already shows it.
 - `relevantFacts(db, entityIds, text, sceneIds)` ranks active facts, capped at **10**: Kan's own injuries, conditions and possessions; facts about people in the scene (cast and companions); secrets, plans and relationships they are part of; facts about people named in the recent text; facts whose distinctive words (5+ letters, case-blind, at least two) the text uses; newest first within each rank. With fewer than 4 relevant, the newest others fill in.
 - `triggeredLore(db, text)` matches keyword-triggered lore entries, capped at **4**.
 - Events (memories) are created by `recordSceneEvent` (on `scene.ended`; raw prose titled with the scene's name until replaced), by **every chapter summary** (`saveSummaryMemory` in `memoryJobs.ts`: tagged `summary`, `title` from the summary, `summary` = the model's one-to-two sentence MEMORY line, `summaryId` back to the chapter summary, linked as `present` to everyone in the scene cast on the turns it was written from (never to people it merely names), folding in the scene-end events made on those same turns), time skips, and canon milestones.

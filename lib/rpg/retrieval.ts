@@ -1,6 +1,8 @@
 import { loreActive } from './lore';
 import { daysBetween, sameDate } from './calendar';
 import { mentionsEntity } from './characterRefs';
+import { castWithCompanions } from './companions';
+import { resolveEntity } from './entities';
 import type {
   AppDatabase,
   EntityRecord,
@@ -77,13 +79,34 @@ export function retrieveMemories(
     }
   }
 
+  // What RECENT SCENE already shows is never recalled as a memory (audit 6.6).
+  const onPage = new Set(query.recentMessages.map((message) => message.id).filter(Boolean));
+  const summarySources = new Map(db.summaries.map((summary) => [summary.id, summary.sourceLogIds ?? []]));
+  const isOnPage = (event: EventRecord) =>
+    onPage.size > 0 &&
+    [event.sourceLogId, event.turnLogId, ...(event.summaryId ? (summarySources.get(event.summaryId) ?? []) : [])].some(
+      (id) => id && onPage.has(id)
+    );
+
+  // Memories shared with the people actually here count more than ones that only name them.
+  const sceneIds = new Set(
+    castWithCompanions(db, db.state.sceneCast ?? [])
+      .map((name) => resolveEntity(db, name)?.id)
+      .filter((id): id is string => Boolean(id))
+  );
+  const sharedWithScene = new Set(
+    db.eventEntities
+      .filter((link) => sceneIds.has(link.entityId) && (link.role === 'present' || link.role === 'participant'))
+      .map((link) => link.eventId)
+  );
+
   const eventsById = new Map(db.events.map((event) => [event.id, event]));
   const scored = [...candidateIds]
     .map((id) => eventsById.get(id))
-    .filter((event): event is EventRecord => Boolean(event))
+    .filter((event): event is EventRecord => Boolean(event) && !isOnPage(event!))
     .map((event) => ({
       event,
-      score: scoreEvent(event, entityIds, tags, db),
+      score: scoreEvent(event, entityIds, tags, db) + (sharedWithScene.has(event.id) ? 6 : 0),
     }))
     .sort((a, b) => b.score - a.score);
 

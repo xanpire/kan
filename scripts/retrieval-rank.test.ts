@@ -120,3 +120,48 @@ describe('missions and goals fill in (audit 6.17)', () => {
     expect(db.threads.at(-1)!.type).toBe('quest');
   });
 });
+
+import { retrieveMemories } from '../lib/rpg/retrieval';
+import { buildIndices } from '../lib/rpg/db';
+
+describe('retrieval skips what is already on the page (audit 6.6)', () => {
+  test('a memory of the scene still in RECENT SCENE is not recalled; one shared with the people here ranks up', () => {
+    const db = seed();
+    const recent = { ...db.rawLog[0], id: 'log_recent', role: 'assistant' as const, kind: 'story' as const, content: 'You and Itachi argue by the river.' };
+    const itachi = db.entities.find((entity) => entity.name === 'Itachi Uchiha')!.id;
+    const event = (id: string, summary: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      chapter: 1,
+      scene: 's',
+      inStoryDate: db.state.inStoryDate,
+      summary,
+      importance: 3 as const,
+      tags: ['river'],
+      pinned: false,
+      sourceLogId: null,
+      createdAt: 1,
+      ...extra,
+    });
+    let next: AppDatabase = {
+      ...db,
+      rawLog: [...db.rawLog, recent],
+      state: { ...db.state, sceneCast: ['Itachi Uchiha'] },
+      events: [
+        ...db.events,
+        event('ev_now', 'You argue with Itachi by the river.', { turnLogId: 'log_recent' }),
+        event('ev_shared', 'Years ago you and Itachi trained at the river.'),
+        event('ev_named', 'Someone mentioned Itachi near a river once.'),
+      ],
+      eventEntities: [
+        ...db.eventEntities,
+        { eventId: 'ev_shared', entityId: itachi, role: 'present' as const },
+        { eventId: 'ev_named', entityId: itachi, role: 'mentioned' as const },
+        { eventId: 'ev_now', entityId: itachi, role: 'present' as const },
+      ],
+    };
+    next = { ...next, indices: buildIndices(next) };
+    const picked = retrieveMemories(next, { recentMessages: [recent], userMessage: '*I look at the river.*' }, 5).map((item) => item.id);
+    expect(picked).not.toContain('ev_now');
+    expect(picked.indexOf('ev_shared')).toBeLessThan(picked.indexOf('ev_named'));
+  });
+});
