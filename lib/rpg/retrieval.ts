@@ -131,37 +131,76 @@ function scoreEvent(
   return score;
 }
 
+/** Words too common to tell one fact from another. */
+const FACT_STOP_WORDS = new Set([
+  'about', 'after', 'again', 'against', 'being', 'before', 'could', 'every', 'their', 'there', 'these', 'those',
+  'which', 'while', 'would', 'where', 'other', 'still', 'never', 'through', 'under', 'knows', 'known', 'yours',
+]);
+
+function distinctiveWords(text: string) {
+  return [
+    ...new Set(
+      text
+        .toLowerCase()
+        .replace(/[^\p{L}\s-]/gu, ' ')
+        .split(/\s+/)
+        .filter((word) => word.length >= 5 && !FACT_STOP_WORDS.has(word))
+    ),
+  ];
+}
+
+/** How many facts the narrator gets each turn. */
+export const FACT_LIMIT = 10;
+
+const dateRank = (date: { year: number; month: number; day: number } | null | undefined) =>
+  date ? date.year * 10000 + date.month * 100 + date.day : 0;
+
+/**
+ * The facts worth the narrator's attention this turn (audit 6.3), ranked:
+ * what is true about Kan right now (injuries, conditions, what he carries),
+ * then facts about people in the scene, secrets and plans they are part of,
+ * people named in the recent text, facts whose distinctive words the text
+ * uses; newest first within each. With nothing to go on, the newest facts.
+ */
 export function relevantFacts(
   db: AppDatabase,
   entityIds: Set<string>,
-  text: string
+  text: string,
+  sceneIds: Set<string> = new Set()
 ): FactRecord[] {
   const active = db.facts.filter((fact) => fact.validTo === null);
-  const matched = new Set<FactRecord>();
+  const lower = text.toLowerCase();
+  const kanId = db.entities.find((entity) => entity.name.toLowerCase() === 'kan')?.id ?? null;
 
-  for (const entityId of entityIds) {
-    for (const factId of db.indices.factsBySubject[entityId] ?? []) {
-      const fact = active.find((item) => item.id === factId);
+  const score = (fact: FactRecord) => {
+    const aboutKan = fact.subjectEntityId !== null && fact.subjectEntityId === kanId;
+    const involves = (ids: Set<string>) =>
+      (fact.subjectEntityId !== null && ids.has(fact.subjectEntityId)) || fact.whoKnows.some((id) => ids.has(id));
 
-      if (fact) {
-        matched.add(fact);
-      }
-    }
+    if (aboutKan && (fact.type === 'injury' || fact.type === 'condition' || fact.type === 'possession')) return 6;
+    if (fact.subjectEntityId !== null && sceneIds.has(fact.subjectEntityId)) return 5;
+    if ((fact.type === 'secret' || fact.type === 'plan' || fact.type === 'relationship') && involves(sceneIds)) return 4;
+    if (fact.subjectEntityId !== null && entityIds.has(fact.subjectEntityId)) return 3;
+
+    const words = distinctiveWords(fact.text);
+    const hits = words.filter((word) => lower.includes(word)).length;
+
+    if (words.length > 0 && hits >= Math.min(2, words.length)) return 2;
+    return 0;
+  };
+
+  const ranked = active
+    .map((fact) => ({ fact, rank: score(fact) }))
+    .sort((a, b) => b.rank - a.rank || dateRank(b.fact.validFrom) - dateRank(a.fact.validFrom));
+  const relevant = ranked.filter((entry) => entry.rank > 0).map((entry) => entry.fact);
+
+  if (relevant.length >= 4) {
+    return relevant.slice(0, FACT_LIMIT);
   }
 
-  for (const fact of active) {
-    if (text.includes(fact.text.toLowerCase().slice(0, 20))) {
-      matched.add(fact);
-    }
-  }
-
-  if (matched.size < 4) {
-    for (const fact of active.slice(0, 4)) {
-      matched.add(fact);
-    }
-  }
-
-  return [...matched].slice(0, 10);
+  // Too little to go on: fill with the newest facts, not the oldest.
+  const newest = ranked.filter((entry) => entry.rank === 0).map((entry) => entry.fact);
+  return [...relevant, ...newest].slice(0, Math.max(4, Math.min(FACT_LIMIT, relevant.length + 4)));
 }
 
 export function triggeredLore(db: AppDatabase, text: string): LoreRecord[] {

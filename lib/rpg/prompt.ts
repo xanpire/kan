@@ -64,6 +64,7 @@ import type {
   OpenRouterMessage,
   RawLogEntry,
   SceneModeName,
+  ThreadRecord,
 } from './types';
 
 const MIN_SCENE_MESSAGES = 4;
@@ -227,7 +228,12 @@ export function buildNarrationPrompt(
       .filter((entity) => mentionsEntity(entityText, entity))
       .map((entity) => entity.id),
   ]);
-  const allFacts = relevantFacts(db, matchedEntityIds, entityText);
+  const allFacts = relevantFacts(
+    db,
+    matchedEntityIds,
+    entityText,
+    new Set([...companionsOf(db).map((entity) => entity.id), ...sceneCastIdsOf(db)])
+  );
   const allLore = triggeredLore(db, entityText);
   // What the prompt budget cuts first (see the loop at the end): older
   // memories, then the less relevant facts and lore, and only then the
@@ -985,15 +991,22 @@ function uniqueById<T extends { id: string }>(items: T[]) {
   return items.filter((item) => (seen.has(item.id) ? false : (seen.add(item.id), true)));
 }
 
+/**
+ * Open threads, ranked (audit 6.4): those involving someone in the scene,
+ * then the most important, then the newest. A years-old promise no longer
+ * falls off the list just because newer, smaller threads opened.
+ */
 function formatThreads(db: AppDatabase) {
+  const scene = new Set([...companionsOf(db).map((entity) => entity.id), ...sceneCastIdsOf(db)]);
+  const involvesScene = (thread: ThreadRecord) => (thread.participantIds ?? []).some((id) => scene.has(id));
   const threads = db.threads
     .filter((thread) => thread.status === 'open')
-    .sort((a, b) => {
-      const aTime = a.openedAt ? dateKey(a.openedAt) : 0;
-      const bTime = b.openedAt ? dateKey(b.openedAt) : 0;
-
-      return bTime - aTime;
-    })
+    .sort(
+      (a, b) =>
+        Number(involvesScene(b)) - Number(involvesScene(a)) ||
+        (b.importance ?? 3) - (a.importance ?? 3) ||
+        (b.openedAt ? dateKey(b.openedAt) : 0) - (a.openedAt ? dateKey(a.openedAt) : 0)
+    )
     .slice(0, 8);
 
   if (threads.length === 0) {
