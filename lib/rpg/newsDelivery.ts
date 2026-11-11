@@ -44,6 +44,10 @@ export const CATCH_UP_QUIET_DAYS = 14;
 /** At most this many events in one catch-up report. */
 export const CATCH_UP_MAX = 4;
 
+/** After this long without news (a time skip), a catch-up report may carry more. */
+export const LONG_QUIET_DAYS = 180;
+export const CATCH_UP_MAX_AFTER_SKIP = 8;
+
 /** Minor news older than this is only heard in passing. */
 export const STALE_MINOR_NEWS_DAYS = 60;
 
@@ -350,7 +354,8 @@ export function newsOffer(db: AppDatabase, options: { ignoreCombat?: boolean } =
   if (quietDays >= CATCH_UP_QUIET_DAYS && bundleable.length >= 2) {
     return {
       mode: 'catch-up',
-      items: bundleable.slice(0, CATCH_UP_MAX).map((item) => offered(db, item, present)),
+      // After a long stretch (a time skip), the first report can carry more (audit 6.15).
+      items: bundleable.slice(0, quietDays >= LONG_QUIET_DAYS ? CATCH_UP_MAX_AFTER_SKIP : CATCH_UP_MAX).map((item) => offered(db, item, present)),
       style: catchUpStyle(db, present),
       quietDays,
       ...passing,
