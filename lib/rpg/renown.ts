@@ -27,7 +27,7 @@ import { encounterRisk, locationKindOf } from './encounters';
 import { resolveEntity } from './entities';
 import { REGION_NAME, regionOf, travelDaysBetween, type Region } from './geography';
 import { makeId } from './id';
-import { LEAF_START_REASON, VILLAGE_NAME, bingoListings, formatRyo, territoryOf } from './reputation';
+import { LEAF_START_REASON, VILLAGE_NAME, bingoListings, formatRyo, territoryHere, territoryOf } from './reputation';
 import { hashText, playerTurnCount } from './util';
 import type { AppDatabase, Audience, Deed, Epithet, RenownState, TurnDiff, VillageFaction } from './types';
 
@@ -440,7 +440,7 @@ const SKETCH: Record<string, string> = { B: 'poor', A: 'fair', S: 'good' };
 export function posterLine(db: AppDatabase): string {
   if (!placeThatTalks(db)) return '';
 
-  const village = territoryOf(`${db.state.location} ${db.state.scene ?? ''}`);
+  const village = territoryHere(db);
   const listing = bingoListings(db).find((item) => item.village === village && item.rank !== 'C');
 
   if (!listing || !village) return '';

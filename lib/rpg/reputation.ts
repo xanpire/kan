@@ -20,6 +20,7 @@ import { dateSortValue, daysBetween, timeOfDayOf } from './calendar';
 import { isCombatPace } from './canon';
 import { encounterRisk, locationKindOf } from './encounters';
 import { localizePlaceNames } from './glossary';
+import { TERRITORY_OF_REGION, currentRegion, regionOf } from './geography';
 import { clamp, hashText, playerTurnCount } from './util';
 import type {
   AppDatabase,
@@ -315,28 +316,20 @@ export function applyReputationChanges(
 // ---------------------------------------------------------------------------
 // Where Kan stands, and who would know his face
 
-const TERRITORY: Array<[RegExp, VillageFaction]> = [
-  [/\b(leaf|konoha|land of fire|fire country|tanzaku|otafuku|uchiha|nakano|forest of death)\b/i, 'leaf'],
-  [/\b(sand|suna|land of wind|wind country|desert)\b/i, 'sand'],
-  [/\b(mist|kiri|land of water|water country)\b/i, 'mist'],
-  [/\b(cloud|kumo|land of lightning|lightning country)\b/i, 'cloud'],
-  [/\b(stone|iwa|land of earth|earth country)\b/i, 'stone'],
-];
-
-/** The great village whose land Kan is in, or null in the small countries and the wilds between. */
+/**
+ * The great village whose land a place is in, or null in the small countries
+ * and the wilds between. Read from the region (audit 6b.1), so "a valley
+ * thick with the mist" is not the Hidden Mist.
+ */
 export function territoryOf(location: string): VillageFaction | null {
-  const text = localizePlaceNames(location ?? '');
-  let best: { index: number; village: VillageFaction } | null = null;
+  const region = regionOf(location);
+  return region ? (TERRITORY_OF_REGION[region] ?? null) : null;
+}
 
-  for (const [pattern, village] of TERRITORY) {
-    const match = pattern.exec(text);
-
-    if (match && (!best || match.index < best.index)) {
-      best = { index: match.index, village };
-    }
-  }
-
-  return best?.village ?? null;
+/** Whose land Kan stands on now: from where he is, or the last region on his road when the text names none. */
+export function territoryHere(db: AppDatabase): VillageFaction | null {
+  const region = regionOf(`${db.state.location} ${db.state.scene ?? ''}`) ?? currentRegion(db);
+  return TERRITORY_OF_REGION[region] ?? null;
 }
 
 function shinobiLine(name: string, listing: BingoListing | undefined) {
@@ -414,7 +407,7 @@ export function formatReputationBlock(db: AppDatabase): string {
   if (risk !== 'none') {
     const listings = bingoListings(db);
     const byVillage = new Map(listings.map((listing) => [listing.village, listing]));
-    const here = territoryOf(`${db.state.location} ${db.state.scene ?? ''}`);
+    const here = territoryHere(db);
     const cloak = hasCloak(db);
 
     if (here) {
@@ -517,7 +510,7 @@ export function hunterOffer(db: AppDatabase): HunterOffer | null {
   }
 
   // Hunter-nin only come for him on their own village's land.
-  const kinds = territoryOf(db.state.location) === listing.village
+  const kinds = territoryHere(db) === listing.village
     ? HUNTER_KINDS
     : HUNTER_KINDS.filter((item) => !item.includes('hunter-nin'));
 

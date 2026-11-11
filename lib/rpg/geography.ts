@@ -63,9 +63,11 @@ export const REGION_NAME: Record<Region, string> = {
 // Earliest match in the text wins, so "a teahouse in the Rain, three days
 // from the Leaf" is the Rain.
 const PATTERNS: Array<[RegExp, Region]> = [
-  [/\b(hidden leaf|konoha|leaf village|land of fire|fire country|naka (river|shrine)|uchiha district|valley of the end)\b/i, 'fire'],
+  // Proper names only (audit 6b.1): "leaf", "rain", "stone", "mist", "sand", "cloud", "desert" or
+  // "samurai" alone never place Kan; the capitalised "the Leaf" forms are below, case-sensitive.
+  [/\b(hidden leaf|konoha(gakure)?|leaf village|land of fire|fire country|naka (river|shrine)|uchiha (district|compound|quarter)|valley of the end|tanzaku|otafuku|fire temple|forest of death)\b/i, 'fire'],
   [/\b(hidden rain|amegakure|land of rain|rain country)\b/i, 'rain'],
-  [/\b(hidden grass|kusagakure|land of grass|grass country)\b/i, 'grass'],
+  [/\b(hidden grass|kusagakure|land of grass|grass country|tenchi bridge|h[oō]zuki castle|blood prison)\b/i, 'grass'],
   [/\b(hidden waterfall|takigakure|land of waterfalls?|waterfall village)\b/i, 'waterfall'],
   [/\b(land of hot water|hot water country|land of hot ?springs|yugakure|hidden steam|hot springs? town|bamboo village)\b/i, 'hot-water'],
   [/\b(land of rice( fields| paddies)?|rice country|land of sound|sound country|hidden sound|otogakure|sound village)\b/i, 'rice'],
@@ -77,11 +79,11 @@ const PATTERNS: Array<[RegExp, Region]> = [
   [/\b(land of (the )?sea|sea country|demon island|mother island)\b/i, 'sea'],
   [/\b(land of waves|wave country|great naruto bridge)\b/i, 'waves'],
   [/\b(land of rivers|river country|hidden valley|tanigakure|artisans'? village)\b/i, 'rivers'],
-  [/\b(hidden sand|sunagakure|land of wind|wind country|loran|rouran)\b/i, 'wind'],
-  [/\b(hidden stone|iwagakure|land of earth|earth country)\b/i, 'earth'],
-  [/\b(hidden mist|kirigakure|land of water|water country)\b/i, 'water'],
-  [/\b(hidden cloud|kumogakure|land of lightning|lightning country|island turtle|genbu)\b/i, 'lightning'],
-  [/\b(land of iron|iron country|samurai|three wolf mountains?|land of medicines?)\b/i, 'iron'],
+  [/\b(hidden sand|sunagakure|sand village|land of wind|wind country|loran|rouran|ceramic village)\b/i, 'wind'],
+  [/\b(hidden stone|iwagakure|stone village|land of earth|earth country)\b/i, 'earth'],
+  [/\b(hidden mist|kirigakure|mist village|land of water|water country|nadeshiko)\b/i, 'water'],
+  [/\b(hidden cloud|kumogakure|cloud village|land of lightning|lightning country|island turtle|genbu)\b/i, 'lightning'],
+  [/\b(land of iron|iron country|three wolf mountains?|land of medicines?)\b/i, 'iron'],
   // Only the names: "frost" alone is weather.
   [/\b(land of frost|frost country|hidden frost|shimogakure)\b/i, 'frost'],
   // "the Rain", "the Sand": only capitalised, so weather and beaches stay out.
@@ -91,6 +93,11 @@ const PATTERNS: Array<[RegExp, Region]> = [
   [/\bthe Mist\b/, 'water'],
   [/\bthe Cloud\b/, 'lightning'],
   [/\bthe Stone\b/, 'earth'],
+  // The villages' short Japanese names, capitalised: "Suna", "Kiri", "Kumo", "Iwa".
+  [/\bSuna\b/, 'wind'],
+  [/\bKiri\b/, 'water'],
+  [/\bKumo\b/, 'lightning'],
+  [/\bIwa\b/, 'earth'],
   [/\b(land of whirlpools|whirlpool country|uzushio|uzushiogakure|hidden whirlpool|hidden eddy)\b/i, 'whirlpools'],
 ];
 
@@ -206,6 +213,15 @@ export function regionOf(text: string | undefined | null): Region | null {
 
   return best?.region ?? null;
 }
+
+/** The great village whose land a region is; null for the small countries. */
+export const TERRITORY_OF_REGION: Partial<Record<Region, 'leaf' | 'sand' | 'mist' | 'cloud' | 'stone'>> = {
+  fire: 'leaf',
+  wind: 'sand',
+  water: 'mist',
+  lightning: 'cloud',
+  earth: 'stone',
+};
 
 /** Shinobi travel days between two regions. */
 export function travelDaysBetween(from: Region, to: Region): number {
