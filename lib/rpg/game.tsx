@@ -51,7 +51,7 @@ import {
   recordDebugCall,
   recordDebugState,
 } from './debug';
-import { streamChatCompletion } from '../openrouter';
+import { describeCallError, isTransientError, streamChatCompletion, type StreamResult } from '../openrouter';
 import { extractTurnDiff } from './services';
 import { appendStoryMessage, cloneDatabase, getLastExchange, pushSnapshot, restoreLastSnapshot } from './log';
 import { markAlive, markDeceased } from './deaths';
@@ -59,7 +59,7 @@ import { endCompanion, setCompanion } from './companions';
 import { mergeEntityPair } from './entities';
 import { addCharacterPortraitToDb, setCharacterFaceInDb } from './characterPortrait';
 import { deleteJutsuRecord, renameJutsuRecord } from './jutsu';
-import { trimToSentence } from './util';
+import { keepablePartial, trimToSentence } from './util';
 import { setSceneModeOverride } from './sceneMode';
 import { beginFlashback } from './flashbacks';
 import {
@@ -122,6 +122,9 @@ async function withStoredImages(db: AppDatabase): Promise<AppDatabase> {
   }
 }
 
+/** Wait before the one automatic retry of a narrator call that failed before writing anything. */
+const NARRATOR_RETRY_DELAY_MS = 1500;
+
 function endsMidSentence(text: string) {
   const trimmed = text.trim();
 
@@ -166,6 +169,13 @@ type GameContextValue = {
   retryPendingMemory: () => Promise<void>;
   streamingText: string;
   pendingAction: string | null;
+  /** Stops the reply being written. What is usable of it is kept. */
+  stopNarration: () => void;
+  /**
+   * Kan's action from a turn that failed or was stopped before anything
+   * usable came back: the Story screen puts it back in the input box.
+   */
+  returnedAction: { text: string; id: number } | null;
   lastPromptTokens: number;
   worldEventNotice: string | null;
   dismissWorldEventNotice: () => void;
@@ -238,6 +248,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [streamingText, setStreamingText] = useState('');
   /** Kan's line for the turn being narrated, shown until the turn is saved. */
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [returnedAction, setReturnedAction] = useState<{ text: string; id: number } | null>(null);
   const [lastPromptTokens, setLastPromptTokens] = useState(0);
   const [worldEventNotice, setWorldEventNotice] = useState<string | null>(null);
 
@@ -245,6 +256,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   /** The current turn's state step. The next turn, undo and regenerate wait for it. */
   const backgroundPromiseRef = useRef<Promise<void> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /** True when the player pressed Stop (not a timeout or a dropped call). */
+  const stoppedRef = useRef(false);
   /** Saves run one at a time, in order, so an older copy never lands last. */
   const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   /** Serializes read-modify-write on slots that aren't open right now. */
@@ -878,6 +891,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
         const controller = new AbortController();
         abortRef.current = controller;
+        stoppedRef.current = false;
 
         // Call 1: the narrator writes prose only and streams it straight to
         // the screen. State is extracted afterwards by a second call.
@@ -888,10 +902,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setStreamingText(streamed);
         };
 
-        let result;
+        let result: StreamResult | null = null;
+        let interrupted: unknown = null;
 
-        try {
-          result = await streamChatCompletion({
+        const narrate = () =>
+          streamChatCompletion({
             apiKey: activeKey,
             model: withUser.settings.narrationModel,
             messages: prompt.messages,
@@ -909,28 +924,56 @@ export function GameProvider({ children }: { children: ReactNode }) {
               }
             },
           });
+
+        try {
+          for (let attempt = 0; ; attempt += 1) {
+            try {
+              result = await narrate();
+              break;
+            } catch (caught) {
+              // A rate limit or a provider hiccup before any text: one quiet retry.
+              if (attempt === 0 && !streamed && !controller.signal.aborted && isTransientError(caught)) {
+                await new Promise((resolve) => setTimeout(resolve, NARRATOR_RETRY_DELAY_MS));
+
+                if (!controller.signal.aborted) {
+                  continue;
+                }
+              }
+
+              interrupted = caught;
+              break;
+            }
+          }
         } finally {
           if (flushTimer) {
             clearTimeout(flushTimer);
           }
         }
 
+        // Stopped, timed out or broken off: keep the reply if enough of it came.
+        const kept = result ? null : keepablePartial(stripNarrationJson(streamed));
+
+        if (!result && !kept) {
+          throw interrupted ?? new Error('The narrator could not respond.');
+        }
+
         recordDebugCall(debugTurnId, {
           kind: 'narrator',
           model: withUser.settings.narrationModel,
-          usage: result.usage,
-          finishReason: result.finishReason,
+          usage: result?.usage ?? null,
+          finishReason: result?.finishReason ?? 'interrupted',
+          ...(result ? {} : { error: `Kept the part written before: ${describeCallError(interrupted)}` }),
           apiKey: activeKey,
         });
         narratorRecorded = true;
 
-        const promptTokens = result.promptTokens;
-        const completionTokens = result.completionTokens;
+        const promptTokens = result?.promptTokens ?? prompt.estimatedTokens;
+        const completionTokens = result?.completionTokens ?? Math.ceil(streamed.length / 4);
         // Safety net only: the narrator is no longer asked for JSON, but a
         // model that adds some anyway must never get it into the story.
-        const prose = stripNarrationJson(result.text);
+        const prose = kept ?? stripNarrationJson(result?.text ?? '');
         const narration =
-          result.finishReason === 'length' || endsMidSentence(prose)
+          kept || result?.finishReason === 'length' || endsMidSentence(prose)
             ? trimToSentence(prose)
             : prose;
 
@@ -996,9 +1039,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
           })
         );
       } catch (caught) {
-        const message =
-          caught instanceof Error ? caught.message : 'The narrator could not respond.';
-        setError(message);
+        const stopped = stoppedRef.current;
+        const message = describeCallError(caught);
+
+        // Nothing usable came back: Kan's action goes back in the input box.
+        // A press of Stop is the player's own choice, so no error card.
+        if (!stopped) {
+          setError(message);
+        }
+
+        setReturnedAction({ text: action, id: Date.now() });
 
         if (debugTurnId) {
           if (!narratorRecorded) {
@@ -1017,10 +1067,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setStreamingText('');
         setPendingAction(null);
         abortRef.current = null;
+        stoppedRef.current = false;
       }
     },
     [runStateStep, settlePreviousState, trackBackground, updateLatest]
   );
+
+  const stopNarration = useCallback(() => {
+    const controller = abortRef.current;
+
+    if (controller && !controller.signal.aborted) {
+      stoppedRef.current = true;
+      controller.abort();
+    }
+  }, []);
 
 
   const sendTurn = useCallback(
@@ -1699,6 +1759,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       retryPendingMemory,
       streamingText,
       pendingAction,
+      stopNarration,
+      returnedAction,
       lastPromptTokens,
       worldEventNotice,
       dismissWorldEventNotice,
@@ -1771,6 +1833,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       slots,
       streamingText,
       pendingAction,
+      stopNarration,
+      returnedAction,
       worldEventNotice,
       dismissWorldEventNotice,
       switchSlotById,

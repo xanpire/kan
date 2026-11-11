@@ -31,6 +31,7 @@ import {
   Paintbrush,
   RotateCcw,
   Sparkles,
+  Square,
   Wand2,
   Undo2,
   X,
@@ -50,6 +51,7 @@ import {
 import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { streamingPreview, stripNarrationJson } from '@/lib/rpg/prompt';
 import { useGame } from '@/lib/rpg/game';
+import { loadDraft, saveDraft } from '@/lib/rpg/draft';
 import { companionsOf } from '@/lib/rpg/companions';
 import { useToast } from '@/components/Toast';
 import { downloadImage } from '@/lib/rpg/file';
@@ -281,6 +283,8 @@ export default function StoryScreen() {
     retryPendingMemory,
     streamingText,
     pendingAction,
+    stopNarration,
+    returnedAction,
     worldEventNotice,
     dismissWorldEventNotice,
     sendTurn,
@@ -376,6 +380,34 @@ export default function StoryScreen() {
   // you put it, so you can scroll up and down freely.
   const slotId = db?.meta.slotId ?? null;
   const scrolledSlotRef = useRef<string | null>(null);
+
+  // The input box is kept per story, so a reload never loses what you typed.
+  const draftSlotRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!slotId || draftSlotRef.current === slotId) {
+      return;
+    }
+
+    draftSlotRef.current = slotId;
+    setInput(loadDraft(slotId));
+  }, [slotId]);
+
+  useEffect(() => {
+    if (!slotId || draftSlotRef.current !== slotId) {
+      return;
+    }
+
+    const timer = setTimeout(() => saveDraft(slotId, input), 300);
+    return () => clearTimeout(timer);
+  }, [slotId, input]);
+
+  // A turn that failed or was stopped with nothing kept: your action comes back.
+  useEffect(() => {
+    if (returnedAction) {
+      setInput((current) => (current.trim() ? current : returnedAction.text));
+    }
+  }, [returnedAction]);
 
   useEffect(() => {
     if (!slotId || messages.length === 0 || scrolledSlotRef.current === slotId) {
@@ -585,6 +617,8 @@ export default function StoryScreen() {
     const action = lastActionRef.current;
 
     if (action) {
+      // The failed action was put back in the box; sending it empties the box again.
+      setInput((current) => (current.trim() === action ? '' : current));
       await sendTurn(action);
       return;
     }
@@ -1023,18 +1057,19 @@ export default function StoryScreen() {
               value={input}
             />
             <Pressable
-              accessibilityLabel="Send"
+              accessibilityHint={isNarrating ? 'Keeps what is written so far' : undefined}
+              accessibilityLabel={isNarrating ? 'Stop the reply' : 'Send'}
               accessibilityRole="button"
-              disabled={!canSend}
-              onPress={() => void submit(input)}
+              disabled={!isNarrating && !canSend}
+              onPress={() => (isNarrating ? stopNarration() : void submit(input))}
               style={({ pressed }) => [
                 styles.sendButton,
-                !canSend && styles.sendDisabled,
+                !isNarrating && !canSend && styles.sendDisabled,
                 pressed && styles.pressed,
               ]}
             >
               {isNarrating ? (
-                <ActivityIndicator color={colors.onAccent} size="small" />
+                <Square color={colors.onAccent} fill={colors.onAccent} size={14} strokeWidth={2.4} />
               ) : (
                 <ArrowUp color={colors.onAccent} size={19} strokeWidth={2.4} />
               )}

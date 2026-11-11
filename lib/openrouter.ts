@@ -64,7 +64,22 @@ export type ChatRequest = {
    * the reply text; it still counts against max_tokens.
    */
   reasoning?: { effort?: 'low' | 'medium' | 'high'; exclude?: boolean };
+  /**
+   * Gives up after this long. For a plain call it is the whole call; for a
+   * stream it is the longest wait for the next chunk. A timeout throws an
+   * OpenRouterError with status 408, so it counts as a passing failure.
+   */
+  timeoutMs?: number;
 };
+
+/** How long each kind of call may take before it is given up (section 5.1 of the audit). */
+export const CALL_TIMEOUTS = {
+  /** A stream that sends nothing for this long has stalled. */
+  streamStall: 45_000,
+  state: 60_000,
+  summary: 90_000,
+  image: 180_000,
+} as const;
 
 /** What OpenRouter reported for one call. Nothing here is estimated unless `estimated` says so. */
 export type CallUsage = {
@@ -500,6 +515,7 @@ export async function generateImage({
   inputReferences,
   aspectRatio = '16:9',
   signal,
+  timeoutMs = CALL_TIMEOUTS.image,
 }: {
   apiKey: string;
   caps: ImageModelCaps;
@@ -508,6 +524,7 @@ export async function generateImage({
   inputReferences?: string[];
   aspectRatio?: '16:9' | '3:4';
   signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<ImageGenerationResult> {
   if (!apiKey) {
     throw new Error('Add your OpenRouter API key in Settings first.');
@@ -519,41 +536,50 @@ export async function generateImage({
     aspectRatio,
   });
 
-  let response = await fetch(IMAGES_URL, {
-    method: 'POST',
-    headers: buildHeaders(apiKey, false),
-    body: JSON.stringify(body),
-    signal,
-  });
-
-  // A rejected optional setting: retry with only the prompt and the same
-  // references. References are never dropped here: that would lose Kan's face.
-  if (response.status === 400 || response.status === 422) {
-    const minimal: Record<string, unknown> = { model: body.model, prompt: body.prompt };
-
-    if (body.input_references) {
-      minimal.input_references = body.input_references;
-    }
-
-    response = await fetch(IMAGES_URL, {
-      method: 'POST',
-      headers: buildHeaders(apiKey, false),
-      body: JSON.stringify(minimal),
-      signal,
-    });
-  }
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
-  }
-
-  const payload = (await response.json()) as {
+  const timer = timeoutSignal(signal, timeoutMs);
+  let payload: {
     data?: Array<{
       b64_json?: string;
       media_type?: string;
     }>;
     usage?: { cost?: number };
   };
+
+  try {
+    let response = await fetch(IMAGES_URL, {
+      method: 'POST',
+      headers: buildHeaders(apiKey, false),
+      body: JSON.stringify(body),
+      signal: timer.signal,
+    });
+
+    // A rejected optional setting: retry with only the prompt and the same
+    // references. References are never dropped here: that would lose Kan's face.
+    if (response.status === 400 || response.status === 422) {
+      const minimal: Record<string, unknown> = { model: body.model, prompt: body.prompt };
+
+      if (body.input_references) {
+        minimal.input_references = body.input_references;
+      }
+
+      response = await fetch(IMAGES_URL, {
+        method: 'POST',
+        headers: buildHeaders(apiKey, false),
+        body: JSON.stringify(minimal),
+        signal: timer.signal,
+      });
+    }
+
+    if (!response.ok) {
+      throw new OpenRouterError(await readErrorMessage(response), response.status);
+    }
+
+    payload = (await response.json()) as typeof payload;
+  } catch (caught) {
+    throw timer.wrap(caught);
+  } finally {
+    timer.clear();
+  }
 
   const image = payload.data?.[0];
 
@@ -657,6 +683,122 @@ export class OpenRouterError extends Error {
   }
 }
 
+/** Thrown when a call ran past its timeout. Status 408, so it is retried like a dropped call. */
+export class OpenRouterTimeoutError extends OpenRouterError {
+  constructor(seconds: number) {
+    super(`OpenRouter did not answer within ${seconds} seconds.`, 408);
+    this.name = 'OpenRouterTimeoutError';
+  }
+}
+
+/**
+ * A signal that aborts when the caller's signal does, or when the timer runs
+ * out. `touch()` restarts the timer (a stream calls it on every chunk).
+ */
+export function timeoutSignal(parent: AbortSignal | undefined, ms: number | undefined) {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let timedOut = false;
+
+  const onParentAbort = () => controller.abort(parent?.reason);
+
+  if (parent) {
+    if (parent.aborted) {
+      controller.abort(parent.reason);
+    } else {
+      parent.addEventListener('abort', onParentAbort, { once: true });
+    }
+  }
+
+  const touch = () => {
+    if (!ms || ms <= 0 || controller.signal.aborted) {
+      return;
+    }
+
+    if (timer) {
+      clearTimeout(timer);
+    }
+
+    timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, ms);
+  };
+
+  touch();
+
+  return {
+    signal: controller.signal,
+    touch,
+    timedOut: () => timedOut,
+    clear: () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+
+      parent?.removeEventListener('abort', onParentAbort);
+    },
+    /** The error to throw: a timeout as OpenRouterTimeoutError, anything else unchanged. */
+    wrap: (caught: unknown) =>
+      timedOut && !parent?.aborted ? new OpenRouterTimeoutError(Math.round((ms ?? 0) / 1000)) : caught,
+  };
+}
+
+/**
+ * A failure as one plain sentence for the player, with what to do about it.
+ * Second person; never a status code on its own.
+ */
+export function describeCallError(caught: unknown): string {
+  if (!caught || typeof caught !== 'object') {
+    return 'The narrator could not respond. Try again.';
+  }
+
+  const error = caught as { name?: string; status?: number; message?: string };
+  const message = (error.message ?? '').toLowerCase();
+
+  if (error.name === 'AbortError') {
+    return 'You stopped the reply.';
+  }
+
+  if (error.name === 'OpenRouterTimeoutError' || error.status === 408) {
+    return 'OpenRouter took too long to answer. Try again in a moment.';
+  }
+
+  if (error.status === 401 || (error.status === 403 && /key|auth/.test(message))) {
+    return 'OpenRouter rejected your API key. Check it in Settings.';
+  }
+
+  if (error.status === 402 || /insufficient credits|more credits|credit/.test(message)) {
+    return 'Your OpenRouter account is out of credits. Add credits on openrouter.ai, then try again.';
+  }
+
+  if (error.status === 429) {
+    return 'OpenRouter is rate-limiting you. Wait a few seconds and try again.';
+  }
+
+  if (/context length|context window|maximum context|too many tokens|too long/.test(message)) {
+    return 'The story is too long for this narrator model. Pick a model with a larger context in Settings.';
+  }
+
+  if (/moderation|content filter|flagged|safety|content_policy/.test(message)) {
+    return "The model's provider refused this reply. Try again, or rephrase what you do.";
+  }
+
+  if (/no endpoints|no provider|no allowed providers/.test(message) || error.status === 404) {
+    return 'No provider can run this model right now. Try again later, or pick another model in Settings.';
+  }
+
+  if (typeof error.status === 'number' && error.status >= 500) {
+    return "OpenRouter or the model's provider is having trouble. Try again in a moment.";
+  }
+
+  if (caught instanceof TypeError) {
+    return 'You seem to be offline. Check your connection and try again.';
+  }
+
+  return error.message || 'The narrator could not respond. Try again.';
+}
+
 /**
  * Worth trying again: the network dropped, a rate limit (429), a timeout
  * (408) or a server/provider error (5xx). Never a cancel or a bad key.
@@ -738,6 +880,7 @@ export async function completeChat({
   responseFormatJson = false,
   jsonSchema,
   reasoning,
+  timeoutMs = CALL_TIMEOUTS.state,
 }: ChatRequest): Promise<StreamResult> {
   if (!apiKey) {
     throw new Error('Add your OpenRouter API key in Settings first.');
@@ -767,13 +910,33 @@ export async function completeChat({
   }
 
   const wantsJson = Boolean(jsonSchema) || responseFormatJson;
+  const timer = timeoutSignal(signal, timeoutMs);
+  let response: Response;
+  let payload: {
+    id?: string;
+    model?: string;
+    provider?: string;
+    error?: { message?: string; code?: number };
+    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
+    usage?: RawUsage;
+  } = {};
 
-  const response = await fetch(CHAT_URL, {
-    method: 'POST',
-    headers: buildHeaders(apiKey, wantsJson),
-    body: JSON.stringify(body),
-    signal,
-  });
+  try {
+    response = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: buildHeaders(apiKey, wantsJson),
+      body: JSON.stringify(body),
+      signal: timer.signal,
+    });
+
+    if (response.ok) {
+      payload = (await response.json()) as typeof payload;
+    }
+  } catch (caught) {
+    throw timer.wrap(caught);
+  } finally {
+    timer.clear();
+  }
 
   if (!response.ok) {
     const message = await readErrorMessage(response);
@@ -790,6 +953,7 @@ export async function completeChat({
         maxTokens,
         signal,
         reasoning,
+        timeoutMs,
         responseFormatJson: true,
       });
     }
@@ -803,6 +967,7 @@ export async function completeChat({
         maxTokens,
         signal,
         reasoning,
+        timeoutMs,
         responseFormatJson: false,
       });
     }
@@ -810,13 +975,13 @@ export async function completeChat({
     throw new OpenRouterError(message, response.status);
   }
 
-  const payload = (await response.json()) as {
-    id?: string;
-    model?: string;
-    provider?: string;
-    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
-    usage?: RawUsage;
-  };
+  // A 200 can still carry an error (the provider failed after accepting).
+  if (payload.error && !payload.choices?.length) {
+    throw new OpenRouterError(
+      payload.error.message ?? 'OpenRouter returned an error.',
+      typeof payload.error.code === 'number' ? payload.error.code : 502
+    );
+  }
 
   const text = payload.choices?.[0]?.message?.content ?? '';
   const usage = readUsage(
@@ -846,6 +1011,7 @@ export async function streamChatCompletion({
   maxTokens = 900,
   signal,
   reasoning,
+  timeoutMs = CALL_TIMEOUTS.streamStall,
   onDelta,
 }: ChatRequest & { onDelta: (delta: string) => void }): Promise<StreamResult> {
   if (!apiKey) {
@@ -866,120 +1032,178 @@ export async function streamChatCompletion({
   }
 
   const startedAt = Date.now();
+  // The timer is the stall timer: every chunk restarts it.
+  const timer = timeoutSignal(signal, timeoutMs);
 
-  const response = await fetch(CHAT_URL, {
-    method: 'POST',
-    headers: buildHeaders(apiKey, false),
-    body: JSON.stringify(body),
-    signal,
-  });
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
+  try {
+    return await readStream();
+  } catch (caught) {
+    throw timer.wrap(caught);
+  } finally {
+    timer.clear();
   }
 
-  if (!response.body) {
-    const text = await response.text();
-    onDelta(text);
+  async function readStream(): Promise<StreamResult> {
+    const response = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: buildHeaders(apiKey, false),
+      body: JSON.stringify(body),
+      signal: timer.signal,
+    });
+
+    if (!response.ok) {
+      throw new OpenRouterError(await readErrorMessage(response), response.status);
+    }
+
+    if (!response.body) {
+      const text = await response.text();
+      onDelta(text);
+      const usage = readUsage(
+        undefined,
+        {},
+        {
+          prompt: estimateTokens(messages),
+          completion: estimateTokens([{ role: 'assistant', content: text }]),
+        },
+        startedAt
+      );
+
+      return {
+        text,
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        usage,
+      };
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const parser = createSseParser(onDelta);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      timer.touch();
+
+      if (done) {
+        break;
+      }
+
+      parser.push(decoder.decode(value, { stream: true }));
+    }
+
+    parser.push(decoder.decode());
+    const { full, rawUsage, meta, finishReason } = parser.finish();
+
     const usage = readUsage(
-      undefined,
-      {},
+      rawUsage,
+      meta,
       {
         prompt: estimateTokens(messages),
-        completion: estimateTokens([{ role: 'assistant', content: text }]),
+        completion: estimateTokens([{ role: 'assistant', content: full }]),
       },
       startedAt
     );
 
     return {
-      text,
+      text: full,
       promptTokens: usage.promptTokens,
       completionTokens: usage.completionTokens,
+      finishReason,
       usage,
     };
   }
+}
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
+/**
+ * Reads OpenRouter's server-sent events. A mid-stream failure arrives as an
+ * `error` object in a `data:` line and is thrown as an OpenRouterError, so
+ * the player sees the real reason instead of "an empty reply". Whatever is
+ * left in the buffer when the stream ends is read too.
+ */
+export function createSseParser(onDelta: (delta: string) => void) {
   let buffer = '';
   let full = '';
   let rawUsage: RawUsage | undefined;
   const meta: { id?: string; model?: string; provider?: string } = {};
   let finishReason: string | undefined;
 
-  while (true) {
-    const { done, value } = await reader.read();
+  const readLine = (line: string) => {
+    const trimmed = line.trim();
 
-    if (done) {
-      break;
+    if (!trimmed || trimmed.startsWith(':') || !trimmed.startsWith('data:')) {
+      return;
     }
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
+    const data = trimmed.slice(5).trim();
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (!trimmed || trimmed.startsWith(':') || !trimmed.startsWith('data:')) {
-        continue;
-      }
-
-      const data = trimmed.slice(5).trim();
-
-      if (data === '[DONE]') {
-        continue;
-      }
-
-      try {
-        const parsed = JSON.parse(data) as {
-          id?: string;
-          model?: string;
-          provider?: string;
-          choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>;
-          usage?: RawUsage;
-        };
-
-        meta.id = parsed.id ?? meta.id;
-        meta.model = parsed.model ?? meta.model;
-        meta.provider = parsed.provider ?? meta.provider;
-
-        if (parsed.choices?.[0]?.finish_reason) {
-          finishReason = parsed.choices[0].finish_reason ?? finishReason;
-        }
-
-        const delta = parsed.choices?.[0]?.delta?.content;
-
-        if (delta) {
-          full += delta;
-          onDelta(delta);
-        }
-
-        if (parsed.usage) {
-          rawUsage = parsed.usage;
-        }
-      } catch {
-        // Ignore malformed SSE fragments.
-      }
+    if (data === '[DONE]') {
+      return;
     }
-  }
 
-  const usage = readUsage(
-    rawUsage,
-    meta,
-    {
-      prompt: estimateTokens(messages),
-      completion: estimateTokens([{ role: 'assistant', content: full }]),
-    },
-    startedAt
-  );
+    let parsed: {
+      id?: string;
+      model?: string;
+      provider?: string;
+      error?: { message?: string; code?: number | string };
+      choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>;
+      usage?: RawUsage;
+    };
+
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      // Ignore malformed SSE fragments.
+      return;
+    }
+
+    if (parsed.error) {
+      const code = Number(parsed.error.code);
+      throw new OpenRouterError(
+        parsed.error.message ?? 'The stream failed.',
+        Number.isFinite(code) && code >= 100 ? code : 502
+      );
+    }
+
+    meta.id = parsed.id ?? meta.id;
+    meta.model = parsed.model ?? meta.model;
+    meta.provider = parsed.provider ?? meta.provider;
+
+    if (parsed.choices?.[0]?.finish_reason) {
+      finishReason = parsed.choices[0].finish_reason ?? finishReason;
+    }
+
+    // Some providers end a failed stream with finish_reason "error".
+    if (finishReason === 'error' && !full) {
+      throw new OpenRouterError('The model stopped with an error before writing anything.', 502);
+    }
+
+    const delta = parsed.choices?.[0]?.delta?.content;
+
+    if (delta) {
+      full += delta;
+      onDelta(delta);
+    }
+
+    if (parsed.usage) {
+      rawUsage = parsed.usage;
+    }
+  };
 
   return {
-    text: full,
-    promptTokens: usage.promptTokens,
-    completionTokens: usage.completionTokens,
-    finishReason,
-    usage,
+    push(chunk: string) {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      lines.forEach(readLine);
+    },
+    finish() {
+      if (buffer) {
+        readLine(buffer);
+        buffer = '';
+      }
+
+      return { full, rawUsage, meta, finishReason };
+    },
   };
 }
 

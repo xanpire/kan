@@ -29,6 +29,23 @@ export function trimToSentence(text: string): string {
   return cleaned;
 }
 
+/**
+ * What to keep of a reply that was stopped or broke off mid-stream: the text
+ * up to its last full sentence, if that holds at least two complete
+ * sentences. Otherwise null (the reply is thrown away).
+ */
+export function keepablePartial(text: string): string | null {
+  const trimmed = trimToSentence(text);
+  const sentences = trimmed.match(/[^.!?]+[.!?]+(?:["'”’)]+)?(?=\s|$)/g) ?? [];
+  const complete = sentences.filter((sentence) => /[A-Za-z]{2}/.test(sentence));
+
+  if (complete.length < 2 || !/[.!?]["'”’)]*$/.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));
 }

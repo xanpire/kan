@@ -2,7 +2,7 @@
 // the state step and the summaries. The pieces live in entities, bonds,
 // facts, clock, jutsu, log and stateBlock.
 
-import { isTransientError, type ChatRequest, completeChat } from '../openrouter';
+import { CALL_TIMEOUTS, isTransientError, type ChatRequest, completeChat } from '../openrouter';
 import { applyAbilityChanges } from './abilities';
 import { applyBondDiff, syncBondSides } from './bonds';
 import { applyCanonEndgames } from './canonEndgame';
@@ -434,8 +434,9 @@ const SUMMARY_RETRY_FACTOR = 1.75;
 async function summaryChat(
   kind: DebugCallKind,
   debugTurnId: string | undefined,
-  request: ChatRequest
+  base: ChatRequest
 ): Promise<TitledSummary | null> {
+  const request: ChatRequest = { timeoutMs: CALL_TIMEOUTS.summary, ...base };
   const first = await tracedChat(kind, debugTurnId, request);
   const parsed = parseTitledSummary(first.text);
 
