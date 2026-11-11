@@ -10,10 +10,12 @@ import { dateSortValue, formatDayMonth } from '@/lib/rpg/calendar';
 import { useGame } from '@/lib/rpg/game';
 import { REGION_NAME, currentRegion, type Region } from '@/lib/rpg/geography';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
-import { ANIME_LINE_Y, BRIDGES, UNCLAIMED_LAND, labelLines, ringPath } from '@/lib/rpg/mapShapes';
+import { BRIDGES, UNCLAIMED_LAND, labelLines, ringPath } from '@/lib/rpg/mapShapes';
 import {
   MAP_HEIGHT,
   MAP_PLACES,
+  placeKnown,
+  placeNote,
   MAP_WIDTH,
   REGION_SHAPES,
   regionAt,
@@ -28,6 +30,7 @@ import {
   routePoints,
   travelEstimate,
   type KnownWhereabouts,
+  type MapPlace,
 } from '@/lib/rpg/mapData';
 import type { AppDatabase, CalendarDate } from '@/lib/rpg/types';
 import { CONDITION_INFO, currentWeather, regionWeather, seasonLabel } from '@/lib/rpg/weather';
@@ -75,10 +78,10 @@ const REGION_PATHS = Object.fromEntries(
 const UNCLAIMED_PATH = UNCLAIMED_LAND.map(ringPath).join('');
 
 /** What a tap at a board point means: the nearest place within reach, else the country under it. */
-function selectionAt(x: number, y: number): Selection | null {
+function selectionAt(x: number, y: number, places: MapPlace[]): Selection | null {
   let best: { id: string; distance: number } | null = null;
 
-  for (const place of TOP_PLACES) {
+  for (const place of places) {
     const distance = Math.hypot(place.x - x, place.y - y);
 
     if (distance <= PLACE_REACH && (!best || distance < best.distance)) best = { id: place.id, distance };
@@ -106,6 +109,8 @@ function WorldBoard({
   const here = currentRegion(db);
   const visited = useMemo(() => regionsVisited(db), [db]);
   const visits = useMemo(() => placeVisits(db), [db]);
+  // Only the places Kan knows of are on his map (audit 6b.2).
+  const places = useMemo(() => TOP_PLACES.filter((place) => placeKnown(db, place, visits)), [db, visits]);
   const route = useMemo(() => routePoints(db), [db]);
   const people = useMemo(() => knownWhereabouts(db), [db]);
   const houses = useMemo(
@@ -140,7 +145,7 @@ function WorldBoard({
   const onPress = (event: GestureResponderEvent) => {
     if (!scale) return;
 
-    const picked = selectionAt(viewX + event.nativeEvent.locationX / scale, viewY + event.nativeEvent.locationY / scale);
+    const picked = selectionAt(viewX + event.nativeEvent.locationX / scale, viewY + event.nativeEvent.locationY / scale, places);
 
     if (picked) onSelect(picked);
   };
@@ -153,12 +158,6 @@ function WorldBoard({
         <Pressable accessibilityHint="Tap a country or a place" accessibilityLabel="World map" onPress={onPress}>
           <Svg height={height} viewBox={`${viewX} ${viewY} ${span} ${span}`} width={width}>
             <Rect fill={SEA} height={MAP_HEIGHT} width={MAP_WIDTH} x={0} y={0} />
-
-            {/* Where the canon maps stop: below this line the lands come from the anime. */}
-            <Line stroke="#1b2329" strokeDasharray="1 0.8" strokeWidth={0.2} x1={0} x2={MAP_WIDTH} y1={ANIME_LINE_Y} y2={ANIME_LINE_Y} />
-            <SvgText fill="#33414b" fontFamily={fonts.semibold} fontSize={1.3} textAnchor="end" x={MAP_WIDTH - 1.5} y={ANIME_LINE_Y + 2}>
-              Anime-only lands below
-            </SvgText>
 
             <Path d={UNCLAIMED_PATH} fill="#101113" stroke="#26262a" strokeWidth={0.25} />
 
@@ -242,7 +241,7 @@ function WorldBoard({
               />
             ) : null}
 
-            {TOP_PLACES.map((place) => {
+            {places.map((place) => {
               const beenThere = visits.has(place.id);
               const isSelected = selection?.kind === 'place' && selection.id === place.id;
               const size = place.kind === 'village' ? 0.85 : 0.55;
@@ -262,7 +261,7 @@ function WorldBoard({
 
             {/* Zoomed in, every place is named; the whole map only names the countries. */}
             {zoomed
-              ? TOP_PLACES.map((place) => {
+              ? places.map((place) => {
                   const spot = placeNameSpot(place);
 
                   // A dark halo under the name first, so it reads over borders and coasts.
@@ -342,10 +341,11 @@ function SelectedCard({ db, selection, people }: { db: AppDatabase; selection: S
   const title = place ? place.name : region ? regionLabel(region) : 'Somewhere';
   const estimate = travelEstimate(db, region);
   const children = place ? MAP_PLACES.filter((child) => child.parent === place.id) : [];
-  const regionPlaces = !place && region ? TOP_PLACES.filter((item) => item.region === region) : [];
+  const regionPlaces = !place && region ? TOP_PLACES.filter((item) => item.region === region && placeKnown(db, item, visits)) : [];
   const visit = place ? visits.get(place.id) : null;
   const theirs = people.filter((entry) => entry.basis !== 'with-you' && region && entry.region === region);
-  const condition = region ? regionWeather(db, region) : null;
+  // Live weather only where Kan is; far countries show their season (audit 6b.2).
+  const condition = region && region === here ? regionWeather(db, region) : null;
 
   let travel: string;
 
@@ -367,7 +367,7 @@ function SelectedCard({ db, selection, people }: { db: AppDatabase; selection: S
       <SectionLabel>{place ? 'Place' : 'Country'}</SectionLabel>
       <ListCard>
         <ListRow
-          body={[place?.note, travel].filter(Boolean).join('\n') || null}
+          body={[place ? placeNote(db, place, visits) : null, travel].filter(Boolean).join('\n') || null}
           bodyLines={4}
           leading={
             condition ? (
@@ -378,7 +378,11 @@ function SelectedCard({ db, selection, people }: { db: AppDatabase; selection: S
           }
           meta={[
             place && region ? regionLabel(region) : null,
-            condition && region ? `${CONDITION_INFO[condition].short}, ${seasonLabel(region, db.state.inStoryDate)}` : null,
+            region
+              ? condition
+                ? `${CONDITION_INFO[condition].short}, ${seasonLabel(region, db.state.inStoryDate)}`
+                : seasonLabel(region, db.state.inStoryDate)
+              : null,
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -407,7 +411,7 @@ function SelectedCard({ db, selection, people }: { db: AppDatabase; selection: S
 
               return (
                 <ListRow
-                  body={child.note ?? null}
+                  body={placeNote(db, child, visits)}
                   bodyLines={2}
                   key={child.id}
                   meta={childVisit ? `Last there ${dateLine(childVisit.last)}` : 'Not yet visited'}

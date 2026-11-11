@@ -115,3 +115,24 @@ describe('name leaks are fixed, not just logged (audit 6b.2)', () => {
     expect(text).toContain(`and ${label} laughs`);
   });
 });
+
+import { MAP_PLACES, placeKnown, placeNote } from '../lib/rpg/mapData';
+
+describe('the map shows only what Kan knows (audit 6b.2)', () => {
+  const place = (id: string) => MAP_PLACES.find((item) => item.id === id)!;
+
+  test('secret places stay off the map until they are known', () => {
+    const db = normalizeDatabase(seedDatabase('slot_map', 'Map'));
+    expect(placeKnown(db, place('leaf'))).toBe(true);
+    expect(placeKnown(db, place('sound'))).toBe(false);
+    expect(placeKnown(db, place('genbu'))).toBe(false);
+    expect(placeNote(db, place('genbu'))).toBeNull();
+
+    const named = { ...db, rawLog: [...db.rawLog, { ...db.rawLog[0], id: 'log_named', kind: 'story' as const, role: 'assistant' as const, content: 'Itachi says the Sound village hides in the hills.' }] };
+    expect(placeKnown(named, place('sound'))).toBe(true);
+  });
+
+  test('no out-of-world labels in notes', () => {
+    expect(MAP_PLACES.some((item) => /anime/i.test(item.note ?? ''))).toBe(false);
+  });
+});

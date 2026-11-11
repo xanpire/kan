@@ -288,8 +288,6 @@ export const BRIDGES: Array<readonly [Pt, Pt]> = [
   [[74.5, 63.5], [75.8, 65]],
 ];
 
-/** Where the canon maps end and the anime-only south begins. */
-export const ANIME_LINE_Y = 57;
 
 /** A label split for the board: a small first line ("Land of", "Mountain") and the name. */
 export function labelLines(label: string): [string, string] {
