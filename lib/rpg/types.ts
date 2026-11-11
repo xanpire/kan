@@ -484,6 +484,8 @@ export type ConsequenceKind =
   | 'found';
 
 export type RawLogEntry = {
+  /** The state call failed twice; this turn's state was read from the prose (Debug panel). */
+  stateFromFallback?: boolean;
   id: string;
   turn: number;
   kind: LogKind;

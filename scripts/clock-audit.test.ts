@@ -134,3 +134,111 @@ describe('event-shaped periods and named hours still work', () => {
     expect(secondsBetween(now, far.after)).toBe(1800);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Audit 4.6: a failed state step is never silently dropped.
+// ---------------------------------------------------------------------------
+
+import { mock } from 'bun:test';
+
+mock.module('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async () => null,
+    setItem: async () => undefined,
+    removeItem: async () => undefined,
+    getAllKeys: async () => [],
+    multiGet: async () => [],
+    multiSet: async () => undefined,
+    multiRemove: async () => undefined,
+  },
+}));
+
+const { normalizeDatabase } = await import('../lib/rpg/db');
+const { seedDatabase } = await import('../lib/rpg/seed');
+const { appendStoryMessage } = await import('../lib/rpg/log');
+const { OpenRouterError, isTransientError } = await import('../lib/openrouter');
+const { setTransientRetryDelaysForTests, withTransientRetry } = await import('../lib/rpg/services');
+const { applyStateFallback, failedStateJob, isJobValid, markJobFailed, queueStateRetry, retryableSummaryJobs } =
+  await import('../lib/rpg/memoryJobs');
+
+function playedTurn() {
+  let db = normalizeDatabase(seedDatabase('slot_test', 'Test'));
+  db = appendStoryMessage(db, 'user', '*I walk north.*', null, 0, 0);
+  db = appendStoryMessage(db, 'assistant', 'You walk north for two hours along the river. Itachi keeps pace beside you.', null, 0, 0);
+  const reply = db.rawLog[db.rawLog.length - 1];
+  return { db, turn: { turnLogId: reply.id, userMessage: '*I walk north.*', narration: reply.content } };
+}
+
+describe('state step retries and fallback (audit 4.6)', () => {
+  test('transient errors are retried, others are not', async () => {
+    setTransientRetryDelaysForTests([1, 1]);
+    expect(isTransientError(new OpenRouterError('slow down', 429))).toBe(true);
+    expect(isTransientError(new OpenRouterError('no provider', 503))).toBe(true);
+    expect(isTransientError(new TypeError('Failed to fetch'))).toBe(true);
+    expect(isTransientError(new OpenRouterError('bad key', 401))).toBe(false);
+    expect(isTransientError(Object.assign(new Error('stop'), { name: 'AbortError' }))).toBe(false);
+
+    let calls = 0;
+    const ok = await withTransientRetry(async () => {
+      calls += 1;
+      if (calls < 3) throw new OpenRouterError('rate limited', 429);
+      return 'done';
+    });
+    expect(ok).toBe('done');
+    expect(calls).toBe(3);
+
+    calls = 0;
+    await expect(
+      withTransientRetry(async () => {
+        calls += 1;
+        throw new OpenRouterError('bad key', 401);
+      })
+    ).rejects.toThrow('bad key');
+    expect(calls).toBe(1);
+
+    calls = 0;
+    await expect(
+      withTransientRetry(async () => {
+        calls += 1;
+        throw new OpenRouterError('down', 502);
+      })
+    ).rejects.toThrow('down');
+    expect(calls).toBe(3);
+  });
+
+  test('a failed state job is found, and the prose fallback still moves the clock', () => {
+    const { db, turn } = playedTurn();
+    const failed = queueStateRetry(db, turn, new Error('429'));
+    const job = failedStateJob(failed);
+    expect(job?.turnLogId).toBe(turn.turnLogId);
+
+    const result = applyStateFallback(failed, job!, new Set());
+    expect(result).not.toBeNull();
+    const before = db.state.inStoryDate;
+    const after = result!.db.state.inStoryDate;
+    expect(secondsBetween(before, after)).toBe(2 * HOUR);
+    expect(result!.db.rawLog.find((entry) => entry.id === turn.turnLogId)?.stateFromFallback).toBe(true);
+    expect(failedStateJob(result!.db)).toBeUndefined();
+  });
+
+  test('once another turn is narrated the old state job is no longer valid (so it must be settled first)', () => {
+    const { db, turn } = playedTurn();
+    let failed = queueStateRetry(db, turn, new Error('429'));
+    const job = failedStateJob(failed)!;
+    failed = appendStoryMessage(failed, 'user', 'next', null, 0, 0);
+    failed = appendStoryMessage(failed, 'assistant', 'Next reply.', null, 0, 0);
+    expect(isJobValid(failed, job)).toBe(false);
+  });
+
+  test('failed summaries get up to three automatic attempts', () => {
+    const { db, turn } = playedTurn();
+    const scene = {
+      id: 'job_scene', kind: 'scene', status: 'failed', turnLogId: turn.turnLogId,
+      logIds: db.rawLog.map((entry) => entry.id), attempts: 1, createdAt: 1,
+    } as any;
+    let withJob = { ...db, memoryJobs: [scene] };
+    expect(retryableSummaryJobs(withJob, new Set()).map((job) => job.id)).toEqual(['job_scene']);
+    withJob = markJobFailed(markJobFailed(withJob, 'job_scene', 'x'), 'job_scene', 'x');
+    expect(retryableSummaryJobs(withJob, new Set())).toEqual([]);
+  });
+});

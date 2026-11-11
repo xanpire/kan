@@ -3,7 +3,8 @@ import type { CalendarDate, ScenePace } from './types';
 
 const COMBAT = /\b(fight|fights|fighting|fought|battle|clash|clashes|strike|strikes|blade|blades|kunai|shuriken|parry|dodge|blood|jutsu|punch|kick|choke|chokes|choked|choking|strangle|opponent|enemy|ambush|skirmish|duel|cut|wound)\b/i;
 const CHASE = /\b(chase|chasing|pursuit|flee|fleeing|running|escape|escaped|hunt(ed|ing)?|track(ed|ing)?)\b/i;
-const TRAVEL = /\b(travel|traveled|travelling|traveling|road|ride|rode|riding|march|marched|marching|journey|miles|border|trail|crossing|sailed|sailing|walked|walking)\b/i;
+// Present tense too: the narrator writes "you walk", not "you walked".
+const TRAVEL = /\b(travel|travels|traveled|travelled|travelling|traveling|road|ride|rides|rode|riding|march|marches|marched|marching|journey|journeys|miles|border|trail|crossing|cross|crosses|sail|sails|sailed|sailing|walk|walks|walked|walking|hike|hikes|hiked)\b/i;
 const DOWNTIME = /\b(sleep|sleeps|sleeping|slept|rest|rests|rested|resting|camp|camps|camped|recover|recovers|recovering|recovered|train|trains|trained|training|nap|naps|napped|dosed off|wake|wakes|woke|woken|morning)\b/i;
 const CONVERSATION = /\b(says|said|asks|asked|replies|replied|answers|answered|speaks|spoke|talks|talked|whispers|whispered|mutters|muttered|silence|stares|looks)\b/i;
 

@@ -328,7 +328,10 @@ Main file: `lib/rpg/game.tsx` (`GameProvider`).
 - Every step has its own error handling: a failure marks just that job `failed` (with `attempts` and `error`); the rest still run.
 - Jobs are stored in the save, so a step interrupted by closing the tab survives a reload.
 - Story screen: "Memory updating…" while any step runs; "Memory pending · N" with **Retry** when a step failed (`pendingMemoryCount`, `retryPendingMemory`).
-- A `state` job only stays valid while its turn is the newest; once another turn is narrated it is dropped.
+- A `state` job only stays valid while its turn is the newest, so it is **settled before the next turn is narrated** (`settlePreviousState` in `sendTurnInner`): one more try, and if that fails too, `applyStateFallback` runs `applyStateStep(latest, null, turn)` (the prose fallback: clock, people present, Kan's jutsu) and marks the reply `stateFromFallback` (shown in Debug). A turn's state is never dropped.
+- `extractTurnDiff` retries passing failures itself (`withTransientRetry`: network errors, 408, 429, 5xx; three attempts with 1.5 s and 4 s waits). `completeChat` throws `OpenRouterError` with the HTTP status; `isTransientError` decides.
+- If `applyStateStep` itself throws, `runStateStep` records the real error in Debug and queues a state retry instead of reporting a storage problem.
+- After a turn whose state step applied, failed summary jobs with fewer than `SUMMARY_AUTO_ATTEMPTS` (3) attempts are queued again automatically.
 
 **Write ordering**: `commitDb` updates `dbRef` synchronously and saves through a serial queue, so an older copy can never be written last. Writes to a slot that isn't open go through `updateLatest`'s inactive path (load → mutate → save, serialized).
 

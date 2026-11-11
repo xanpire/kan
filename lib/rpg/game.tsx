@@ -63,8 +63,11 @@ import { trimToSentence } from './util';
 import { setSceneModeOverride } from './sceneMode';
 import { beginFlashback } from './flashbacks';
 import {
+  applyStateFallback,
   applyStateStep,
   applySummaryJob,
+  failedStateJob,
+  retryableSummaryJobs,
   carryOverMemory,
   correctTurnTime as correctTurnTimeInDb,
   extractStateForJob,
@@ -712,24 +715,45 @@ export function GameProvider({ children }: { children: ReactNode }) {
         let followUps: string[] = [];
         let notice: string | null = null;
 
+        let applied = false;
+
         await updateLatest(slotId, (latest) => {
           if (!latest.rawLog.some((entry) => entry.id === turn.turnLogId)) {
             return null;
           }
 
-          const result = applyStateStep(latest, extraction, turn, activeJobIdsRef.current);
-          recordDebugState(turn.turnLogId, {
-            status: extraction ? 'applied' : 'fallback',
-            diff: result.appliedDiff,
-            changes: describeStateChange(latest, result.db),
-          });
-          followUps = result.followUpIds;
-          notice = result.notice;
-          return result.db;
+          try {
+            const result = applyStateStep(latest, extraction, turn, activeJobIdsRef.current);
+            recordDebugState(turn.turnLogId, {
+              status: extraction ? 'applied' : 'fallback',
+              diff: result.appliedDiff,
+              changes: describeStateChange(latest, result.db),
+            });
+            followUps = result.followUpIds;
+            notice = result.notice;
+            applied = Boolean(extraction);
+            return result.db;
+          } catch (caught) {
+            // A bug while applying, not a storage problem: keep the real
+            // error for the Debug panel and try the step again later.
+            recordDebugState(turn.turnLogId, {
+              status: 'failed',
+              error: `Applying the state step failed: ${caught instanceof Error ? caught.message : String(caught)}`,
+            });
+            return queueStateRetry(latest, turn, caught);
+          }
         });
 
         showNotice(slotId, notice);
-        void scheduleJobs(activeKey, slotId, followUps);
+
+        // A good turn: summaries that failed earlier get another go (up to 3 attempts).
+        const retry = applied ? retryableSummaryJobs(dbRef.current, activeJobIdsRef.current).map((job) => job.id) : [];
+
+        if (retry.length > 0) {
+          await updateLatest(slotId, (latest) => markJobsQueued(latest, retry)).catch(() => undefined);
+        }
+
+        void scheduleJobs(activeKey, slotId, [...followUps, ...retry.filter((id) => !followUps.includes(id))]);
       } catch {
         setError('Your last turn could not be saved. Check your storage space and try again.');
       } finally {
@@ -737,6 +761,58 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     },
     [readLatest, scheduleJobs, showNotice, updateLatest]
+  );
+
+  /**
+   * Before a new turn is narrated: if the previous turn's state step failed,
+   * try it once more, and if that fails too apply the prose fallback, so the
+   * clock, the cast and Kan's jutsu still move for that turn.
+   */
+  const settlePreviousState = useCallback(
+    async (activeKey: string, slotId: string) => {
+      const failed = failedStateJob(dbRef.current);
+
+      if (!failed || activeJobIdsRef.current.has(failed.id)) {
+        return;
+      }
+
+      try {
+        await updateLatest(slotId, (latest) => markJobsQueued(latest, [failed.id]));
+        setJobActive(failed.id, true);
+        await drainJobs(activeKey, slotId, [failed.id]);
+      } catch {
+        // Fall through to the fallback below.
+      }
+
+      const still = failedStateJob(dbRef.current);
+
+      if (!still || still.id !== failed.id) {
+        return;
+      }
+
+      let followUps: string[] = [];
+
+      await updateLatest(slotId, (latest) => {
+        const job = latest.memoryJobs?.find((entry) => entry.id === failed.id);
+        const result = job ? applyStateFallback(latest, job, activeJobIdsRef.current) : null;
+
+        if (!result) {
+          return null;
+        }
+
+        recordDebugState(failed.turnLogId, {
+          status: 'fallback',
+          diff: result.appliedDiff,
+          changes: describeStateChange(latest, result.db),
+          note: 'The state call failed twice, so this turn was read from the prose: clock, people present and your jutsu.',
+        });
+        followUps = result.followUpIds;
+        return result.db;
+      }).catch(() => undefined);
+
+      void scheduleJobs(activeKey, slotId, followUps);
+    },
+    [drainJobs, scheduleJobs, setJobActive, updateLatest]
   );
 
   const trackBackground = useCallback((task: Promise<void>) => {
@@ -752,6 +828,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     async (action: string, activeKey: string, remember?: string) => {
       if (backgroundPromiseRef.current) {
         await backgroundPromiseRef.current;
+      }
+
+      if (dbRef.current && !openElsewhereRef.current) {
+        await settlePreviousState(activeKey, dbRef.current.meta.slotId);
       }
 
       const current = dbRef.current;
@@ -939,7 +1019,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         abortRef.current = null;
       }
     },
-    [runStateStep, trackBackground, updateLatest]
+    [runStateStep, settlePreviousState, trackBackground, updateLatest]
   );
 
 

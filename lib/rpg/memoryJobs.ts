@@ -884,6 +884,57 @@ export function queueStateRetry(
   return withJobs(db, [...others, job]);
 }
 
+/** The newest turn's state step, when it failed and is waiting for a retry. */
+export function failedStateJob(db: AppDatabase | null): MemoryJob | undefined {
+  if (!db) {
+    return undefined;
+  }
+
+  return jobsOf(db).find((job) => job.kind === 'state' && job.status === 'failed' && isJobValid(db, job));
+}
+
+/**
+ * The last resort for a turn whose state call failed and failed again: the
+ * prose fallback moves the clock, the cast and Kan's jutsu, so playing on
+ * never drops a turn. The turn is marked `stateFromFallback`.
+ */
+export function applyStateFallback(
+  latest: AppDatabase,
+  job: MemoryJob,
+  activeIds: ReadonlySet<string>
+): StateStepResult | null {
+  if (job.kind !== 'state' || !isJobValid(latest, job)) {
+    return null;
+  }
+
+  const narration = latest.rawLog.find((entry) => entry.id === job.turnLogId)?.content ?? '';
+  const result = applyStateStep(
+    latest,
+    null,
+    { turnLogId: job.turnLogId, userMessage: job.userMessage ?? '', narration },
+    activeIds
+  );
+
+  return {
+    ...result,
+    db: {
+      ...result.db,
+      rawLog: result.db.rawLog.map((entry) =>
+        entry.id === job.turnLogId ? { ...entry, stateFromFallback: true } : entry
+      ),
+    },
+  };
+}
+
+/** Summary steps that failed and get another go after the next good turn (3 attempts in all). */
+export const SUMMARY_AUTO_ATTEMPTS = 3;
+
+export function retryableSummaryJobs(db: AppDatabase | null, activeIds: ReadonlySet<string>) {
+  return pendingMemoryJobs(db, activeIds).filter(
+    (job) => job.kind !== 'state' && job.status === 'failed' && job.attempts < SUMMARY_AUTO_ATTEMPTS
+  );
+}
+
 /** Re-runs the state call for a turn whose first attempt failed. */
 export async function extractStateForJob(apiKey: string, db: AppDatabase, job: MemoryJob) {
   const narration = db.rawLog.find((entry) => entry.id === job.turnLogId)?.content ?? '';

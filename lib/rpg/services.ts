@@ -2,7 +2,7 @@
 // the state step and the summaries. The pieces live in entities, bonds,
 // facts, clock, jutsu, log and stateBlock.
 
-import { type ChatRequest, completeChat } from '../openrouter';
+import { isTransientError, type ChatRequest, completeChat } from '../openrouter';
 import { applyAbilityChanges } from './abilities';
 import { applyBondDiff, syncBondSides } from './bonds';
 import { applyCanonEndgames } from './canonEndgame';
@@ -292,6 +292,32 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
 }
 
 /** completeChat, with the call (tokens, cost, errors) recorded against a turn in the debug log. */
+/** Waits before the 2nd and 3rd attempt of a call that failed for a passing reason. */
+let transientRetryDelays = [1500, 4000];
+
+/** Tests only. */
+export function setTransientRetryDelaysForTests(delays: number[]) {
+  transientRetryDelays = delays;
+}
+
+/**
+ * Runs a model call up to three times when it fails for a passing reason
+ * (network, 429, 5xx); any other failure, or a cancel, is thrown at once.
+ */
+export async function withTransientRetry<T>(call: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await call();
+    } catch (caught) {
+      if (attempt >= transientRetryDelays.length || signal?.aborted || !isTransientError(caught)) {
+        throw caught;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, transientRetryDelays[attempt]));
+    }
+  }
+}
+
 async function tracedChat(kind: DebugCallKind, debugTurnId: string | undefined, request: ChatRequest) {
   try {
     const result = await completeChat(request);
@@ -345,7 +371,7 @@ export async function extractTurnDiff(options: {
     jsonSchema: { name: TURN_STATE_SCHEMA_NAME, schema: TURN_STATE_SCHEMA },
   };
 
-  const first = await tracedChat('state', debugTurnId, request);
+  const first = await withTransientRetry(() => tracedChat('state', debugTurnId, request), signal);
   let raw = first.text;
   let parsed = parseJsonObject(first.text);
   let note: string | undefined;

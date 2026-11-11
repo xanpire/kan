@@ -646,6 +646,40 @@ function buildHeaders(apiKey: string, json: boolean) {
   return headers;
 }
 
+/** An error OpenRouter answered with, keeping the HTTP status for retry decisions. */
+export class OpenRouterError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'OpenRouterError';
+    this.status = status;
+  }
+}
+
+/**
+ * Worth trying again: the network dropped, a rate limit (429), a timeout
+ * (408) or a server/provider error (5xx). Never a cancel or a bad key.
+ */
+export function isTransientError(caught: unknown): boolean {
+  if (!caught || typeof caught !== 'object') {
+    return false;
+  }
+
+  const error = caught as { name?: string; status?: number };
+
+  if (error.name === 'AbortError') {
+    return false;
+  }
+
+  if (typeof error.status === 'number') {
+    return error.status === 408 || error.status === 429 || error.status >= 500;
+  }
+
+  // fetch rejects with a TypeError when the network fails.
+  return caught instanceof TypeError;
+}
+
 async function readErrorMessage(response: Response) {
   try {
     const payload = (await response.json()) as { error?: { message?: string } };
@@ -773,7 +807,7 @@ export async function completeChat({
       });
     }
 
-    throw new Error(message);
+    throw new OpenRouterError(message, response.status);
   }
 
   const payload = (await response.json()) as {
