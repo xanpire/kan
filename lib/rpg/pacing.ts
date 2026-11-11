@@ -138,6 +138,19 @@ function trustedReportedClock(options: {
   return dateSortValue(onToday) >= dateSortValue(current) ? reported : undefined;
 }
 
+/** A reported clock within three hours of the period the prose named ("nightfall" ~ 21:00). */
+function periodAgrees(
+  hint: { hour: number; minute: number } | undefined,
+  reported: { hour: number; minute: number } | undefined
+) {
+  if (!hint || !reported) {
+    return false;
+  }
+
+  const diff = Math.abs(hint.hour * 60 + hint.minute - (reported.hour * 60 + reported.minute));
+  return Math.min(diff, 1440 - diff) <= 180;
+}
+
 /**
  * The single source of truth for how far a turn moves the clock.
  *
@@ -155,7 +168,8 @@ export function resolveTurnClock(options: {
   detected: {
     elapsedSeconds: number;
     clock?: { hour: number; minute: number };
-    explicitDate?: CalendarDate;
+    /** "until nightfall": counts only to accept a matching reported clock. */
+    periodHint?: { hour: number; minute: number };
     sleptNight?: boolean;
   };
   pace: ScenePace | undefined;
@@ -177,18 +191,22 @@ export function resolveTurnClock(options: {
   let target = advanceSeconds(current, storySeconds);
   let storyTimed = storySeconds > 0;
 
-  const explicit = frozen ? undefined : options.detected.explicitDate;
-
-  if (explicit && dateSortValue(explicit) > now) {
-    target = explicit;
-    storyTimed = true;
-  } else {
-    const clock = options.detected.clock ?? trustedReportedClock({
-      reported: options.reportedClock,
-      current,
-      target,
-      storySeconds,
-    });
+  {
+    // Calendar dates are never read from prose (the narrator may not write
+    // them, so a parse could only misfire: "the first may be a decoy").
+    // A period word ("until nightfall") only lets a matching reported clock through.
+    const hinted = periodAgrees(options.detected.periodHint, options.reportedClock)
+      ? options.reportedClock
+      : undefined;
+    const clock =
+      options.detected.clock ??
+      hinted ??
+      trustedReportedClock({
+        reported: options.reportedClock,
+        current,
+        target,
+        storySeconds,
+      });
 
     if (clock) {
       const sameDay = { ...target, hour: clock.hour, minute: clock.minute, second: 0 };

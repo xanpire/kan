@@ -1395,15 +1395,16 @@ describe('place names', () => {
 describe('narration clock parsing', () => {
   const current = { year: 13, month: 10, day: 4, hour: 22, minute: 0, second: 0 };
 
-  test('detects explicit dates', () => {
+  test('never reads calendar dates from prose (audit 4.1)', () => {
     const parsed = detectNarrationTime(
       'By the time full darkness falls on the fifth of October, the gate is close.',
       current
     );
-    expect(parsed.explicitDate?.day).toBe(5);
+    expect((parsed as any).explicitDate).toBeUndefined();
 
-    const applied = applyParsedTime(current, parsed);
-    expect(applied.day).toBe(5);
+    // Only the event ("darkness falls") is read, never "the fifth of October".
+    expect(parsed.clock).toEqual({ hour: 21, minute: 0 });
+    expect(applyParsedTime(current, { elapsedSeconds: 0 }).day).toBe(4);
   });
 
   test('detects elapsed days, hours and seconds', () => {
@@ -1435,9 +1436,11 @@ describe('narration clock parsing', () => {
     expect(curly.elapsedSeconds).toBe(0);
     expect(curly.clock).toBeUndefined();
 
-    // Narration outside the quotes still counts.
+    // Narration outside the quotes still counts: "until nightfall" is a period
+    // hint, used only when the tracker's clock agrees (audit 4.2).
     const narrated = detectNarrationTime('"Keep up." You walk until nightfall.', morning);
-    expect(narrated.clock).toEqual({ hour: 21, minute: 0 });
+    expect(narrated.clock).toBeUndefined();
+    expect(narrated.periodHint).toEqual({ hour: 21, minute: 0 });
 
     // A quote left open runs to the end of its paragraph only.
     const open = detectNarrationTime('"Until nightfall, then\nTwo hours later, you reach the river.', morning);
@@ -1788,12 +1791,21 @@ describe('canon + clock integration', () => {
     // An hour the prose names still wins over the duration.
     const named = resolveTurnClock({
       reportedSeconds: 2 * 3600,
-      detected: detectNarrationTime('Two hours later, by dusk, you reach the river.', current),
+      detected: detectNarrationTime('Two hours later, at seven in the evening, you reach the river.', current),
       pace: 'travel',
       sceneEnded: false,
       current,
     });
     expect(named.elapsedSeconds).toBe(11 * 3600);
+
+    // "by dusk" alone is a period word, not an hour: it counts only when the
+    // tracker's clock agrees (audit 4.2).
+    const dusk = detectNarrationTime('Two hours later, by dusk, you reach the river.', current);
+    expect(dusk.clock).toBeUndefined();
+    expect(
+      resolveTurnClock({ reportedSeconds: 2 * 3600, detected: dusk, pace: 'travel', sceneEnded: false, current })
+        .elapsedSeconds
+    ).toBe(2 * 3600);
 
     // With no duration, a reported clock never rolls into tomorrow.
     const backwards = resolveTurnClock({

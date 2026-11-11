@@ -543,14 +543,15 @@ Everything about one event — when, where, who could know — sits in its one r
 
 ### `lib/rpg/timeparse.ts`
 
-`detectNarrationTime(text, current)` returns `{ elapsedSeconds, clock?, explicitDate? }`:
+`detectNarrationTime(text, current)` returns `{ elapsedSeconds, clock?, periodHint?, sleptNight? }`:
 
 - Fixed phrases: heartbeat/instant (2 s), few seconds (5 s), short rest/nap (30 min), seconds of fighting (15 s).
 - A (good/full/long) night’s sleep or “slept through the night / until dawn” sets `sleptNight` instead of fixed hours.
-- Number + unit only when elapsed markers are present (`later`, `after`, `passed`, `of travel`, past-tense verbs). Ignores “three nights of flight”, “four months ago”, “watched for a week”, “two-day march”.
-- Exact clocks: `at 3:40 PM`, `03:40`, `at dawn/noon/dusk/midnight/nightfall`, “it is evening now”.
-- Explicit dates: “the fifth of October”, “October 5”, with real-month clamping and year rollover.
-- Period words only match in temporal context, so “a night’s sleep” is not 10 PM.
+- Number + unit (seconds … `years`) only with an elapsed marker, matched as whole words: after the duration (`later`, `pass/passes/passed`, `go by`, `of travel`, `in training`…) or a spending verb before it in the same sentence, past or present tense (`spend/spent`, `walk/walks/walked`, `wait`, `rest`, `sleep`, `march`, `run`, `ride`, `train`, `search`, `take`, `for`). Not when it is a plan, a need, the past or a frequency (`will`, `would`, `need`, `had been`, `in two days`, `every`, `ago`, `of stubble`…). “Hours pass” alone counts as 2 h.
+- **No calendar dates are read from prose** (the narrator may not write them; “the first may be a decoy” used to jump to May).
+- Named hours are strict: digits (`at 7:30`, `by 3:40 PM`) count alone; a number word needs a suffix (`o'clock`, am/pm, `in the evening`, `at night`), so “at one point” and “watched by two guards” are never times. With no am/pm the hour is the **next occurrence** ahead of the clock (“at 7:00” at 5 PM is 7 PM).
+- Period words move the clock only as events: “dawn breaks”, “night falls”, “it is evening now”, “the sun sets”. A bare “until nightfall” / “by morning” is only a `periodHint`, which `resolveTurnClock` uses to accept the tracker’s `clock_time` when it lies within 3 h of that period.
+- “The next morning” adds a day, except after midnight and before 7 AM, where it is later the same day.
 
 `applyParsedTime(current, parsed)` applies elapsed then clock (rolling days as needed).
 
@@ -562,7 +563,6 @@ Everything about one event — when, where, who could know — sits in its one r
 - `secondsUntilMorning(current)` — seconds to the next 7:00; going to bed after 3 AM sleeps 8 h instead.
 - `resolveTurnClock({reportedSeconds, reportedClock, detected, pace, sceneEnded, current})` — the single source of truth used by `applyStateStep`. Returns `{ elapsedSeconds, minimumSeconds, storyTimed }`, where `elapsedSeconds` is the whole forward step:
   - story time (capped) → then a stated hour (parser first, then the state model’s `clock_time`) on the day the story reached, or the next occurrence of that hour; an hour up to 60 min behind the clock is treated as a restatement of “now” and ignored;
-  - an explicit date jumps there when it is ahead of the clock;
   - `sleptNight` jumps to the next morning (or later if the story says so);
   - finally `max(minimum, that step)`, so the clock always moves forward;
   - combat/chase with an unfinished scene: no date jumps, no backward hours, no sleep jump.

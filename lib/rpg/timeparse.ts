@@ -1,13 +1,22 @@
-import { advanceSeconds, daysInMonth, shiftDate } from './calendar';
+import { advanceSeconds, shiftDate } from './calendar';
 import type { CalendarDate } from './types';
 
 export type ParsedTime = {
   elapsedSeconds: number;
+  /** An hour the prose clearly names ("at 7:30", "at seven in the evening", "dawn breaks"). */
   clock?: { hour: number; minute: number };
-  explicitDate?: CalendarDate;
+  /**
+   * A period word that doesn't fix the time by itself ("until nightfall",
+   * "by morning"). It only counts when the state tracker's clock_time agrees
+   * (see resolveTurnClock).
+   */
+  periodHint?: { hour: number; minute: number };
   /** A full night's sleep: the turn clock jumps to the next morning. */
   sleptNight?: boolean;
 };
+
+/** Hour a "next morning" lands on (pacing.ts has the same WAKE_HOUR). */
+const MORNING_HOUR = 7;
 
 const NUMBER_WORDS: Record<string, number> = {
   a: 1,
@@ -34,55 +43,6 @@ const NUMBER_WORDS: Record<string, number> = {
   several: 4,
 };
 
-const MONTHS: Record<string, number> = {
-  january: 1,
-  february: 2,
-  march: 3,
-  april: 4,
-  may: 5,
-  june: 6,
-  july: 7,
-  august: 8,
-  september: 9,
-  october: 10,
-  november: 11,
-  december: 12,
-};
-
-const ORDINAL_WORDS: Record<string, number> = {
-  first: 1,
-  second: 2,
-  third: 3,
-  fourth: 4,
-  fifth: 5,
-  sixth: 6,
-  seventh: 7,
-  eighth: 8,
-  ninth: 9,
-  tenth: 10,
-  eleventh: 11,
-  twelfth: 12,
-  thirteenth: 13,
-  fourteenth: 14,
-  fifteenth: 15,
-  sixteenth: 16,
-  seventeenth: 17,
-  eighteenth: 18,
-  nineteenth: 19,
-  twentieth: 20,
-  'twenty-first': 21,
-  'twenty-second': 22,
-  'twenty-third': 23,
-  'twenty-fourth': 24,
-  'twenty-fifth': 25,
-  'twenty-sixth': 26,
-  'twenty-seventh': 27,
-  'twenty-eighth': 28,
-  'twenty-ninth': 29,
-  thirtieth: 30,
-  'thirty-first': 31,
-};
-
 const UNIT_SECONDS: Record<string, number> = {
   second: 1,
   seconds: 1,
@@ -96,6 +56,8 @@ const UNIT_SECONDS: Record<string, number> = {
   weeks: 604800,
   month: 2592000,
   months: 2592000,
+  year: 31536000,
+  years: 31536000,
 };
 
 function countValue(raw: string): number {
@@ -122,99 +84,105 @@ const CLOCK_WORDS: Array<[RegExp, number]> = [
   [/\bnight\b/i, 22],
 ];
 
-function parseClock(text: string): { hour: number; minute: number } | undefined {
-  const explicit = /\b(?:at|by|until|before|around)\s+(\d{1,2}):(\d{2})\s*(am|pm)?\b/i.exec(text);
+type ClockReading = { hour: number; minute: number; /** No am/pm: either half of the day. */ ambiguous?: boolean };
+
+/**
+ * An hour the prose names. Strict on purpose: a number word only counts with
+ * a suffix ("o'clock", am/pm, "in the evening", "at night"), so "at one point"
+ * or "watched by two guards" are never times. Digits ("at 7:30") count alone.
+ */
+function parseClock(text: string): ClockReading | undefined {
+  const explicit = /\b(?:at|by|until|before|around|after|past)\s+(\d{1,2}):(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?(?![\w])/i.exec(text);
 
   if (explicit) {
     let hour = Number(explicit[1]);
     const minute = Number(explicit[2]);
-    const suffix = explicit[3]?.toLowerCase();
+    const suffix = explicit[3]?.toLowerCase().replace(/\./g, '');
 
     if (suffix === 'pm' && hour < 12) hour += 12;
     if (suffix === 'am' && hour === 12) hour = 0;
 
     if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
-      return { hour, minute };
+      return { hour, minute, ambiguous: !suffix && hour >= 1 && hour <= 12 };
     }
   }
 
-  const twelveHour = /\b(?:at|by|until|before|around)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:\s+o'clock)?\s*(am|pm|in the morning|in the afternoon|in the evening|at night)?\b/i.exec(text);
+  const twelveHour = /\b(?:at|by|until|before|around|after|past)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d{1,2})(\s+o'clock|\s+o’clock)?\s*(am|pm|a\.m\.|p\.m\.|in the morning|in the afternoon|in the evening|at night)?(?![\w])/i.exec(text);
 
-  if (twelveHour) {
-    let hour = NUMBER_WORDS[twelveHour[1].toLowerCase()] ?? 0;
-    const suffix = (twelveHour[2] ?? '').toLowerCase();
+  if (twelveHour && (twelveHour[2] || twelveHour[3])) {
+    let hour = NUMBER_WORDS[twelveHour[1].toLowerCase()] ?? Number.parseInt(twelveHour[1], 10);
+    const suffix = (twelveHour[3] ?? '').toLowerCase().replace(/\./g, '');
 
-    if (
-      suffix === 'pm' ||
-      suffix.includes('afternoon') ||
-      suffix.includes('evening') ||
-      suffix.includes('night')
-    ) {
+    if (!(hour >= 1 && hour <= 12)) {
+      return undefined;
+    }
+
+    if (suffix === 'pm' || suffix.includes('afternoon') || suffix.includes('evening') || suffix.includes('night')) {
       if (hour < 12) hour += 12;
+    } else if ((suffix === 'am' || suffix.includes('morning')) && hour === 12) {
+      hour = 0;
     }
 
-    if (suffix === 'am' && hour === 12) hour = 0;
-
-    return { hour: hour % 24, minute: 0 };
+    return { hour: hour % 24, minute: 0, ambiguous: !suffix };
   }
 
-  // Period words only when the prose clearly fixes the time, so "a night's
-  // sleep" is not mistaken for 10 PM.
-  const periodPhrase = /\b(?:at|by|until|before|around|after)\s+(midnight|dawn|daybreak|sunrise|first light|morning|noon|midday|afternoon|dusk|sunset|evening|nightfall|night)\b/i.exec(text);
+  // A period word fixes the time only as an event: "dawn breaks", "night
+  // falls", "it is evening now".
   const periodState =
-    /\b(?:it is|it was|now|already)\s+(morning|noon|midday|afternoon|evening|night)\b/i.exec(text) ??
-    /\b(dawn|daybreak|sunrise|dusk|sunset|nightfall)\s+(?:broke|breaks|settles?|settled|falls?|fell|came|comes)\b/i.exec(text) ??
-    /\b(morning|evening|night)\s+(?:came|comes|fell|falls|settled)\b/i.exec(text);
-  const word = (periodPhrase?.[1] ?? periodState?.[1] ?? '').toLowerCase();
+    /\b(?:it is|it's|it was|now)\s+(?:already\s+)?(morning|noon|midday|afternoon|evening|night|midnight|dawn|dusk)\b(?!\s+(?:when|before|after|by))/i.exec(text) ??
+    /\b(dawn|daybreak|sunrise|dusk|sunset|nightfall|first light)\s+(?:broke|breaks|is breaking|settles?|settled|falls?|fell|came|comes|arrives?|arrived)\b/i.exec(text) ??
+    /\b(morning|evening|night|noon|midday|darkness)\s+(?:came|comes|fell|falls|settled|settles|arrives?|arrived)\b/i.exec(text);
+  const sun = /\bthe sun\s+(?:rises|rose|is rising|comes up|came up)\b/i.test(text)
+    ? 'dawn'
+    : /\bthe sun\s+(?:sets|set|is setting|goes down|went down|sinks|sank)\b/i.test(text)
+      ? 'dusk'
+      : undefined;
 
-  if (word) {
-    for (const [pattern, hour] of CLOCK_WORDS) {
-      if (pattern.test(word)) {
-        return { hour, minute: 0 };
-      }
+  return hourOfPeriod(periodState?.[1] ?? sun);
+}
+
+function hourOfPeriod(word: string | undefined): ClockReading | undefined {
+  const lower = (word ?? '').toLowerCase();
+
+  if (!lower) {
+    return undefined;
+  }
+
+  if (lower === 'darkness') {
+    return { hour: 21, minute: 0 };
+  }
+
+  for (const [pattern, hour] of CLOCK_WORDS) {
+    if (pattern.test(lower)) {
+      return { hour, minute: 0 };
     }
   }
 
   return undefined;
 }
 
-function explicitDate(text: string, current: CalendarDate): CalendarDate | undefined {
-  const dayFirst = /\b(?:the\s+)?([a-z-]+|\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.exec(text);
-  const monthFirst = /\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i.exec(text);
+/**
+ * "until nightfall", "by morning": a period word that names no event. Never
+ * moves the clock alone; resolveTurnClock uses it only to accept a matching
+ * clock_time from the state tracker.
+ */
+function periodHintOf(text: string): ClockReading | undefined {
+  const phrase = /\b(?:at|by|until|till|before|around|after|toward|towards)\s+(midnight|dawn|daybreak|sunrise|first light|morning|noon|midday|afternoon|dusk|sunset|evening|nightfall|night)\b/i.exec(text);
+  return hourOfPeriod(phrase?.[1]);
+}
 
-  if (!dayFirst && !monthFirst) {
-    return undefined;
+/** "At seven" with no am/pm: the next seven ahead of `base`, never one behind it. */
+function nextOccurrence(reading: ClockReading, base: CalendarDate): { hour: number; minute: number } {
+  if (!reading.ambiguous) {
+    return { hour: reading.hour, minute: reading.minute };
   }
 
-  const dayRaw = dayFirst ? dayFirst[1].toLowerCase() : monthFirst?.[2] ?? '';
-  const day = ORDINAL_WORDS[dayRaw] ?? Number.parseInt(dayRaw, 10);
-  const month = MONTHS[(dayFirst ? dayFirst[2] : monthFirst?.[1] ?? '').toLowerCase()];
+  const baseSeconds = base.hour * 3600 + base.minute * 60 + (base.second ?? 0);
+  const morningHour = reading.hour % 12;
+  const candidates = [morningHour, morningHour + 12];
+  const ahead = candidates.find((hour) => hour * 3600 + reading.minute * 60 >= baseSeconds);
 
-  if (!month || !Number.isFinite(day)) {
-    return undefined;
-  }
-
-  let year = current.year;
-
-  if (month < current.month) {
-    year += 1;
-  }
-
-  const maxDay = daysInMonth(year, month);
-  const safeDay = Math.min(Math.max(1, day), maxDay);
-
-  if (month === current.month && safeDay < current.day) {
-    year += 1;
-  }
-
-  return {
-    year,
-    month,
-    day: safeDay,
-    hour: current.hour,
-    minute: current.minute,
-    second: current.second ?? 0,
-  };
+  return { hour: ahead ?? morningHour, minute: reading.minute };
 }
 
 /**
@@ -287,62 +255,62 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
       .slice(match.index + match[0].length, match.index + match[0].length + 24)
       .toLowerCase();
 
-    const elapsedMarker =
-      /(later|after|passed|of travel|of riding|of marching|on the road|on the trail|of walking|of running)/.test(
-        after
-      ) ||
-      /(spent|travel|travels|traveled|travelled|traveling|travelling|marched|ride|rode|walked|walk|ran|slept|sleep|rested|waited|searched|fought|endured|trained|took)/.test(
-        before
-      ) ||
-      // "After two hours, ..." right before the number.
-      /\bafter\s+$/.test(before);
+    // Plans, needs, the past and distances are not time passing now.
+    const notNow =
+      AFTER_NOT_NOW.test(after) || BEFORE_NOT_NOW.test(before);
+    const elapsedMarker = AFTER_MARKER.test(after) || BEFORE_MARKER.test(before) || /\bafter\s+$/.test(before);
 
-    if (elapsedMarker && amount > 0 && unitSeconds > 0) {
+    if (elapsedMarker && !notNow && amount > 0 && unitSeconds > 0) {
       elapsedSeconds = Math.max(elapsedSeconds, amount * unitSeconds);
     }
   }
 
-  const nextDay = /\bthe (?:next|following)\s+(?:day|morning|dawn|evening|night|afternoon)\b/i.test(
-    text
-  );
+  // "An hour passes", "a day goes by": the number is "a"/"an", already above
+  // when the verb follows; this also catches "hours pass" with no number.
+  if (/\bhours\s+(?:pass|passed|go by|went by|crawl by|crawled by)\b/i.test(text)) {
+    elapsedSeconds = Math.max(elapsedSeconds, 2 * 3600);
+  }
 
-  if (nextDay) {
+  const nextDayMatch = /\bthe (?:next|following)\s+(day|morning|dawn|evening|night|afternoon)\b/i.exec(text);
+  // After midnight and before waking, "the next morning" is later the same day.
+  const sameDayMorning =
+    Boolean(nextDayMatch) &&
+    /^(morning|dawn)$/i.test(nextDayMatch?.[1] ?? '') &&
+    current.hour < MORNING_HOUR;
+
+  if (nextDayMatch && !sameDayMorning) {
     elapsedSeconds = Math.max(elapsedSeconds, 86400);
   }
 
-  const parsedClock = parseClock(text);
+  const reading = parseClock(text);
 
-  if (parsedClock) {
-    clock = parsedClock;
+  if (reading) {
+    clock = nextOccurrence(reading, advanceSeconds(current, elapsedSeconds));
   }
-
-  const explicit = explicitDate(text, current);
 
   const sleep = sleptNight ? { sleptNight: true } : {};
 
-  if (explicit) {
-    return { elapsedSeconds, clock, explicitDate: explicit, ...sleep };
+  if (nextDayMatch && !clock) {
+    clock = { hour: MORNING_HOUR, minute: 0 };
   }
 
-  if (nextDay && !clock) {
-    clock = { hour: 7, minute: 0 };
-  }
+  const periodHint = clock ? undefined : periodHintOf(text);
 
-  return { elapsedSeconds, clock, ...sleep };
+  return { elapsedSeconds, clock, ...(periodHint ? { periodHint } : {}), ...sleep };
 }
 
-export function applyParsedTime(current: CalendarDate, parsed: ParsedTime): CalendarDate {
-  if (parsed.explicitDate) {
-    return parsed.clock
-      ? {
-          ...parsed.explicitDate,
-          hour: parsed.clock.hour,
-          minute: parsed.clock.minute,
-          second: 0,
-        }
-      : parsed.explicitDate;
-  }
+// Words right after the duration that mean it passed: "two hours later", "three months pass".
+const AFTER_MARKER =
+  /^[\s,]*(?:\w+\s+)?\b(later|after|pass|passes|passed|go by|goes by|went by|slip by|slips by|slipped by|crawl by|of travel|of riding|of marching|on the road|on the trail|of walking|of running|of training|in training)\b/;
+// Verbs right before it that spend it: "you walk for two hours", "she spent three days".
+const BEFORE_MARKER =
+  /\b(spent|spend|spends|spending|travel|travels|traveled|travelled|traveling|travelling|march|marches|marched|marching|ride|rides|rode|riding|walk|walks|walked|walking|run|runs|ran|running|sleep|sleeps|slept|rest|rests|rested|wait|waits|waited|waiting|search|searches|searched|searching|fought|fight|fights|endured|endure|endures|train|trains|trained|training|take|takes|took|for)\b[^.!?]*$/;
+// "four months ago", "a week from now", "for the next two days" are not this turn.
+const AFTER_NOT_NOW = /^[\s,]*(ago|before that|earlier|from now|away|out|off|'s|’s|of (?:stubble|beard|growth|rations|food|water|supplies|travel away))\b/;
+const BEFORE_NOT_NOW =
+  /\b(will|would|could|should|might|must|shall|need|needs|needed|going to|plan|plans|planned|hope|hopes|want|wants|had been|has been|have been|the next|the last|the past|in|within|than|every|each|per)\s+(?:\w+\s+){0,3}$/;
 
+export function applyParsedTime(current: CalendarDate, parsed: ParsedTime): CalendarDate {
   let next = current;
 
   if (parsed.elapsedSeconds > 0) {
