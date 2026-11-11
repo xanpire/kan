@@ -2297,7 +2297,7 @@ describe('duplicate characters', () => {
     // Met in a scene: the scene cast is what makes him met and gives him a bond.
     db = applyTurnDiff(db, {
       scene: { ended: false, entities: ['Shark-faced man'] },
-      bonds: [{ character: 'Shark-faced man', affinityDelta: 3, status: 'Respect' }],
+      bonds: [{ character: 'Shark-faced man', affinityDelta: 2, status: 'Respect' }],
     });
 
     const shark = db.entities.find((entity) => entity.name === 'Shark-faced man')!;
@@ -2311,7 +2311,7 @@ describe('duplicate characters', () => {
     expect(merged?.aliases).toContain('Shark-faced man');
     expect(merged?.met).toBeUndefined();
     expect(db.bonds.filter((bond) => bond.entityId === kisame.id).length).toBe(1);
-    expect(db.bonds.find((bond) => bond.entityId === kisame.id)?.affinity).toBe(3);
+    expect(db.bonds.find((bond) => bond.entityId === kisame.id)?.affinity).toBe(2);
     expect(resolveEntity(db, 'Shark-faced man')?.id).toBe(kisame.id);
   });
 });

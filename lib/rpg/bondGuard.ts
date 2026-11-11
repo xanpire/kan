@@ -14,9 +14,9 @@ import type { AppDatabase, BondRecord, CalendarDate, EntityRecord, TurnDiff } fr
 
 type BondDiff = NonNullable<TurnDiff['bonds']>[number];
 
-/** Most a bond's feelings move in one turn (the tracker rule: "usually -3..3"); more on a turn that matters (`isBigTurn`). */
-export const BOND_STEP = 3;
-export const BIG_TURN_BOND_STEP = 5;
+/** Most a bond's feelings move in one turn (decided in the audit brief: ±2); more on a turn that matters (`isBigTurn`). */
+export const BOND_STEP = 2;
+export const BIG_TURN_BOND_STEP = 4;
 /** How long "romantic interest" must hold before "lover". */
 export const ROMANCE_BEFORE_LOVER_DAYS = 30;
 /** Adults keep Kan at arm's length while he is younger than this. */

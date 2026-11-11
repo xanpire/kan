@@ -115,10 +115,10 @@ describe('14. two-sided bonds', () => {
     let db = seed();
     db = play(db, 'You think you will never forgive him.', {
       characters_present: ['itachi-uchiha'],
-      bonds: [{ character_id: 'itachi-uchiha', affinity_change: null, status: null, note: null, relationship: null, attraction: null, romance_note: null, your_change: -3, your_note: 'You will never forgive him.' }],
+      bonds: [{ character_id: 'itachi-uchiha', affinity_change: null, status: null, note: null, relationship: null, attraction: null, romance_note: null, your_change: -2, your_note: 'You will never forgive him.' }],
     });
     const after = bondOf(db, 'Itachi Uchiha');
-    expect(after.yourFeelings).toEqual({ affinity: 4, note: 'You will never forgive him.' });
+    expect(after.yourFeelings).toEqual({ affinity: 5, note: 'You will never forgive him.' });
     expect(after.theirFeelings?.affinity).toBe(8);
     expect(after.affinity).toBe(8);
     expect(after.relationship).toBe('old friend');

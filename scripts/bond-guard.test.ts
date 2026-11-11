@@ -48,7 +48,7 @@ describe('love and trust have a guard (audit 6.12)', () => {
       bonds: [{ character_id: 'hana-inuzuka', affinity_change: 10, relationship: 'lover', attraction: 'strong' }],
     });
     const after = hanaBond(result.db)!;
-    expect(after.affinity - (before?.affinity ?? 0)).toBeLessThanOrEqual(3);
+    expect(after.affinity - (before?.affinity ?? 0)).toBeLessThanOrEqual(2);
     expect(after.relationship).not.toBe('lover');
     expect(after.relationship).not.toBe('romantic interest');
     expect(result.events.some((event) => event.kind === 'refused')).toBe(true);
