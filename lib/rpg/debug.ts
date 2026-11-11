@@ -35,6 +35,8 @@ export type DebugCall = {
   costSource: 'reply' | 'lookup' | 'pending' | 'unavailable';
   finishReason?: string;
   error?: string;
+  /** For JSON calls: strict schema, JSON mode or a plain reply (audit 5.4). */
+  responseMode?: 'schema' | 'json_object' | 'plain';
 };
 
 export type DebugChange = {
@@ -279,6 +281,7 @@ export function recordDebugCall(
     finishReason?: string;
     error?: string;
     apiKey?: string;
+    responseMode?: DebugCall['responseMode'];
   }
 ) {
   if (!turnId || !log.turns.some((turn) => turn.id === turnId)) {
@@ -297,6 +300,7 @@ export function recordDebugCall(
     costSource: hasCost ? 'reply' : canLookUp ? 'pending' : 'unavailable',
     finishReason: call.finishReason,
     error: call.error,
+    ...(call.responseMode ? { responseMode: call.responseMode } : {}),
   };
 
   updateTurn(turnId, (turn) => ({ ...turn, calls: [...turn.calls, entry] }));

@@ -317,6 +317,10 @@ function CallRow({ call }: { call: DebugCall }) {
     details.push(`finish: ${call.finishReason}`);
   }
 
+  if (call.responseMode) {
+    details.push(RESPONSE_MODE_LABEL[call.responseMode]);
+  }
+
   const served = usage?.servedModel && usage.servedModel !== call.model ? usage.servedModel : null;
 
   return (
@@ -335,6 +339,13 @@ function CallRow({ call }: { call: DebugCall }) {
     </View>
   );
 }
+
+/** Which output mode answered a JSON call. Anything but "schema" on the state call means strict output was refused. */
+const RESPONSE_MODE_LABEL = {
+  schema: 'strict schema',
+  json_object: 'JSON mode (schema refused)',
+  plain: 'plain reply (JSON refused)',
+} as const;
 
 function StateBlock({ turn }: { turn: DebugTurn }) {
   const [showRaw, setShowRaw] = useState(false);

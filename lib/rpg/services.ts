@@ -327,6 +327,7 @@ async function tracedChat(kind: DebugCallKind, debugTurnId: string | undefined, 
       usage: result.usage,
       finishReason: result.finishReason,
       apiKey: request.apiKey,
+      responseMode: result.responseMode,
     });
     return result;
   } catch (caught) {

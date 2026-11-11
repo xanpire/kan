@@ -195,3 +195,30 @@ describe('keeping a stopped reply', () => {
     expect(keepablePartial('Rain hammers the')).toBeNull();
   });
 });
+
+describe('which output mode answered', () => {
+  const ok = () =>
+    new Response(JSON.stringify({ choices: [{ message: { content: '{}' }, finish_reason: 'stop' }] }), { status: 200 });
+  const schema = { name: 's', schema: { type: 'object' } };
+
+  test('a strict schema answer says so', async () => {
+    globalThis.fetch = (async () => ok()) as typeof fetch;
+    expect((await completeChat({ ...request, jsonSchema: schema })).responseMode).toBe('schema');
+  });
+
+  test('a refused schema falls to JSON mode, then to a plain reply, and the result says which', async () => {
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return calls === 1 ? new Response('{}', { status: 404 }) : ok();
+    }) as typeof fetch;
+    expect((await completeChat({ ...request, jsonSchema: schema })).responseMode).toBe('json_object');
+
+    calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return calls <= 2 ? new Response('{}', { status: 400 }) : ok();
+    }) as typeof fetch;
+    expect((await completeChat({ ...request, jsonSchema: schema })).responseMode).toBe('plain');
+  });
+});

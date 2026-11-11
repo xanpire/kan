@@ -100,12 +100,17 @@ export type CallUsage = {
   durationMs: number;
 };
 
+/** How a structured call was answered: strict schema, plain JSON mode, or an ordinary reply after both were refused. */
+export type ResponseMode = 'schema' | 'json_object' | 'plain';
+
 export type StreamResult = {
   text: string;
   promptTokens: number;
   completionTokens: number;
   finishReason?: string;
   usage: CallUsage;
+  /** Set on calls that asked for JSON: which mode actually answered. */
+  responseMode?: ResponseMode;
 };
 
 type RawUsage = {
@@ -959,7 +964,7 @@ export async function completeChat({
     }
 
     if (responseFormatJson && unsupported) {
-      return completeChat({
+      const plain = await completeChat({
         apiKey,
         model,
         messages,
@@ -970,6 +975,7 @@ export async function completeChat({
         timeoutMs,
         responseFormatJson: false,
       });
+      return { ...plain, responseMode: 'plain' };
     }
 
     throw new OpenRouterError(message, response.status);
@@ -1000,6 +1006,11 @@ export async function completeChat({
     completionTokens: usage.completionTokens,
     finishReason: payload.choices?.[0]?.finish_reason,
     usage,
+    ...(jsonSchema
+      ? { responseMode: 'schema' as const }
+      : responseFormatJson
+        ? { responseMode: 'json_object' as const }
+        : {}),
   };
 }
 
