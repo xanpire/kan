@@ -1161,6 +1161,9 @@ export type TurnDiff = {
     lastingAppearance?: string;
     /** Where the story says they are or are going. */
     whereabouts?: string;
+    /** character_updates only, original characters only: who they are has truly changed. */
+    personalityChange?: string;
+    speechStyleChange?: string;
     gender?: Gender;
     /** A one-scene character (see EntityRecord.tier). */
     minor?: boolean;

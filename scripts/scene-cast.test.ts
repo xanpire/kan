@@ -67,3 +67,48 @@ describe('the scene cast follows Kan (audit 6.10)', () => {
     expect(second.db.state.sceneCast).toEqual(['Itachi Uchiha']);
   });
 });
+
+describe('who someone is never changes by accident (audit 6.11)', () => {
+  const itachi = (db: AppDatabase) => db.entities.find((entity) => entity.name === 'Itachi Uchiha')!;
+
+  test('a known canon person listed under new_characters keeps their card', () => {
+    const db = seed();
+    const before = itachi(db);
+    const after = play(db, 'Itachi watches you.', {
+      new_characters: [
+        { is_new: true, name: 'Itachi Uchiha', age: 17, role: 'Rogue ninja', personality: 'Cold and cruel', speech_style: 'Mocking' },
+      ],
+    }).db;
+    const now = itachi(after);
+    expect(now.role).toBe(before.role);
+    expect(now.personality).toBe(before.personality);
+    expect(now.speechStyle).toBe(before.speechStyle);
+    expect(now.birthYear).toBe(before.birthYear);
+  });
+
+  test('an original person only gets blanks filled, and changes only through personality_change', () => {
+    let db = play(seed(), 'A ferryman nods at you.', {
+      new_characters: [{ is_new: true, name: 'Ren Kisaragi', role: 'Ferryman', personality: 'Unknown', speech_style: 'Unknown' }],
+    }).db;
+    db = play(db, 'Ren talks.', {
+      new_characters: [{ is_new: true, name: 'Ren Kisaragi', role: 'Spy', personality: 'Quiet, careful', speech_style: 'Clipped' }],
+    }).db;
+    let ren = db.entities.find((entity) => entity.name === 'Ren Kisaragi')!;
+    expect(ren.role).toBe('Ferryman');
+    expect(ren.personality).toBe('Quiet, careful');
+    expect(ren.speechStyle).toBe('Clipped');
+
+    const renId = ren.id;
+    db = play(db, 'Something in Ren has broken.', {
+      character_updates: [{ character_id: 'ren-kisaragi', personality_change: 'Bitter and reckless since the fire' }],
+    }).db;
+    ren = db.entities.find((entity) => entity.id === renId)!;
+    expect(ren.personality).toBe('Bitter and reckless since the fire');
+
+    const canonBefore = itachi(db).personality;
+    db = play(db, 'Itachi.', {
+      character_updates: [{ character_id: 'itachi-uchiha', personality_change: 'Cheerful' }],
+    }).db;
+    expect(itachi(db).personality).toBe(canonBefore);
+  });
+});

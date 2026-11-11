@@ -7,7 +7,6 @@ import { completeChat, type CallUsage } from '../openrouter';
 import { wearsAkatsukiCloak } from './portrait';
 import type { PlannedReference } from './referencePlan';
 import { flashbackImageNote, kanAgeAt, latestReplyIsFlashback } from './flashbacks';
-import { CANON_CAST } from './canonCast';
 import { entityAge, timeOfDayOf } from './calendar';
 import {
   canonArtDirection,
@@ -62,17 +61,9 @@ function sceneCast(db: AppDatabase, limit = SCENE_CAST_LIMIT): string[] {
 /** Most people sent as references in one scene image (more for an ensemble). */
 export const SCENE_CHARACTER_LIMIT = 3;
 
-/** The canon cast, plus the canon people the save starts with (seed.ts). */
-const CANON_NAMES = new Set(
-  [...CANON_CAST.map((entry) => entry.name), 'Itachi Uchiha', 'Hana Inuzuka', 'Izumi Uchiha', 'Suzume'].map((name) =>
-    name.toLowerCase()
-  )
-);
+import { isCanonCharacter } from './canonPeople';
 
-/** Canon characters the image model already knows by name. */
-export function isCanonCharacter(entity: Pick<EntityRecord, 'name'>) {
-  return CANON_NAMES.has(entity.name.toLowerCase());
-}
+export { isCanonCharacter };
 
 /**
  * How many people can get their own reference slot: what the model takes,

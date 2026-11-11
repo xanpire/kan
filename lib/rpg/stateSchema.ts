@@ -183,6 +183,9 @@ export const TURN_STATE_SCHEMA = object({
     appearance: nullableString,
     lasting_appearance: nullableString,
     whereabouts: nullableString,
+    // Rare, original characters only: who they are has truly changed.
+    personality_change: nullableString,
+    speech_style_change: nullableString,
   }),
   // A death the prose makes certain this turn — on screen, a body Kan sees,
   // or someone telling Kan — by character id. revived is only a true return

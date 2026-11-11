@@ -719,8 +719,14 @@ export function convertStateBlock(
         appearance: cleanString(item.appearance),
         lastingAppearance: cleanString(item.lasting_appearance),
         whereabouts: cleanString(item.whereabouts),
+        personalityChange: cleanString(item.personality_change),
+        speechStyleChange: cleanString(item.speech_style_change),
       }))
-      .filter((item) => item.name.length > 0 && (item.mood || item.appearance || item.lastingAppearance || item.whereabouts));
+      .filter(
+        (item) =>
+          item.name.length > 0 &&
+          (item.mood || item.appearance || item.lastingAppearance || item.whereabouts || item.personalityChange || item.speechStyleChange)
+      );
 
     if (updates.length > 0) {
       diff.entities = [...(diff.entities ?? []), ...updates];

@@ -7,6 +7,7 @@ import { characterRefs } from './characterRefs';
 import { makeId } from './id';
 import { isPlaceholderStatus, NEWLY_MET_STATUS, UNMET_STATUS } from './met';
 import { romanceFor } from './romance';
+import { isCanonCharacter } from './canonPeople';
 import { uniqueList } from './util';
 import type { AppDatabase, EntityRecord, TurnDiff } from './types';
 
@@ -867,24 +868,43 @@ export function applyEntityDiff(db: AppDatabase, entity: EntityDiff): AppDatabas
       ? [name]
       : [];
 
+  // Who someone is never changes by accident (audit 6.11). A new_characters
+  // entry that turned out to be a known person only fills what is still
+  // unknown. Canon characters' role, personality, speech and age never come
+  // from the tracker at all (era notes do that). An original character's
+  // personality or speech changes only through an explicit
+  // personality_change / speech_style_change.
+  const canon = isCanonCharacter(existing) || existing.name.toLowerCase() === 'kan';
+  const fromNew = entity.isNew === true;
+  const blank = (value: string | undefined) => !value?.trim() || value.trim() === 'Unknown';
+  const fill = (incoming: string | undefined, current: string | undefined) =>
+    !canon && blank(current) && incoming?.trim() ? incoming.trim() : current;
+  const ageYear = entity.age !== undefined ? db.state.inStoryDate.year - entity.age : undefined;
+
   // An update changes what is known about them; it never marks them met or
   // seen. Only the scene cast does that (recordPresence).
   entities[existingIndex] = {
     ...existing,
     aliases: [...existing.aliases, ...extraAlias].slice(0, 10),
     age: undefined,
-    birthYear:
-      entity.age !== undefined
-        ? db.state.inStoryDate.year - entity.age
-        : existing.birthYear,
-    role: entity.role?.trim() || existing.role,
-    personality: entity.personality?.trim() || existing.personality,
-    speechStyle: entity.speechStyle?.trim() || existing.speechStyle,
+    birthYear: canon || existing.birthYear !== undefined ? existing.birthYear : ageYear,
+    role: fill(entity.role, existing.role),
+    personality: canon
+      ? existing.personality
+      : (!fromNew && entity.personalityChange?.trim()) || fill(entity.personality, existing.personality),
+    speechStyle: canon
+      ? existing.speechStyle
+      : (!fromNew && entity.speechStyleChange?.trim()) || fill(entity.speechStyle, existing.speechStyle),
     mood: nextMood,
     // An update only says how they look right now; the base look changes
-    // only for a real lasting change.
-    appearance: entity.lastingAppearance?.trim() || existing.appearance,
-    ...(entity.appearance?.trim()
+    // only for a real lasting change. A new_characters entry for someone
+    // known gives a base look only when none was recorded.
+    appearance: fromNew
+      ? blank(existing.appearance) && entity.appearance?.trim()
+        ? entity.appearance.trim()
+        : existing.appearance
+      : entity.lastingAppearance?.trim() || existing.appearance,
+    ...(!fromNew && entity.appearance?.trim()
       ? { currentLook: entity.appearance.trim().slice(0, 200), currentLookSeq: undefined }
       : {}),
     ...(entity.whereabouts?.trim() ? { whereabouts: entity.whereabouts.trim().slice(0, 120) } : {}),
