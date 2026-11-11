@@ -310,7 +310,7 @@ export function applyStateStep(
   };
   const effectiveDiff: TurnDiff = merged;
 
-  let next = applyTurnDiff(latest, effectiveDiff);
+  let next = applyTurnDiff(latest, effectiveDiff, { events });
   // Someone Kan had not seen in a long time is here again.
   next = markReunions(latest, next);
   const appliedSeconds = Math.max(0, secondsBetween(beforeDate, next.state.inStoryDate));

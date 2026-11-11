@@ -822,6 +822,12 @@ export type BondRecord = {
   romanceNote?: string;
   /** Set while this person holds a grudge against Kan (grudges.ts). */
   grudge?: Grudge;
+  /** The scene (GameState.sceneSeq) the relationship last stepped up in (bondGuard.ts). */
+  stepSceneSeq?: number;
+  /** The scene attraction last rose in. */
+  attractionSceneSeq?: number;
+  /** When "romantic interest" began; "lover" waits 30 in-story days after it. */
+  romanticSince?: CalendarDate;
   updatedInStoryDate: CalendarDate;
 };
 

@@ -13,6 +13,8 @@ import { markAlive, markDeceased } from './deaths';
 import { buildIndices } from './db';
 import { type DebugCallKind, recordDebugCall, recordDebugState } from './debug';
 import { validateLocationKind } from './encounters';
+import { guardBondDiff, isBigTurn } from './bondGuard';
+import type { DebugEvent } from './debugEvents';
 import { applyEntityDiff, mergeDuplicateEntities, recordPresence, resolveCharacterRefs, resolveEntity } from './entities';
 import { applyGrudgeChanges } from './grudges';
 import { applyReputationChanges } from './reputation';
@@ -32,7 +34,11 @@ const STATE_MAX_TOKENS = 3000;
 /** A retry after the first reply hit the cap. */
 const STATE_RETRY_MAX_TOKENS = 4500;
 
-export function applyTurnDiff(db: AppDatabase, diff: TurnDiff | null): AppDatabase {
+export function applyTurnDiff(
+  db: AppDatabase,
+  diff: TurnDiff | null,
+  options: { events?: DebugEvent[] } = {}
+): AppDatabase {
   if (!diff || typeof diff !== 'object') {
     return db;
   }
@@ -108,8 +114,29 @@ export function applyTurnDiff(db: AppDatabase, diff: TurnDiff | null): AppDataba
   const storyMovedBond = new Set<string>();
 
   if (Array.isArray(diff.bonds)) {
-    for (const bond of diff.bonds) {
+    const bigTurn = isBigTurn(diff);
+
+    for (const raw of diff.bonds) {
+      // Love and trust move at the story's pace, whatever the tracker says.
+      const person =
+        (raw.entityId ? next.entities.find((item) => item.id === raw.entityId) : undefined) ??
+        resolveEntity(next, raw.character);
+      const before = person ? next.bonds.find((item) => item.entityId === person.id) : undefined;
+      const guarded = person ? guardBondDiff(next, person, before, raw, { bigTurn }) : null;
+      const bond = guarded?.bond ?? raw;
+
+      for (const text of guarded?.refused ?? []) {
+        options.events?.push({ kind: 'refused', text });
+      }
+
       next = applyBondDiff(next, bond, { presentIds });
+
+      if (person && guarded && Object.keys(guarded.marks).length > 0) {
+        next = {
+          ...next,
+          bonds: next.bonds.map((item) => (item.entityId === person.id ? { ...item, ...guarded.marks } : item)),
+        };
+      }
 
       if (typeof bond.affinityDelta === 'number' && bond.affinityDelta !== 0) {
         const id = bond.entityId ?? resolveEntity(next, bond.character)?.id;

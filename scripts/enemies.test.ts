@@ -175,6 +175,9 @@ describe('grudges: the dark mirror of romance', () => {
     let db = addRonin(later(fresh(), 3));
     expect(goroBond(db).grudge).toBeUndefined();
 
+    // One turn moves feelings at most 3 (bondGuard.ts): the humiliation takes two.
+    db = turn(db, { bonds: [{ character_id: 'Goro Tsuda', affinity_change: -2, status: 'Wary', note: 'You mocked him at the inn', relationship: null, attraction: null, romance_note: null }] });
+    expect(goroBond(db).grudge).toBeUndefined();
     db = turn(db, { bonds: [{ character_id: 'Goro Tsuda', affinity_change: -5, status: 'Humiliated', note: 'You cut his topknot in the square', relationship: null, attraction: null, romance_note: null }] });
     const bond = goroBond(db);
     expect(bond.affinity).toBeLessThanOrEqual(GRUDGE_AFFINITY);
