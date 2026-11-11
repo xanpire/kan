@@ -40,6 +40,8 @@ import { formatDayMonth } from '@/lib/rpg/calendar';
 import { DEFAULT_SETTINGS, PROMPT_BUDGET_OPTIONS } from '@/lib/rpg/defaults';
 import { downloadJson, pickJsonFile } from '@/lib/rpg/file';
 import { useGame } from '@/lib/rpg/game';
+import { EXPORT_REMINDER_TURNS, backupInfo, turnsSinceExport, type BackupInfo } from '@/lib/rpg/db';
+import { storageStatus, type StorageStatus } from '@/lib/rpg/slotStore';
 import { currentAmbience, describeAmbience } from '@/lib/rpg/ambience';
 import { ambienceEngine, ambienceSupported } from '@/lib/audio/ambienceEngine';
 import { setAmbienceSettings, useAmbienceSettings } from '@/lib/audio/ambienceSettings';
@@ -64,6 +66,10 @@ export default function SettingsScreen() {
     switchSlotById,
     exportActiveSlot,
     importSlot,
+    markExported,
+    restoreDailyBackup,
+    isNarrating,
+    isProcessing,
   } = useGame();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
@@ -89,6 +95,34 @@ export default function SettingsScreen() {
   const [renaming, setRenaming] = useState(false);
   const [deleteSlotId, setDeleteSlotId] = useState<string | null>(null);
   const [deletingSlot, setDeletingSlot] = useState(false);
+  const [storage, setStorage] = useState<StorageStatus | null>(null);
+  const [backup, setBackup] = useState<BackupInfo | null | undefined>(undefined);
+  const [restoreOpen, setRestoreOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+
+  const openSlotId = db?.meta.slotId;
+  const savedAt = db?.meta.updatedAt;
+
+  useEffect(() => {
+    let cancelled = false;
+    void storageStatus().then((status) => {
+      if (!cancelled) setStorage(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [savedAt]);
+
+  useEffect(() => {
+    if (!openSlotId) return;
+    let cancelled = false;
+    void backupInfo(openSlotId).then((info) => {
+      if (!cancelled) setBackup(info);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [openSlotId, restoring]);
 
   useEffect(() => {
     setKeyDraft(apiKey);
@@ -208,6 +242,7 @@ export default function SettingsScreen() {
     }
 
     downloadJson(`kan-story-${db?.meta.slotName ?? 'save'}${withImages ? '' : '-no-images'}.json`, json);
+    await markExported().catch(() => undefined);
     showToast(withImages ? 'Save file downloaded.' : 'Save file downloaded, without images.', 'success');
   };
 
@@ -244,6 +279,20 @@ export default function SettingsScreen() {
     await renameSlotById(menuSlot.meta.slotId, name);
     closeMenu();
     showToast('Story renamed.', 'success');
+  };
+
+  const handleRestore = async () => {
+    setRestoring(true);
+
+    try {
+      await restoreDailyBackup();
+      setRestoreOpen(false);
+      showToast('Your story is back as it was in the backup.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not restore the backup.', 'error');
+    } finally {
+      setRestoring(false);
+    }
   };
 
   const handleDeleteSlot = async () => {
@@ -648,6 +697,42 @@ export default function SettingsScreen() {
             />
           </View>
 
+          <ListCard style={styles.storageCard}>
+            {storage && storage.persisted !== null ? (
+              <ListRow
+                body={
+                  storage.persisted
+                    ? 'Protected: the browser keeps your stories even when space runs low.'
+                    : 'Not protected: the browser may clear your stories if you don’t open Kan for a while. Install Kan to your home screen to keep them safe.'
+                }
+                meta={storage.usage !== undefined ? `${formatBytes(storage.usage)} used` : null}
+                title="Storage"
+              />
+            ) : null}
+            <ListRow
+              body={
+                backup
+                  ? `Saved ${formatRealDate(backup.updatedAt)}, ${Math.floor(backup.storyTurns / 2)} turns in, on ${formatDayMonth(backup.inStoryDate)}, year ${backup.inStoryDate.year}.`
+                  : 'A copy from the day before is kept from tomorrow on.'
+              }
+              onPress={backup && !isNarrating && !isProcessing ? () => setRestoreOpen(true) : undefined}
+              title="Restore yesterday’s backup"
+            />
+            <ListRow
+              body={
+                db.meta.exportedAt
+                  ? `Last exported ${formatRealDate(db.meta.exportedAt)}, ${turnsSinceExport(db)} turns ago.`
+                  : `Not exported yet. ${turnsSinceExport(db)} turns are only on this device.`
+              }
+              title="Your last export"
+              trailing={
+                turnsSinceExport(db) >= EXPORT_REMINDER_TURNS ? (
+                  <View accessibilityLabel="Time to export" style={styles.reminderDot} />
+                ) : null
+              }
+            />
+          </ListCard>
+
           <SectionLabel>Debug</SectionLabel>
           <DebugPanel />
 
@@ -712,8 +797,22 @@ export default function SettingsScreen() {
       </Modal>
 
       <ConfirmDialog
+        body="Your story goes back to the copy kept at the start of the day. Everything you played since then is set aside, not deleted."
+        busy={restoring}
+        busyText="Restoring the backup…"
+        confirmLabel="Restore"
+        label="Restore backup"
+        onCancel={() => setRestoreOpen(false)}
+        onConfirm={() => void handleRestore()}
+        title="Go back to yesterday’s backup?"
+        visible={restoreOpen}
+      />
+
+      <ConfirmDialog
         body="This permanently deletes this story slot and its saved memory."
         busy={deletingSlot}
+        busyText="Deleting the story…"
+        label="Delete story"
         confirmLabel="Delete"
         onCancel={() => setDeleteSlotId(null)}
         onConfirm={() => void handleDeleteSlot()}
@@ -724,7 +823,30 @@ export default function SettingsScreen() {
   );
 }
 
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function formatRealDate(at: number) {
+  try {
+    return new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  } catch {
+    return new Date(at).toDateString();
+  }
+}
+
 const styles = StyleSheet.create({
+  storageCard: {
+    marginTop: spacing.md,
+  },
+  reminderDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.background,

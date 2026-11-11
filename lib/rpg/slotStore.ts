@@ -95,19 +95,60 @@ function openDb(): Promise<IDBDatabase | null> {
 }
 
 let persistRequested = false;
+let persistGranted: boolean | null = null;
 
 /**
  * Asks the browser not to clear the app's data when the device is low on
  * space. Browsers may grant it silently (installed PWAs usually are) or
- * ignore it; either way nothing else depends on the answer.
+ * ignore it. The answer is shown in Settings (`storageStatus`).
  */
 export async function requestPersistentStorage(): Promise<boolean> {
   if (persistRequested) {
-    return false;
+    return persistGranted ?? false;
   }
 
   persistRequested = true;
+  persistGranted = await askPersist();
+  return persistGranted;
+}
 
+export type StorageStatus = {
+  /** Null where the browser can't say (native, old browsers). */
+  persisted: boolean | null;
+  /** Bytes used and available for the whole app, when the browser reports them. */
+  usage?: number;
+  quota?: number;
+};
+
+/** Whether the browser has promised to keep the app's data, and how much space it uses. */
+export async function storageStatus(): Promise<StorageStatus> {
+  const storage = typeof navigator !== 'undefined' ? navigator.storage : undefined;
+
+  if (!storage) {
+    return { persisted: null };
+  }
+
+  let persisted: boolean | null = null;
+
+  try {
+    persisted = storage.persisted ? await storage.persisted() : null;
+
+    if (persisted === false && !persistRequested) {
+      persisted = await requestPersistentStorage();
+    }
+  } catch {
+    persisted = null;
+  }
+
+  try {
+    const estimate = storage.estimate ? await storage.estimate() : undefined;
+    return { persisted, usage: estimate?.usage, quota: estimate?.quota };
+  } catch {
+    return { persisted };
+  }
+}
+
+async function askPersist(): Promise<boolean> {
   try {
     const storage = typeof navigator !== 'undefined' ? navigator.storage : undefined;
 
@@ -283,6 +324,7 @@ export async function slotBackend(): Promise<'indexeddb' | 'asyncstorage'> {
 export function resetSlotStoreForTests(options: { retryDelayMs?: number } = {}) {
   dbPromise = null;
   persistRequested = false;
+  persistGranted = null;
   openRetryDelayMs = options.retryDelayMs ?? 250;
 }
 

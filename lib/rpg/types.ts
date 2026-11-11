@@ -1011,6 +1011,10 @@ export type AppDatabase = {
     slotName: string;
     createdAt: number;
     updatedAt: number;
+    /** Story entries (rawLog, kind story) when the save was last exported; drives the export reminder. */
+    exportedAtTurn?: number;
+    /** Real-world time of the last export. */
+    exportedAt?: number;
   };
   settings: Settings;
   rawLog: RawLogEntry[];

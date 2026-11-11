@@ -342,3 +342,153 @@ describe('load keeps every GameState field (audit 3.4)', () => {
     expect(back.sceneClosed).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Audit 3.3: storage status, daily backup, export reminder, one tab per story.
+// ---------------------------------------------------------------------------
+
+import {
+  EXPORT_REMINDER_TURNS,
+  backupInfo,
+  backupKey,
+  resetBackupsForTests,
+  restoreBackup,
+  setSlotReadOnly,
+  turnsSinceExport,
+} from '../lib/rpg/db';
+import { storageStatus } from '../lib/rpg/slotStore';
+import { acquireSlotLock } from '../lib/rpg/tabLock';
+
+describe('backups and storage (audit 3.3)', () => {
+  beforeEach(() => {
+    local.clear();
+    localCap = Infinity;
+    (globalThis as any).indexedDB = new IDBFactory();
+    resetSlotStoreForTests({ retryDelayMs: 1 });
+    resetBackupsForTests();
+    clearBrokenSlot('slot_test');
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).indexedDB;
+    resetSlotStoreForTests();
+    resetBackupsForTests();
+  });
+
+  test('the first save of a new day keeps the previous copy as the backup', async () => {
+    const yesterday = storyWith(30, 'Yesterday', Date.now() - 36 * 3600_000);
+    await writeSlotJson(KEY, JSON.stringify(yesterday));
+    expect(await backupInfo('slot_test')).toBeNull();
+
+    await saveSlot(storyWith(32, 'Today', Date.now()));
+    const info = await backupInfo('slot_test');
+    expect(info?.storyTurns).toBe(30);
+    expect(JSON.parse((await readSlotJson(backupKey('slot_test')))!).meta.slotName).toBe('Yesterday');
+
+    // Later saves the same day leave the backup alone.
+    await saveSlot(storyWith(34, 'Later today', Date.now()));
+    expect((await backupInfo('slot_test'))?.storyTurns).toBe(30);
+  });
+
+  test('a save already from today is not copied into the backup', async () => {
+    await saveSlot(storyWith(10, 'Morning', Date.now()));
+    resetBackupsForTests();
+    await saveSlot(storyWith(12, 'Evening', Date.now()));
+    expect(await backupInfo('slot_test')).toBeNull();
+  });
+
+  test('restoring swaps the backup in and keeps the replaced copy aside', async () => {
+    await writeSlotJson(KEY, JSON.stringify(storyWith(30, 'Yesterday', Date.now() - 36 * 3600_000)));
+    await saveSlot(storyWith(32, 'Today', Date.now()));
+    const restored = await restoreBackup('slot_test');
+    expect(restored.meta.slotName).toBe('Yesterday');
+    expect((await loadSlot('slot_test')).meta.slotName).toBe('Yesterday');
+    const aside = (await listStoredKeys()).filter((key) => key.startsWith('kan.slot.slot_test.before-restore.'));
+    expect(aside.length).toBe(1);
+    expect(JSON.parse((await readSlotJson(aside[0]))!).meta.slotName).toBe('Today');
+  });
+
+  test('turns since the last export', () => {
+    const db = storyWith(120, 'Test', 0);
+    expect(turnsSinceExport(db)).toBe(60);
+    expect(turnsSinceExport(db) >= EXPORT_REMINDER_TURNS).toBe(true);
+    expect(turnsSinceExport({ ...db, meta: { ...db.meta, exportedAtTurn: 100 } })).toBe(10);
+  });
+
+  test('storage status reports persistence and usage', async () => {
+    const original = (globalThis as any).navigator;
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { storage: { persisted: async () => true, estimate: async () => ({ usage: 2048, quota: 1e9 }) } },
+    });
+    expect(await storageStatus()).toEqual({ persisted: true, usage: 2048, quota: 1e9 });
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: original });
+  });
+
+  test('a read-only slot (open in another tab) is never written', async () => {
+    await saveSlot(seedDatabase('slot_test', 'Real'));
+    setSlotReadOnly('slot_test', true);
+    await expect(saveSlot(seedDatabase('slot_test', 'Other tab'))).rejects.toThrow();
+    setSlotReadOnly('slot_test', false);
+    expect((await loadSlot('slot_test')).meta.slotName).toBe('Real');
+  });
+});
+
+describe('one tab per story (audit 3.3)', () => {
+  /** A minimal navigator.locks: exclusive, ifAvailable, waiting queue, abort. */
+  function fakeLocks() {
+    const held = new Set<string>();
+    const waiting = new Map<string, (() => void)[]>();
+    const grant = (name: string, callback: (lock: unknown) => any) => {
+      held.add(name);
+      return Promise.resolve(callback({ name })).finally(() => {
+        held.delete(name);
+        const next = waiting.get(name)?.shift();
+        next?.();
+      });
+    };
+    return {
+      request(name: string, options: any, callback: (lock: unknown) => any) {
+        if (!held.has(name)) return grant(name, callback);
+        if (options.ifAvailable) return Promise.resolve(callback(null));
+        return new Promise((resolve, reject) => {
+          const go = () => grant(name, callback).then(resolve, reject);
+          options.signal?.addEventListener('abort', () => {
+            const queue = waiting.get(name) ?? [];
+            waiting.set(name, queue.filter((entry) => entry !== go));
+            reject(new Error('aborted'));
+          });
+          waiting.set(name, [...(waiting.get(name) ?? []), go]);
+        });
+      },
+    };
+  }
+
+  test('a second tab is blocked, then gets the lock when the first lets go', async () => {
+    const original = (globalThis as any).navigator;
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: fakeLocks() } });
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    const events: string[] = [];
+    const first = acquireSlotLock('slot_x', { onAcquired: () => events.push('first'), onBlocked: () => events.push('first blocked') });
+    await flush();
+    const second = acquireSlotLock('slot_x', { onAcquired: () => events.push('second'), onBlocked: () => events.push('second blocked') });
+    await flush();
+    expect(events).toEqual(['first', 'second blocked']);
+    expect(second.held()).toBe(false);
+
+    first.release();
+    await flush();
+    await flush();
+    expect(events).toEqual(['first', 'second blocked', 'second']);
+    expect(second.held()).toBe(true);
+    second.release();
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: original });
+  });
+
+  test('without navigator.locks the tab always gets the lock', () => {
+    let acquired = false;
+    acquireSlotLock('slot_y', { onAcquired: () => (acquired = true), onBlocked: () => undefined });
+    expect(acquired).toBe(true);
+  });
+});

@@ -275,6 +275,7 @@ export default function StoryScreen() {
     apiKey,
     error,
     isNarrating,
+    openElsewhere,
     isProcessing,
     pendingMemoryCount,
     retryPendingMemory,
@@ -841,6 +842,16 @@ export default function StoryScreen() {
                 </View>
               ) : null}
             </View>
+          ) : null}
+
+          {openElsewhere ? (
+            <ListCard>
+              <ListRow
+                body="Close it to keep playing here. This tab only reads your story until then, and picks up where the other one left off."
+                leading={<CircleAlert color={colors.warning} size={18} strokeWidth={2} />}
+                title="Kan is open in another tab"
+              />
+            </ListCard>
           ) : null}
 
           {error ? (

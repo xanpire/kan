@@ -89,6 +89,10 @@ Slots live in IndexedDB because localStorage is ~5 MB for the whole app, shared 
 - The app shows the blocking `BrokenSaveGate` screen (download the save as it is, try again, or open another story). `listSlots` lists a broken slot as a placeholder named "A story that could not be opened".
 - Once a slot has been written to IndexedDB, `kan.backend = indexeddb` is set in AsyncStorage. After that a failed `indexedDB.open` is retried (3 attempts) and then reported as a `storage` error, never answered with an AsyncStorage fallback.
 - If an IndexedDB copy and a localStorage copy both exist, `pickSlotCopy` keeps the one with more story turns (then the newer); the other is kept under `kan.slot.<id>.v1.conflict.<timestamp>`.
+- **Daily backup.** The first save of each real-world day (per slot, per session) copies the stored version, if it was saved on an earlier day, to `kan.slot.<id>.bak` (`keepDailyBackup`). Settings → Stories → "Restore yesterday's backup" calls `restoreBackup`, which keeps the replaced copy under `kan.slot.<id>.before-restore.<timestamp>`.
+- **Storage row.** `storageStatus()` reports `navigator.storage.persisted()` and `estimate()`; Settings shows protected / not protected (with the home-screen hint) and the space used.
+- **Export reminder.** `meta.exportedAtTurn` / `meta.exportedAt` are set on export (and on import, since the file was an export). `turnsSinceExport` ≥ `EXPORT_REMINDER_TURNS` (50) shows a dot on the Settings tab and on the "Your last export" row. No popup.
+- **One tab per story.** `tabLock.ts` holds a Web Lock (`kan-slot-<id>`) for the open slot. A tab that can't get it is read-only (`setSlotReadOnly`; `saveSlot` and `commitDb` refuse, sending is blocked, the Story tab says "Kan is open in another tab") and waits in line; when it gets the lock it reloads the save from storage.
 - `normalizeState` starts from `{ ...state }` and repairs fields on top, so a field added to `GameState` survives a load even without a repair line (test: `slot-store.test.ts`, which reads the field list from `types.ts`).
 
 Important functions:

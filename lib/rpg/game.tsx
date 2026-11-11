@@ -24,12 +24,16 @@ import {
   loadStorageMeta,
   loadStoredSlot,
   renameSlot,
+  restoreBackup,
   saveApiKey,
   saveSlot,
   switchSlot,
   SlotLoadError,
+  setSlotReadOnly,
+  storyEntryCount,
   type StorageMeta,
 } from './db';
+import { acquireSlotLock, type SlotLock } from './tabLock';
 import { downloadJson } from './file';
 import { makeId } from './id';
 import { externalizeImages, inlineImages, storeImage } from './imageStore';
@@ -138,6 +142,12 @@ type GameContextValue = {
   retryBrokenSave: () => Promise<void>;
   /** Downloads the broken story's stored text exactly as it is. */
   downloadBrokenSave: () => void;
+  /** This story is open in another tab; this one is read-only until that tab lets go. */
+  openElsewhere: boolean;
+  /** Notes that the open story was just exported (for the export reminder). */
+  markExported: () => Promise<void>;
+  /** Replaces the open story with its daily backup. */
+  restoreDailyBackup: () => Promise<void>;
   isNarrating: boolean;
   /** True while the state step or any summary step is running. */
   isProcessing: boolean;
@@ -208,6 +218,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [brokenError, setBrokenError] = useState<SlotLoadError | null>(null);
+  const [openElsewhere, setOpenElsewhere] = useState(false);
+  const openElsewhereRef = useRef(false);
+  const slotLockRef = useRef<SlotLock | null>(null);
   const [isNarrating, setIsNarrating] = useState(false);
   const [stateStepRunning, setStateStepRunning] = useState(false);
   const [activeJobCount, setActiveJobCount] = useState(0);
@@ -331,6 +344,58 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }, [brokenError]);
 
+  // One tab per story: hold the open slot's lock; without it this tab is read-only.
+  const openSlotId = db?.meta.slotId ?? null;
+
+  useEffect(() => {
+    if (!openSlotId) {
+      return;
+    }
+
+    let blocked = false;
+    const lock = acquireSlotLock(openSlotId, {
+      onBlocked: () => {
+        blocked = true;
+        setSlotReadOnly(openSlotId, true);
+        openElsewhereRef.current = true;
+        setOpenElsewhere(true);
+      },
+      onAcquired: () => {
+        setSlotReadOnly(openSlotId, false);
+        openElsewhereRef.current = false;
+        setOpenElsewhere(false);
+
+        if (blocked) {
+          // The other tab played on: pick up what it saved.
+          blocked = false;
+          void loadSlot(openSlotId)
+            .then(withStoredImages)
+            .then((fresh) => {
+              if (dbRef.current?.meta.slotId === openSlotId) {
+                dbRef.current = fresh;
+                setDb(fresh);
+              }
+            })
+            .catch((caught) => {
+              if (caught instanceof SlotLoadError) {
+                dbRef.current = null;
+                setDb(null);
+                setBrokenError(caught);
+              }
+            });
+        }
+      },
+    });
+    slotLockRef.current = lock;
+
+    return () => {
+      lock.release();
+      setSlotReadOnly(openSlotId, false);
+      openElsewhereRef.current = false;
+      setOpenElsewhere(false);
+    };
+  }, [openSlotId]);
+
   const brokenSave = useMemo(
     () =>
       brokenError
@@ -352,6 +417,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const commitDb = useCallback(
     async (next: AppDatabase) => {
+      if (openElsewhereRef.current && next.meta.slotId === dbRef.current?.meta.slotId) {
+        throw new Error('Kan is open in another tab. Close it to keep playing here.');
+      }
+
       const normalized = {
         ...next,
         indices: buildIndices(next),
@@ -682,6 +751,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (openElsewhereRef.current) {
+        setError('Kan is open in another tab. Close it to keep playing here.');
+        return;
+      }
+
       setIsNarrating(true);
       setStreamingText('');
       setPendingAction(action);
@@ -888,6 +962,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
 
   const undoLastTurn = useCallback(async () => {
+    if (openElsewhereRef.current) {
+      return;
+    }
+
     if (backgroundPromiseRef.current) {
       await backgroundPromiseRef.current;
     }
@@ -910,6 +988,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [commitDb]);
 
   const regenerate = useCallback(async () => {
+    if (openElsewhereRef.current) {
+      return;
+    }
+
     if (backgroundPromiseRef.current) {
       await backgroundPromiseRef.current;
     }
@@ -1445,6 +1527,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const isProcessing = stateStepRunning || activeJobCount > 0;
 
+  const markExported = useCallback(async () => {
+    const current = dbRef.current;
+
+    if (!current) {
+      return;
+    }
+
+    await commitDb({
+      ...current,
+      meta: { ...current.meta, exportedAtTurn: storyEntryCount(current), exportedAt: Date.now() },
+    });
+  }, [commitDb]);
+
+  const restoreDailyBackup = useCallback(async () => {
+    const current = dbRef.current;
+
+    if (!current || openElsewhereRef.current) {
+      return;
+    }
+
+    if (backgroundPromiseRef.current) {
+      await backgroundPromiseRef.current.catch(() => undefined);
+    }
+
+    await saveQueueRef.current.catch(() => undefined);
+    const restored = await withStoredImages(await restoreBackup(current.meta.slotId));
+    dbRef.current = restored;
+    setDb(restored);
+    await refreshSlots();
+  }, [refreshSlots]);
+
   const dismissWorldEventNotice = useCallback(() => {
     setWorldEventNotice(null);
   }, []);
@@ -1460,6 +1573,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       brokenSave,
       retryBrokenSave,
       downloadBrokenSave,
+      openElsewhere,
+      markExported,
+      restoreDailyBackup,
       isNarrating,
       isProcessing,
       pendingMemoryCount,
@@ -1517,6 +1633,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       brokenSave,
       retryBrokenSave,
       downloadBrokenSave,
+      openElsewhere,
+      markExported,
+      restoreDailyBackup,
       exportActiveSlot,
       importSlot,
       isNarrating,

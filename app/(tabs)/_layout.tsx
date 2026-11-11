@@ -4,9 +4,14 @@ import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fonts } from '@/constants/theme';
+import { EXPORT_REMINDER_TURNS, turnsSinceExport } from '@/lib/rpg/db';
+import { useGame } from '@/lib/rpg/game';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { db } = useGame();
+  // A quiet dot on Settings when the story has gone a long while without an export.
+  const exportDue = db ? turnsSinceExport(db) >= EXPORT_REMINDER_TURNS : false;
 
   return (
     <Tabs
@@ -48,6 +53,8 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: 'Settings',
+          tabBarBadge: exportDue ? '' : undefined,
+          tabBarBadgeStyle: styles.dot,
           tabBarIcon: ({ color, focused }) => (
             <Settings2 color={color} size={21} strokeWidth={focused ? 2.2 : 1.8} />
           ),
@@ -68,6 +75,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingTop: 6,
     elevation: 0,
+  },
+  dot: {
+    minWidth: 8,
+    maxHeight: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
   },
   label: {
     fontFamily: fonts.semibold,

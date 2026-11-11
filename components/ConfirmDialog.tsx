@@ -19,6 +19,8 @@ type ConfirmDialogProps = {
   /** The small warning label above the title. */
   label?: string;
   busy?: boolean;
+  /** Shown under the buttons while busy, e.g. "Deleting the story…". */
+  busyText?: string;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -28,15 +30,17 @@ export function ConfirmDialog({
   title,
   body,
   confirmLabel,
-  label = 'Reset settings',
+  label = 'Are you sure?',
   busy = false,
+  busyText = 'Working…',
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
   return (
     <Modal
       animationType="fade"
-      onRequestClose={onCancel}
+      // Escape and the back gesture must not close it in the middle of the action.
+      onRequestClose={busy ? () => undefined : onCancel}
       transparent
       visible={visible}
     >
@@ -74,7 +78,7 @@ export function ConfirmDialog({
           {busy ? (
             <View style={styles.busyRow}>
               <ActivityIndicator color={colors.textMuted} size="small" />
-              <Text style={styles.busyText}>Clearing settings…</Text>
+              <Text style={styles.busyText}>{busyText}</Text>
             </View>
           ) : null}
         </View>

@@ -123,6 +123,17 @@ export class SlotLoadError extends Error {
   }
 }
 
+/** Slots open in another tab (see tabLock.ts). Writes to them are refused. */
+const readOnlySlots = new Set<string>();
+
+export function setSlotReadOnly(slotId: string, readOnly: boolean) {
+  if (readOnly) {
+    readOnlySlots.add(slotId);
+  } else {
+    readOnlySlots.delete(slotId);
+  }
+}
+
 /** Slots whose stored copy failed to load this session. Writes to them are refused. */
 const brokenSlots = new Map<string, SlotLoadError>();
 /** Raw copies already set aside this session, so a retry loop doesn't pile them up. */
@@ -238,6 +249,121 @@ function trimDatabase(db: AppDatabase, maxImages: number, maxSnapshots: number):
   };
 }
 
+export function backupKey(slotId: string) {
+  return `${SLOT_PREFIX}${slotId}.bak`;
+}
+
+/** The local calendar day of a real-world time, e.g. "2026-11-11". */
+function realDay(at: number) {
+  const date = new Date(at);
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+/** Slots whose daily backup has been checked today, this session. */
+const backupCheckedOn = new Map<string, string>();
+
+/**
+ * Once per real-world day, on the first save of the day, the copy stored so
+ * far (yesterday's, or older) is kept under `kan.slot.<id>.bak`. One read per
+ * slot per day; never fails the save.
+ */
+async function keepDailyBackup(slotId: string, now: number) {
+  const today = realDay(now);
+
+  if (backupCheckedOn.get(slotId) === today) {
+    return;
+  }
+
+  backupCheckedOn.set(slotId, today);
+
+  try {
+    const previous = await readSlotJson(`${SLOT_PREFIX}${slotId}.v1`);
+
+    if (!previous) {
+      return;
+    }
+
+    const updatedAt = (JSON.parse(previous) as AppDatabase)?.meta?.updatedAt;
+
+    if (typeof updatedAt === 'number' && realDay(updatedAt) !== today) {
+      await writeSlotJson(backupKey(slotId), previous);
+    }
+  } catch {
+    // A missed backup is not worth failing the save over; try again tomorrow.
+  }
+}
+
+export type BackupInfo = { updatedAt: number; storyTurns: number; inStoryDate: AppDatabase['state']['inStoryDate'] };
+
+/** What the daily backup holds, or null when there is none (or it can't be read). */
+export async function backupInfo(slotId: string): Promise<BackupInfo | null> {
+  try {
+    const stored = await readSlotJson(backupKey(slotId));
+
+    if (!stored) {
+      return null;
+    }
+
+    const parsed = JSON.parse(stored) as AppDatabase;
+    return {
+      updatedAt: parsed.meta?.updatedAt ?? 0,
+      storyTurns: storyEntryCount(parsed),
+      inStoryDate: parsed.state?.inStoryDate,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Swaps the daily backup in as the slot. The copy it replaces is kept under
+ * `kan.slot.<id>.before-restore.<timestamp>`, so a restore can itself be undone
+ * by hand. Throws if the backup can't be opened.
+ */
+export async function restoreBackup(slotId: string): Promise<AppDatabase> {
+  const stored = await readSlotJson(backupKey(slotId));
+
+  if (!stored) {
+    throw new Error('There is no backup of this story yet.');
+  }
+
+  const parsed = JSON.parse(stored) as AppDatabase;
+
+  if (!parsed || parsed.schemaVersion !== 1) {
+    throw new Error('The backup is not readable.');
+  }
+
+  const restored = normalizeDatabase(parsed);
+  const current = await readSlotJson(`${SLOT_PREFIX}${slotId}.v1`).catch(() => null);
+
+  if (current) {
+    await writeSlotJson(`${SLOT_PREFIX}${slotId}.before-restore.${Date.now()}`, current);
+  }
+
+  brokenSlots.delete(slotId);
+  // The restored copy must not become today's backup of itself.
+  backupCheckedOn.set(slotId, realDay(Date.now()));
+  await saveSlot(restored);
+  return restored;
+}
+
+/** Story entries in the log (Kan's actions and the replies). */
+export function storyEntryCount(db: Pick<AppDatabase, 'rawLog'>) {
+  return Array.isArray(db.rawLog) ? db.rawLog.filter((entry) => entry?.kind === 'story').length : 0;
+}
+
+/** Story turns (replies) since the last export, for the quiet export reminder. */
+export function turnsSinceExport(db: AppDatabase) {
+  return Math.max(0, Math.floor((storyEntryCount(db) - (db.meta.exportedAtTurn ?? 0)) / 2));
+}
+
+export const EXPORT_REMINDER_TURNS = 50;
+
+/** Tests only. */
+export function resetBackupsForTests() {
+  backupCheckedOn.clear();
+}
+
 export async function saveSlot(db: AppDatabase) {
   const next = {
     ...db,
@@ -253,6 +379,12 @@ export async function saveSlot(db: AppDatabase) {
     // Never write over a save that failed to open: the real one may still be there.
     throw new Error('This story could not be opened, so nothing is saved to it until it opens again.');
   }
+
+  if (readOnlySlots.has(next.meta.slotId)) {
+    throw new Error('Kan is open in another tab, so this tab does not save.');
+  }
+
+  await keepDailyBackup(next.meta.slotId, next.meta.updatedAt);
 
   // Progressive trimming: try the full save first, then strip increasingly
   // heavy data until the write succeeds or there is nothing left to cut.
@@ -442,6 +574,9 @@ export async function importDatabase(
       slotName: slotName?.trim() || `${normalized.meta.slotName} import`,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      // The file it came from is itself an export of everything in it.
+      exportedAtTurn: storyEntryCount(normalized),
+      exportedAt: Date.now(),
     },
     snapshots: [],
   };
