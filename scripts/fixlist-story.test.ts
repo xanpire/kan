@@ -36,6 +36,15 @@ function play(db: AppDatabase, narration: string, state: Record<string, unknown>
   return applyStateStep(next, diff, { turnLogId, userMessage: 'I keep going.', narration }, new Set()).db;
 }
 
+/** The beat is under way, so the tracker is shown it and may complete it (audit 6.18). */
+function underway(db: AppDatabase, id: string): AppDatabase {
+  const progress = db.state.canonProgress ?? { version: 0, completed: [], active: [], engaged: [] };
+  return {
+    ...db,
+    state: { ...db.state, canonProgress: { ...progress, active: [id], engaged: [...(progress.engaged ?? []), id] } },
+  } as AppDatabase;
+}
+
 const promptText = (db: AppDatabase) => buildNarrationPrompt(db, '*You wait.*').messages.map((m) => m.content).join('\n');
 const thread = (db: AppDatabase, title: string) => db.threads.find((item) => item.title === title);
 
@@ -136,17 +145,17 @@ describe('28. story hooks', () => {
     db = play(db, 'Itachi tells you Izumi died.', { characters_present: ['itachi-uchiha'], deaths: [{ character_id: 'izumi-uchiha', cause: 'the massacre' }] });
     expect(thread(db, "Visit Izumi's grave")?.status).toBe('open');
 
-    db = play(db, 'At her grave, your eyes change.', { canon_completed: ['kan-mangekyo'] });
+    db = play(underway(db, 'kan-mangekyo'), 'At her grave, your eyes change.', { canon_completed: ['kan-mangekyo'] });
     expect(thread(db, "Visit Izumi's grave")?.status).toBe('resolved');
     expect(db.state.player.abilities?.map((ability) => ability.name)).toEqual(['Mangekyō Sharingan', 'Susanoo']);
   });
 
   test('joining opens Survive Kakuzu; the Shisui truth closes the Shisui thread', () => {
     let db = seed();
-    db = play(db, 'Pain hands you the cloak.', { characters_present: ['pain', 'kakuzu'], canon_completed: ['kan-joins-akatsuki'] });
+    db = play(underway(db, 'kan-joins-akatsuki'), 'Pain hands you the cloak.', { characters_present: ['pain', 'kakuzu'], canon_completed: ['kan-joins-akatsuki'] });
     expect(thread(db, 'Survive Kakuzu')?.participantIds).toContain(db.entities.find((e) => e.name === 'Kakuzu')!.id);
 
-    db = play(db, 'Itachi tells you about the river.', { characters_present: ['itachi-uchiha'], canon_completed: ['shisui-truth'] });
+    db = play(underway(db, 'shisui-truth'), 'Itachi tells you about the river.', { characters_present: ['itachi-uchiha'], canon_completed: ['shisui-truth'] });
     expect(thread(db, 'What really happened to Shisui?')?.status).toBe('resolved');
     expect(db.facts.some((fact) => fact.text.includes('Danzō Shimura took one of Shisui'))).toBe(true);
   });

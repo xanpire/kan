@@ -24,6 +24,9 @@ export type DebugCallKind =
   | 'imageCheck'
   | 'portrait';
 
+export type { DebugEvent } from './debugEvents';
+import type { DebugEvent } from './debugEvents';
+
 export type DebugCall = {
   id: string;
   kind: DebugCallKind;
@@ -58,6 +61,8 @@ export type DebugStateStep = {
   note?: string;
   /** Names the narration used outside dialogue that Kan couldn't know yet. */
   nameLeaks?: string[];
+  /** What the engine refused, dropped, merged or fell back on during the step. */
+  events?: DebugEvent[];
   at: number;
 };
 

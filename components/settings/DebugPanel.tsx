@@ -13,6 +13,7 @@ import {
   type DebugCall,
   type DebugCallKind,
   type DebugTurn,
+  type DebugEvent,
 } from '@/lib/rpg/debug';
 
 const mono = Platform.select({
@@ -340,6 +341,17 @@ function CallRow({ call }: { call: DebugCall }) {
   );
 }
 
+/** One colour per kind of engine event: warnings warm, routine grey. */
+const EVENT_COLOR: Record<DebugEvent['kind'], string> = {
+  fallback: colors.warning,
+  mode: colors.textMuted,
+  refused: colors.accentTint,
+  merged: colors.textMuted,
+  dropped: colors.warning,
+  retry: colors.textMuted,
+  violation: colors.danger,
+};
+
 /** Which output mode answered a JSON call. Anything but "schema" on the state call means strict output was refused. */
 const RESPONSE_MODE_LABEL = {
   schema: 'strict schema',
@@ -377,6 +389,20 @@ function StateBlock({ turn }: { turn: DebugTurn }) {
         <>
           {state.error ? <Text style={styles.error}>{state.error}</Text> : null}
           {state.note ? <Text style={type.rowMeta}>{state.note}</Text> : null}
+          {state.events?.length ? (
+            <View style={styles.events}>
+              {state.events.map((event, position) => (
+                <View key={`${event.kind}-${position}`} style={styles.event}>
+                  <Text style={[styles.eventTag, { color: EVENT_COLOR[event.kind], borderColor: EVENT_COLOR[event.kind] }]}>
+                    {event.kind}
+                  </Text>
+                  <Text selectable style={[type.rowMeta, styles.eventText]}>
+                    {event.text}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           {state.nameLeaks?.length ? (
             <Text style={styles.error}>{`Names Kan couldn't know yet, used outside dialogue: ${state.nameLeaks.join('; ')}`}</Text>
           ) : null}
@@ -679,6 +705,26 @@ const styles = StyleSheet.create({
   },
   changes: {
     gap: spacing.sm,
+  },
+  events: {
+    gap: 6,
+  },
+  event: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  eventTag: {
+    fontFamily: fonts.semibold,
+    fontSize: 11,
+    lineHeight: 16,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+  },
+  eventText: {
+    flex: 1,
   },
   change: {
     gap: 2,

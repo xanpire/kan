@@ -499,6 +499,8 @@ Everything about one event — when, where, who could know — sits in its one r
 
 ### Narrator marks (`applyCanonMarks`)
 
+Before they are applied, `filterCanonMarks` (`newsDelivery.ts`) keeps only ids the tracker was shown this turn under CANON TRACKING (`trackedCanonBeats`: the first two active beats and the offered personal beats, from the save the turn started on; `formatCanonTracking` prints the same list). `canon_passed` is accepted only for an active beat. A news id sent as `canon_completed` becomes a `news_relayed` (heard, not witnessed). Everything else is dropped and shown in Debug as a `dropped` event, so a confused reply can never kill someone years early or grant a power.
+
 - `canon_completed` → fire if needed, add `attendanceFact`, mark **witnessed**, record facts/threads/canonPoint.
 - `canon_engaged` → record the event, add to `active` + `engaged` (not completed).
 - `canon_passed` → complete without attendance, log a “never crossed paths” fact.
@@ -923,7 +925,7 @@ Three tabs: **Story / Kan / Settings** (the Kan tab switches Bonds / Jutsu / Jou
   - `JournalSection.tsx` — Now (scene, missions, goals, threads), Recap (timeline of summaries, falls back to recent events), World (heard canon news with source, world state, lore), Memories (events with people), Letters, Scrapbook (§8d). Rows use an event's own `title` when it has one (`memoryTitle`); otherwise `titleAndBody` (`util.ts`) splits the text: "Title: …", a first sentence under 90 characters, or the first words cut at a word boundary with the rest kept as the description. Recap titles come from `summary.title`.
 - `app/(tabs)/world-clock.tsx` — hidden **World clock** (long-press the clock in the Story header; `href: null`, no tab). Read-only view of `worldClock(db)`: running/held-for-combat status, not heard yet (next in line first), due-but-waiting, queued with dates and days until, personal moments open to you, fired (with who told you), and missed beats. Contains spoilers by design.
 - `app/(tabs)/settings.tsx` — Narrator (key status that expands into the editor, Story and Images models, Advanced: summary + memory models), Sound (ambience switch and volume, §8e), World (canon toggle), Stories (slots with a ⋯ menu: play, copy, rename, delete; New story), Export / Import, Debug, version and credit.
-- `components/settings/DebugPanel.tsx` — Settings → Debug. For each of the last 30 turns: the exact messages the narrator saw (newest 5 only; copyable), the state step's status, raw reply, applied diff and a field-by-field list of what changed in the save, and every call the turn made (narrator, state, summaries, images) with billed tokens, thinking/cached tokens, time and cost.
+- `components/settings/DebugPanel.tsx` — Settings → Debug. For each of the last 30 turns: the exact messages the narrator saw (newest 5 only; copyable), the state step's status, raw reply, applied diff and a field-by-field list of what changed in the save, and every call the turn made (narrator, state, summaries, images) with billed tokens, thinking/cached tokens, time and cost. The state step also shows **events** (`DebugEvent`, `debugEvents.ts`): what the engine did on its own (fallback, mode, refused, merged, dropped, retry, violation), each with a coloured tag. Pure steps return them (`StateStepResult.events`); the game context records them.
 
 ### Debug log (`lib/rpg/debug.ts`)
 

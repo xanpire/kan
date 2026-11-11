@@ -18,6 +18,9 @@
 
 import {
   NEWS_PER_TURN,
+  PERSONAL_OFFERS_PER_TURN,
+  activeCanonMilestones,
+  upcomingCanonMilestones,
   isCombatPace,
   lastNewsHeardDate,
   newsUrgency,
@@ -389,6 +392,70 @@ export function formatNewsOffer(offer: NewsOffer | null): string {
     'NEWS & RUMORS (an event Kan has NOT learned yet; deliver at most this one this turn). Prefer a bearer already in the scene. Make clear who tells him. Never deliver any other world news.',
     `- ${item.title} (${item.location}, ${item.region}). ${bearerLine(item)} Delivery this time: ${offer.style}.${URGENCY_TEXT[item.urgency](item)}`,
   ].join('\n');
+}
+
+/**
+ * The canon beats the state tracker is shown this turn: up to two active
+ * beats and the offered personal beats. `formatCanonTracking` prints exactly
+ * these, and the state step accepts canon marks only for them (audit 6.18).
+ */
+export function trackedCanonBeats(db: AppDatabase) {
+  return {
+    active: activeCanonMilestones(db).slice(0, TRACKED_ACTIVE_BEATS),
+    offered: upcomingCanonMilestones(db, PERSONAL_OFFERS_PER_TURN),
+  };
+}
+
+/** How many active beats the state tracker sees per turn. */
+export const TRACKED_ACTIVE_BEATS = 2;
+
+/**
+ * Keeps only the canon marks the tracker was allowed to make this turn.
+ * Built from the save the turn's prompt was built on. A news id sent as
+ * completed is read as news someone relayed, not as a beat Kan witnessed.
+ */
+export function filterCanonMarks(
+  db: AppDatabase,
+  marks: {
+    completed?: string[];
+    engaged?: string[];
+    passed?: string[];
+    relayed?: { id: string; from?: string }[];
+  }
+) {
+  const { active, offered } = trackedCanonBeats(db);
+  const activeIds = new Set(active.map((milestone) => milestone.id));
+  const offeredIds = new Set(offered.map((milestone) => milestone.id));
+  const newsIds = new Set(newsOffer(db, { ignoreCombat: true })?.items.map((item) => item.milestoneId) ?? []);
+  const dropped: { id: string; as: 'completed' | 'engaged' | 'passed'; reason: string }[] = [];
+  const relayed = [...(marks.relayed ?? [])];
+
+  const keep = (ids: string[] | undefined, as: 'completed' | 'engaged' | 'passed', allowed: (id: string) => boolean) =>
+    [...new Set(ids ?? [])].filter((id) => {
+      if (allowed(id)) {
+        return true;
+      }
+
+      if (as === 'completed' && newsIds.has(id)) {
+        if (!relayed.some((relay) => relay.id === id)) {
+          relayed.push({ id });
+        }
+
+        dropped.push({ id, as, reason: 'news, read as relayed' });
+        return false;
+      }
+
+      dropped.push({ id, as, reason: 'not offered this turn' });
+      return false;
+    });
+
+  return {
+    completed: keep(marks.completed, 'completed', (id) => activeIds.has(id) || offeredIds.has(id)),
+    engaged: keep(marks.engaged, 'engaged', (id) => activeIds.has(id) || offeredIds.has(id)),
+    passed: keep(marks.passed, 'passed', (id) => activeIds.has(id)),
+    relayed,
+    dropped,
+  };
 }
 
 /** Lines for the state tracker's CANON TRACKING block. */

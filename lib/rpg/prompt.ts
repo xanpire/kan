@@ -14,7 +14,7 @@ import {
   isCombatPace,
   hasHeardNews,
 } from './canon';
-import { formatNewsOffer, newsOffer, newsTrackingLines } from './newsDelivery';
+import { formatNewsOffer, newsOffer, newsTrackingLines, trackedCanonBeats } from './newsDelivery';
 import { formatLetterOffer, letterTrackingLines, turnLetterOffer } from './letters';
 import { reunionNotes } from './lives';
 import { latestPov, povCandidates, povInstruction } from './povMemories';
@@ -1117,14 +1117,16 @@ function formatCanonBlock(db: AppDatabase) {
 function formatCanonTracking(db: AppDatabase) {
   const lines: string[] = [];
 
-  for (const milestone of activeCanonMilestones(db).slice(0, 2)) {
+  const tracked = trackedCanonBeats(db);
+
+  for (const milestone of tracked.active) {
     const accepted = milestone.playerDriven ? ' You accepted it; it is under way.' : '';
     lines.push(
       `- ${milestone.id}: ${truncate(milestone.title, 70)} (active story beat).${accepted} canon_completed only at the moment it fully plays out on the page${milestone.completesWhen ? `: ${milestone.completesWhen}` : ''}; canon_engaged if Kan's scene took part in it this turn; canon_passed if the chance clearly slipped by (Kan left, time moved on).`
     );
   }
 
-  for (const beat of upcomingCanonMilestones(db, PERSONAL_OFFERS_PER_TURN)) {
+  for (const beat of tracked.offered) {
     lines.push(
       `- ${beat.id}: ${truncate(beat.title, 70)} (personal beat, offered). canon_engaged when Kan accepts or starts it this turn; canon_completed only when it actually happens on the page${beat.completesWhen ? `: ${beat.completesWhen}` : ''}. Never because time passed.`
     );

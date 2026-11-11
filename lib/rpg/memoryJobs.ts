@@ -44,7 +44,8 @@ import {
   kanAgeAt,
 } from './flashbacks';
 import { parsePovLines, povCandidates, resolvePovs } from './povMemories';
-import { newsAllowance } from './newsDelivery';
+import { filterCanonMarks, newsAllowance } from './newsDelivery';
+import type { DebugEvent } from './debugEvents';
 import { daysBetween, secondsBetween, shiftDatesAfter, shiftSeconds } from './calendar';
 import { mentionsEntity } from './characterRefs';
 import { buildIndices } from './db';
@@ -251,6 +252,8 @@ export type StateStepResult = {
   appliedDiff: TurnDiff | null;
   /** Names the narration used outside dialogue that Kan couldn't know (for the Debug panel). */
   nameLeaks?: string[];
+  /** What the engine refused, dropped or merged on its own (for the Debug panel). */
+  events: DebugEvent[];
 };
 
 /**
@@ -273,6 +276,7 @@ export function applyStateStep(
   // Unreadable state reply: still record who the prose shows and the jutsu
   // Kan called in his own message. Clock and pace come from the prose below.
   // Kan's jutsu always keep the names the player wrote.
+  const events: DebugEvent[] = [];
   const extraction = stateReply
     ? preferPlayerJutsuNames(latest, stateReply, turn.userMessage)
     : fallbackDiffFromProse(latest, turn);
@@ -358,15 +362,24 @@ export function applyStateStep(
   // world fires mid-fight. The allowance comes from the state the turn's
   // prompt was built on.
   const allowance = newsAllowance(latest);
-  const relays = (extraction?.newsRelayed ?? []).slice(0, allowance);
+  // Canon marks count only for the beats the tracker was shown this turn: a
+  // confused reply must never kill someone years early or grant a power.
+  const marks = filterCanonMarks(latest, {
+    completed: extraction?.canonCompleted,
+    engaged: extraction?.canonEngaged,
+    passed: extraction?.canonPassed,
+    relayed: extraction?.newsRelayed,
+  });
+  for (const drop of marks.dropped) {
+    events.push({
+      kind: drop.reason.startsWith('news') ? 'mode' : 'dropped',
+      text: `canon_${drop.as} "${drop.id}" ${drop.reason === 'news, read as relayed' ? 'is news: read as news_relayed' : 'ignored: it was not offered this turn'}.`,
+    });
+  }
+  const relays = marks.relayed.slice(0, allowance);
   const inCombat = isCombatPace(pace) && !sceneEnded;
 
-  next = applyCanonMarks(
-    next,
-    extraction?.canonCompleted ?? [],
-    extraction?.canonEngaged ?? [],
-    extraction?.canonPassed ?? []
-  );
+  next = applyCanonMarks(next, marks.completed, marks.engaged, marks.passed);
   next = markNewsHeard(next, relays, allowance);
   next = advanceCanon(next, { inCombat });
   // Names Kan heard, read or recognised this turn, and identities the world
@@ -494,7 +507,7 @@ export function applyStateStep(
     }
   }
 
-  return { db: next, followUpIds, notice, appliedDiff: effectiveDiff, nameLeaks: nameLeaks(next, turn.narration) };
+  return { db: next, followUpIds, notice, appliedDiff: effectiveDiff, nameLeaks: nameLeaks(next, turn.narration), events };
 }
 
 /**
@@ -510,7 +523,7 @@ function applyMemoryStep(latest: AppDatabase, stateReply: TurnDiff | null, turn:
 
   // A memory turn whose flashback is no longer playing changes nothing.
   if (!playing || playing.active.id !== entry?.flashback?.id) {
-    return { db: settle(latest), followUpIds: [], notice: null, appliedDiff: null };
+    return { db: settle(latest), followUpIds: [], notice: null, appliedDiff: null, events: [] };
   }
 
   const result = applyFlashbackTurn(latest, stateReply, turn);
@@ -526,7 +539,7 @@ function applyMemoryStep(latest: AppDatabase, stateReply: TurnDiff | null, turn:
     followUpIds.push(job.id);
   }
 
-  return { db: next, followUpIds, notice: null, appliedDiff: stateReply };
+  return { db: next, followUpIds, notice: null, appliedDiff: stateReply, events: [] };
 }
 
 /** A chapter is long: a break only counts once this much story has passed in it. */

@@ -625,6 +625,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 diff: result.appliedDiff,
                 changes: describeStateChange(latest, result.db),
                 ...(result.nameLeaks?.length ? { nameLeaks: result.nameLeaks } : {}),
+                ...(result.events.length ? { events: result.events } : {}),
               });
               followUps.push(...result.followUpIds);
               notice = result.notice;
@@ -759,6 +760,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
               status: extraction ? 'applied' : 'fallback',
               diff: result.appliedDiff,
               changes: describeStateChange(latest, result.db),
+              ...(result.nameLeaks?.length ? { nameLeaks: result.nameLeaks } : {}),
+              ...(result.events.length ? { events: result.events } : {}),
             });
             followUps = result.followUpIds;
             notice = result.notice;
@@ -835,7 +838,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
           status: 'fallback',
           diff: result.appliedDiff,
           changes: describeStateChange(latest, result.db),
-          note: 'The state call failed twice, so this turn was read from the prose: clock, people present and your jutsu.',
+          events: [
+            {
+              kind: 'fallback',
+              text: 'The state call failed twice, so this turn was read from the prose: clock, people present and your jutsu.',
+            },
+            ...result.events,
+          ],
         });
         followUps = result.followUpIds;
         return result.db;
