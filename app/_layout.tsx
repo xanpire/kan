@@ -15,6 +15,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { BrokenSaveGate } from '@/components/BrokenSaveGate';
 import { ToastProvider } from '@/components/Toast';
 import { colors } from '@/constants/theme';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
@@ -58,6 +59,7 @@ export default function RootLayout() {
           <AmbiencePlayer />
           <ToastProvider>
             <View style={styles.root}>
+            <BrokenSaveGate>
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -68,6 +70,7 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="+not-found" />
             </Stack>
+            </BrokenSaveGate>
             <StatusBar backgroundColor={colors.background} style="light" />
             </View>
           </ToastProvider>

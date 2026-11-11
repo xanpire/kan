@@ -11,6 +11,11 @@
  * opened (native, some private modes), everything stays in AsyncStorage as
  * before. The choice is made once per session, so reads and writes never
  * split across the two.
+ *
+ * Once any slot has been written to IndexedDB, `kan.backend` remembers it. From
+ * then on a failed open (iOS does this after backgrounding) is retried and then
+ * reported as an error: falling back to AsyncStorage would show an empty story
+ * and, on the next session, let it win over the real one.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -19,18 +24,14 @@ const STORE = 'slots';
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
-function openDb(): Promise<IDBDatabase | null> {
-  if (dbPromise) {
-    return dbPromise;
-  }
+/** Set in AsyncStorage once a slot has been written to IndexedDB. */
+export const BACKEND_KEY = 'kan.backend';
+const OPEN_ATTEMPTS = 3;
+let openRetryDelayMs = 250;
 
-  dbPromise = new Promise((resolve) => {
+function openOnce(): Promise<IDBDatabase | null> {
+  return new Promise((resolve) => {
     try {
-      if (typeof indexedDB === 'undefined') {
-        resolve(null);
-        return;
-      }
-
       const request = indexedDB.open(DB_NAME, 1);
       request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains(STORE)) {
@@ -44,9 +45,53 @@ function openDb(): Promise<IDBDatabase | null> {
       resolve(null);
     }
   });
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function openWithRetry(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') {
+    return null;
+  }
+
+  for (let attempt = 0; attempt < OPEN_ATTEMPTS; attempt += 1) {
+    const db = await openOnce();
+
+    if (db) {
+      return db;
+    }
+
+    if (attempt < OPEN_ATTEMPTS - 1) {
+      await wait(openRetryDelayMs * (attempt + 1));
+    }
+  }
+
+  const usedBefore = await AsyncStorage.getItem(BACKEND_KEY).catch(() => null);
+
+  if (usedBefore === 'indexeddb') {
+    throw new Error('the browser would not open its save storage');
+  }
+
+  // Never used IndexedDB: AsyncStorage is this device's real backend.
+  return null;
+}
+
+function openDb(): Promise<IDBDatabase | null> {
+  if (dbPromise) {
+    return dbPromise;
+  }
+
+  const opening = openWithRetry();
+  dbPromise = opening;
+  // A failed open is not remembered: the next read (or "Try again") opens afresh.
+  opening.catch(() => {
+    if (dbPromise === opening) {
+      dbPromise = null;
+    }
+  });
 
   void requestPersistentStorage();
-  return dbPromise;
+  return opening;
 }
 
 let persistRequested = false;
@@ -115,13 +160,43 @@ function idbWrite(db: IDBDatabase, key: string, value: string | null): Promise<v
   });
 }
 
-function updatedAtOf(json: string): number {
+function rankOf(json: string): { turns: number; updatedAt: number } {
   try {
-    const parsed = JSON.parse(json) as { meta?: { updatedAt?: unknown } };
-    return typeof parsed?.meta?.updatedAt === 'number' ? parsed.meta.updatedAt : 0;
+    const parsed = JSON.parse(json) as {
+      meta?: { updatedAt?: unknown };
+      rawLog?: { kind?: string; role?: string }[];
+    };
+    const turns = Array.isArray(parsed?.rawLog)
+      ? parsed.rawLog.filter((entry) => entry?.kind === 'story').length
+      : 0;
+    return {
+      turns,
+      updatedAt: typeof parsed?.meta?.updatedAt === 'number' ? parsed.meta.updatedAt : 0,
+    };
   } catch {
-    return -1;
+    return { turns: -1, updatedAt: -1 };
   }
+}
+
+/**
+ * Of two copies of one slot, the one to keep: more story first, then the newer.
+ * A copy with fewer turns never wins just because it was saved later (a blank
+ * story played for one turn in a fallback session must not beat the real one).
+ */
+export function pickSlotCopy(a: string, b: string): string {
+  const left = rankOf(a);
+  const right = rankOf(b);
+
+  if (left.turns !== right.turns) {
+    return left.turns > right.turns ? a : b;
+  }
+
+  return left.updatedAt >= right.updatedAt ? a : b;
+}
+
+/** Where the losing copy of a two-copy conflict is kept. */
+export function conflictBackupKey(key: string, at = Date.now()) {
+  return `${key}.conflict.${at}`;
 }
 
 /** The stored JSON for a slot key, or null. Moves a localStorage copy into IndexedDB. */
@@ -141,11 +216,24 @@ export async function readSlotJson(key: string): Promise<string | null> {
     return stored;
   }
 
-  // Both exist only mid-migration or after a session that couldn't open
-  // IndexedDB; keep whichever was saved last.
-  const winner = stored && updatedAtOf(stored) >= updatedAtOf(legacy) ? stored : legacy;
+  if (!stored || stored === legacy) {
+    try {
+      await idbWrite(db, key, legacy);
+      await markIndexedDbUsed();
+      await AsyncStorage.removeItem(key);
+    } catch {
+      // Leave it in place; the next read tries again.
+    }
+    return legacy;
+  }
+
+  // Both exist only after a session that couldn't open IndexedDB. Keep the
+  // copy with more story, and the other one under a backup key.
+  const winner = pickSlotCopy(stored, legacy);
+  const loser = winner === stored ? legacy : stored;
 
   try {
+    await idbWrite(db, conflictBackupKey(key), loser);
     if (winner !== stored) {
       await idbWrite(db, key, winner);
     }
@@ -155,6 +243,10 @@ export async function readSlotJson(key: string): Promise<string | null> {
   }
 
   return winner;
+}
+
+async function markIndexedDbUsed() {
+  await AsyncStorage.setItem(BACKEND_KEY, 'indexeddb').catch(() => undefined);
 }
 
 /** Writes a slot's JSON. Rejects if it doesn't fit, so callers can trim and retry. */
@@ -167,6 +259,7 @@ export async function writeSlotJson(key: string, json: string): Promise<void> {
   }
 
   await idbWrite(db, key, json);
+  await markIndexedDbUsed();
   // Drop any leftover localStorage copy so it can't shadow this one or eat quota.
   await AsyncStorage.removeItem(key).catch(() => undefined);
 }
@@ -187,7 +280,27 @@ export async function slotBackend(): Promise<'indexeddb' | 'asyncstorage'> {
 }
 
 /** Tests only: forget the opened database so a new environment is picked up. */
-export function resetSlotStoreForTests() {
+export function resetSlotStoreForTests(options: { retryDelayMs?: number } = {}) {
   dbPromise = null;
   persistRequested = false;
+  openRetryDelayMs = options.retryDelayMs ?? 250;
+}
+
+/** Every stored key (IndexedDB only), e.g. to find backups. Empty without IndexedDB. */
+export async function listStoredKeys(): Promise<string[]> {
+  const db = await openDb();
+
+  if (!db) {
+    return [];
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const request = db.transaction(STORE, 'readonly').objectStore(STORE).getAllKeys();
+      request.onsuccess = () => resolve((request.result as IDBValidKey[]).map(String));
+      request.onerror = () => reject(request.error ?? new Error('Could not list the saves.'));
+    } catch (error) {
+      reject(error);
+    }
+  });
 }

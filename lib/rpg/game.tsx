@@ -11,6 +11,7 @@ import {
 
 import {
   buildIndices,
+  clearBrokenSlot,
   createSlot,
   deleteSlot,
   duplicateSlot,
@@ -19,14 +20,17 @@ import {
   listSlots,
   loadActiveSlot,
   loadApiKey,
+  loadSlot,
   loadStorageMeta,
   loadStoredSlot,
   renameSlot,
   saveApiKey,
   saveSlot,
   switchSlot,
+  SlotLoadError,
   type StorageMeta,
 } from './db';
+import { downloadJson } from './file';
 import { makeId } from './id';
 import { externalizeImages, inlineImages, storeImage } from './imageStore';
 import { FACE_IMAGE } from './imageCompress';
@@ -125,6 +129,15 @@ type GameContextValue = {
   apiKey: string;
   loading: boolean;
   error: string | null;
+  /**
+   * The open story's stored copy could not be read or prepared. The app shows
+   * a blocking screen and writes nothing to that slot while this is set.
+   */
+  brokenSave: { slotId: string; kind: SlotLoadError['kind']; message: string; hasRaw: boolean } | null;
+  /** Tries to open the broken story again. */
+  retryBrokenSave: () => Promise<void>;
+  /** Downloads the broken story's stored text exactly as it is. */
+  downloadBrokenSave: () => void;
   isNarrating: boolean;
   /** True while the state step or any summary step is running. */
   isProcessing: boolean;
@@ -194,6 +207,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [apiKey, setApiKeyState] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [brokenError, setBrokenError] = useState<SlotLoadError | null>(null);
   const [isNarrating, setIsNarrating] = useState(false);
   const [stateStepRunning, setStateStepRunning] = useState(false);
   const [activeJobCount, setActiveJobCount] = useState(0);
@@ -228,25 +242,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSlots(allSlots);
   }, []);
 
+  /** A slot failed to open: block the app on it instead of showing a blank story. */
+  const showBroken = useCallback((caught: unknown) => {
+    if (!(caught instanceof SlotLoadError)) {
+      return false;
+    }
+
+    dbRef.current = null;
+    setDb(null);
+    setBrokenError(caught);
+    return true;
+  }, []);
+
   useEffect(() => {
     let active = true;
 
-    Promise.all([
-      loadStorageMeta(),
-      loadActiveSlot().then(withStoredImages),
-      loadApiKey(),
-      listSlots(),
-    ])
-      .then(([storageMeta, activeSlot, storedApiKey, allSlots]) => {
-        if (!active) {
-          return;
-        }
+    (async () => {
+      const [storageMeta, storedApiKey] = await Promise.all([loadStorageMeta(), loadApiKey()]);
+      let activeSlot: AppDatabase | null = null;
+      let broken: SlotLoadError | null = null;
 
-        setMeta(storageMeta);
+      try {
+        activeSlot = await withStoredImages(await loadActiveSlot());
+      } catch (caught) {
+        if (!(caught instanceof SlotLoadError)) {
+          throw caught;
+        }
+        broken = caught;
+      }
+
+      const allSlots = await listSlots();
+
+      if (!active) {
+        return;
+      }
+
+      setMeta(storageMeta);
+      setApiKeyState(storedApiKey);
+      setSlots(allSlots);
+
+      if (broken) {
+        showBroken(broken);
+      } else {
         setDb(activeSlot);
-        setApiKeyState(storedApiKey);
-        setSlots(allSlots);
-      })
+      }
+    })()
       .catch(() => {
         if (active) {
           setError('Could not load your story. Refresh the app and try again.');
@@ -261,7 +301,48 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [showBroken]);
+
+  const retryBrokenSave = useCallback(async () => {
+    const broken = brokenError;
+
+    if (!broken) {
+      return;
+    }
+
+    clearBrokenSlot(broken.slotId);
+
+    try {
+      const loaded = await withStoredImages(await loadSlot(broken.slotId));
+      dbRef.current = loaded;
+      setDb(loaded);
+      setBrokenError(null);
+      setSlots(await listSlots());
+    } catch (caught) {
+      if (!showBroken(caught)) {
+        setBrokenError(new SlotLoadError(broken.slotId, broken.kind, broken.raw, caught));
+      }
+    }
+  }, [brokenError, showBroken]);
+
+  const downloadBrokenSave = useCallback(() => {
+    if (brokenError?.raw) {
+      downloadJson(`kan-story-unopened-${brokenError.slotId}.json`, brokenError.raw);
+    }
+  }, [brokenError]);
+
+  const brokenSave = useMemo(
+    () =>
+      brokenError
+        ? {
+            slotId: brokenError.slotId,
+            kind: brokenError.kind,
+            message: brokenError.message,
+            hasRaw: Boolean(brokenError.raw),
+          }
+        : null,
+    [brokenError]
+  );
 
   const enqueueSave = useCallback((next: AppDatabase) => {
     const write = saveQueueRef.current.catch(() => undefined).then(() => saveSlot(next));
@@ -881,7 +962,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Let pending writes land first so the slot is read back up to date.
       await saveQueueRef.current.catch(() => undefined);
       await inactiveLockRef.current.catch(() => undefined);
-      const loaded = await switchSlot(slotId);
+      let loaded: AppDatabase | null;
+
+      try {
+        loaded = await switchSlot(slotId);
+      } catch (caught) {
+        if (showBroken(caught)) {
+          await refreshSlots();
+          return;
+        }
+        throw caught;
+      }
 
       if (!loaded) {
         return;
@@ -889,16 +980,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       const next = await withStoredImages(loaded);
 
+      setBrokenError(null);
       setDb(next);
       dbRef.current = next;
       await refreshSlots();
     },
-    [refreshSlots]
+    [refreshSlots, showBroken]
   );
 
   const createNewSlot = useCallback(
     async (slotName: string) => {
       const next = await createSlot(slotName);
+      setBrokenError(null);
       setDb(next);
       dbRef.current = next;
       setMeta(await loadStorageMeta());
@@ -910,18 +1003,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const deleteSlotById = useCallback(
     async (slotId: string) => {
       await deleteSlot(slotId);
-      const next = await loadActiveSlot();
-      setDb(next);
-      dbRef.current = next;
       setMeta(await loadStorageMeta());
+
+      try {
+        const next = await loadActiveSlot();
+        setBrokenError(null);
+        setDb(next);
+        dbRef.current = next;
+      } catch (caught) {
+        if (!showBroken(caught)) {
+          throw caught;
+        }
+      }
+
       await refreshSlots();
     },
-    [refreshSlots]
+    [refreshSlots, showBroken]
   );
 
   const duplicateSlotById = useCallback(
     async (slotId: string, slotName: string) => {
       const next = await duplicateSlot(slotId, slotName);
+      setBrokenError(null);
       setDb(next);
       dbRef.current = next;
       setMeta(await loadStorageMeta());
@@ -961,6 +1064,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const importSlot = useCallback(
     async (json: string, slotName?: string) => {
       const imported = await withStoredImages(await importDatabase(json, slotName));
+      setBrokenError(null);
       setDb(imported);
       dbRef.current = imported;
       setMeta(await loadStorageMeta());
@@ -1353,6 +1457,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       apiKey,
       loading,
       error,
+      brokenSave,
+      retryBrokenSave,
+      downloadBrokenSave,
       isNarrating,
       isProcessing,
       pendingMemoryCount,
@@ -1407,6 +1514,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       duplicateSlotById,
       editMemory,
       error,
+      brokenSave,
+      retryBrokenSave,
+      downloadBrokenSave,
       exportActiveSlot,
       importSlot,
       isNarrating,

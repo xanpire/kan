@@ -81,7 +81,15 @@ Tech: Expo SDK 54, Expo Router, React Native Web, TypeScript, `bun` as package m
 | `kan.slot.<slotId>.v1` | IndexedDB `kan-saves` / `slots` (`slotStore.ts`) | One `AppDatabase` JSON per save slot |
 | `kan.apiKey.v1` | AsyncStorage (localStorage) | OpenRouter API key (never stored in slots or exports) |
 
-Slots live in IndexedDB because localStorage is ~5 MB for the whole app, shared by every slot, and a long story with its 3 undo snapshots (each a full copy) outgrows that after a few hundred turns. `slotStore.ts` picks the backend once per session (IndexedDB, or AsyncStorage on native / when IndexedDB can't open), moves an old localStorage copy into IndexedDB on first read (newer `meta.updatedAt` wins if both exist) and then removes it, and asks for `navigator.storage.persist()` so the browser doesn't evict the data under storage pressure. Images are in a separate IndexedDB (`kan-images`, `imageStore.ts`).
+Slots live in IndexedDB because localStorage is ~5 MB for the whole app, shared by every slot, and a long story with its undo snapshots (each a full copy) outgrows that after a few hundred turns. `slotStore.ts` picks the backend once per session (IndexedDB, or AsyncStorage on native / when IndexedDB was never used and can't open), moves an old localStorage copy into IndexedDB on first read and then removes it, and asks for `navigator.storage.persist()` so the browser doesn't evict the data under storage pressure. Images are in a separate IndexedDB (`kan-images`, `imageStore.ts`).
+
+**A save is never silently replaced.**
+
+- `loadSlot` seeds a fresh story only for a slot that has never been saved. A stored slot whose JSON is unreadable, whose `schemaVersion` is wrong, or whose `normalizeDatabase` throws raises a `SlotLoadError` (`kind`: `unreadable` / `normalize` / `storage`). The raw text is set aside first under `kan.slot.<id>.broken.<timestamp>`, the slot is marked broken, and `saveSlot` refuses to write to a broken slot until it loads again (`clearBrokenSlot` on Retry). `loadStoredSlot` throws the same error.
+- The app shows the blocking `BrokenSaveGate` screen (download the save as it is, try again, or open another story). `listSlots` lists a broken slot as a placeholder named "A story that could not be opened".
+- Once a slot has been written to IndexedDB, `kan.backend = indexeddb` is set in AsyncStorage. After that a failed `indexedDB.open` is retried (3 attempts) and then reported as a `storage` error, never answered with an AsyncStorage fallback.
+- If an IndexedDB copy and a localStorage copy both exist, `pickSlotCopy` keeps the one with more story turns (then the newer); the other is kept under `kan.slot.<id>.v1.conflict.<timestamp>`.
+- `normalizeState` starts from `{ ...state }` and repairs fields on top, so a field added to `GameState` survives a load even without a repair line (test: `slot-store.test.ts`, which reads the field list from `types.ts`).
 
 Important functions:
 

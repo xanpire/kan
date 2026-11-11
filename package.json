@@ -1,12 +1,13 @@
 {
   "name": "kan",
   "main": "expo-router/entry",
-  "version": "1.24.2",
+  "version": "1.24.3",
   "private": true,
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start --tunnel --port 4000",
     "build:web": "node scripts/generate-sw.js && expo export --platform web",
     "typecheck": "tsc --noEmit",
+    "test": "bun test scripts/",
     "prebuild:web": "node scripts/generate-sw.js"
   },
   "dependencies": {

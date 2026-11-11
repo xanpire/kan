@@ -91,40 +91,122 @@ export async function ensureSlot(slotId: string, slotName: string) {
   await saveSlot(db);
 }
 
-export async function loadSlot(slotId: string): Promise<AppDatabase> {
-  const stored = await readSlotJson(`${SLOT_PREFIX}${slotId}.v1`);
+/** Why a stored slot could not be opened. */
+export type SlotLoadFailure = 'unreadable' | 'normalize' | 'storage';
 
-  if (!stored) {
-    return seedDatabase(slotId, DEFAULT_SLOT_NAME);
-  }
+/**
+ * A slot that exists but could not be opened. Never answered with a fresh
+ * story: the caller shows a blocking screen, and nothing is written to that
+ * slot until it opens again (see `saveSlot`).
+ */
+export class SlotLoadError extends Error {
+  readonly slotId: string;
+  readonly kind: SlotLoadFailure;
+  /** The stored text, when it could be read (for "Download the raw save"). */
+  readonly raw: string | null;
+  readonly cause?: unknown;
 
-  try {
-    const parsed = JSON.parse(stored) as AppDatabase;
-
-    if (!parsed || parsed.schemaVersion !== 1) {
-      return seedDatabase(slotId, DEFAULT_SLOT_NAME);
-    }
-
-    return normalizeDatabase(parsed);
-  } catch {
-    return seedDatabase(slotId, DEFAULT_SLOT_NAME);
+  constructor(slotId: string, kind: SlotLoadFailure, raw: string | null, cause?: unknown) {
+    const detail = cause instanceof Error ? cause.message : cause ? String(cause) : '';
+    super(
+      kind === 'storage'
+        ? `Your saves could not be reached${detail ? ` (${detail})` : ''}.`
+        : kind === 'unreadable'
+          ? 'Your save is not readable as a Kan story.'
+          : `Your save could not be prepared${detail ? ` (${detail})` : ''}.`
+    );
+    this.name = 'SlotLoadError';
+    this.slotId = slotId;
+    this.kind = kind;
+    this.raw = raw;
+    this.cause = cause;
   }
 }
 
-/** Loads a slot only if it is actually stored, without seeding a fresh one. */
-export async function loadStoredSlot(slotId: string): Promise<AppDatabase | null> {
-  const stored = await readSlotJson(`${SLOT_PREFIX}${slotId}.v1`);
+/** Slots whose stored copy failed to load this session. Writes to them are refused. */
+const brokenSlots = new Map<string, SlotLoadError>();
+/** Raw copies already set aside this session, so a retry loop doesn't pile them up. */
+const backedUpRaw = new Map<string, string>();
+
+export function isSlotBroken(slotId: string) {
+  return brokenSlots.has(slotId);
+}
+
+export function brokenSlotError(slotId: string) {
+  return brokenSlots.get(slotId) ?? null;
+}
+
+/** Lets a broken slot be loaded (and then written) again, e.g. on Retry. */
+export function clearBrokenSlot(slotId: string) {
+  brokenSlots.delete(slotId);
+}
+
+export function brokenBackupKey(slotId: string, at = Date.now()) {
+  return `${SLOT_PREFIX}${slotId}.broken.${at}`;
+}
+
+async function markBroken(error: SlotLoadError): Promise<SlotLoadError> {
+  brokenSlots.set(error.slotId, error);
+
+  // Set the raw text aside under its own key before anything else can touch the slot.
+  if (error.raw && backedUpRaw.get(error.slotId) !== error.raw) {
+    try {
+      await writeSlotJson(brokenBackupKey(error.slotId), error.raw);
+      backedUpRaw.set(error.slotId, error.raw);
+    } catch {
+      // The raw text is still on the error for the download button.
+    }
+  }
+
+  return error;
+}
+
+/** Reads, parses and normalizes a stored slot. Null when the slot has never been saved. */
+async function readStoredSlot(slotId: string): Promise<AppDatabase | null> {
+  let stored: string | null;
+
+  try {
+    stored = await readSlotJson(`${SLOT_PREFIX}${slotId}.v1`);
+  } catch (cause) {
+    throw await markBroken(new SlotLoadError(slotId, 'storage', null, cause));
+  }
 
   if (!stored) {
     return null;
   }
 
+  let parsed: AppDatabase;
+
   try {
-    const parsed = JSON.parse(stored) as AppDatabase;
-    return parsed && parsed.schemaVersion === 1 ? normalizeDatabase(parsed) : null;
-  } catch {
-    return null;
+    parsed = JSON.parse(stored) as AppDatabase;
+  } catch (cause) {
+    throw await markBroken(new SlotLoadError(slotId, 'unreadable', stored, cause));
   }
+
+  if (!parsed || typeof parsed !== 'object' || parsed.schemaVersion !== 1) {
+    throw await markBroken(new SlotLoadError(slotId, 'unreadable', stored));
+  }
+
+  try {
+    const normalized = normalizeDatabase(parsed);
+    brokenSlots.delete(slotId);
+    return normalized;
+  } catch (cause) {
+    throw await markBroken(new SlotLoadError(slotId, 'normalize', stored, cause));
+  }
+}
+
+/**
+ * Loads a slot. Only a slot that has never been saved gets a fresh story;
+ * a stored one that can't be read or prepared throws a `SlotLoadError`.
+ */
+export async function loadSlot(slotId: string): Promise<AppDatabase> {
+  return (await readStoredSlot(slotId)) ?? seedDatabase(slotId, DEFAULT_SLOT_NAME);
+}
+
+/** Loads a slot only if it is actually stored, without seeding a fresh one. Throws a `SlotLoadError` if it is stored but broken. */
+export async function loadStoredSlot(slotId: string): Promise<AppDatabase | null> {
+  return readStoredSlot(slotId);
 }
 
 const MAX_STORED_IMAGES = 3;
@@ -166,6 +248,11 @@ export async function saveSlot(db: AppDatabase) {
   };
 
   const key = `${SLOT_PREFIX}${next.meta.slotId}.v1`;
+
+  if (brokenSlots.has(next.meta.slotId)) {
+    // Never write over a save that failed to open: the real one may still be there.
+    throw new Error('This story could not be opened, so nothing is saved to it until it opens again.');
+  }
 
   // Progressive trimming: try the full save first, then strip increasingly
   // heavy data until the write succeeds or there is nothing left to cut.
@@ -230,6 +317,8 @@ export async function duplicateSlot(sourceSlotId: string, slotName: string): Pro
 }
 
 export async function deleteSlot(slotId: string) {
+  // Deleting is the player's choice: a broken slot's raw copy is already set aside.
+  brokenSlots.delete(slotId);
   const meta = await loadStorageMeta();
   const slotOrder = meta.slotOrder.filter((id) => id !== slotId);
 
@@ -282,9 +371,25 @@ export async function switchSlot(slotId: string) {
   return loadSlot(slotId);
 }
 
+export const BROKEN_SLOT_NAME = 'A story that could not be opened';
+
+/**
+ * Every slot, for the story list. A slot that fails to open is listed as a
+ * placeholder (see `isSlotBroken`), so one broken save never hides the rest
+ * and can't be written over: `saveSlot` refuses broken slots.
+ */
 export async function listSlots(): Promise<AppDatabase[]> {
   const meta = await loadStorageMeta();
-  const slots = await Promise.all(meta.slotOrder.map((id) => loadSlot(id)));
+  const slots = await Promise.all(
+    meta.slotOrder.map((id) =>
+      loadSlot(id).catch((error) => {
+        if (error instanceof SlotLoadError) {
+          return seedDatabase(id, BROKEN_SLOT_NAME);
+        }
+        throw error;
+      })
+    )
+  );
   return slots;
 }
 
@@ -610,24 +715,37 @@ export function buildIndices(db: AppDatabase): MemoryIndex {
   return index;
 }
 
-function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['state'] {
-  const seeded = seedDatabase(makeId('slot'), DEFAULT_SLOT_NAME).state;
+let seededStateCache: AppDatabase['state'] | null = null;
 
+/** A fresh story's state, built once: only read for defaults, never handed out to mutate. */
+function seededState(): AppDatabase['state'] {
+  if (!seededStateCache) {
+    seededStateCache = seedDatabase('slot_defaults', DEFAULT_SLOT_NAME).state;
+  }
+  return seededStateCache;
+}
+
+function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['state'] {
   if (!state) {
-    return seeded;
+    return seedDatabase(makeId('slot'), DEFAULT_SLOT_NAME).state;
   }
 
+  const seeded = seededState();
+
+  // Start from everything stored, so a field added to GameState later survives
+  // a load even if nobody adds a repair for it here; then repair what needs it.
   return {
+    ...state,
     player: state.player
       ? {
           ...state.player,
           birthYear: state.player.birthYear ?? seeded.player.birthYear,
         }
-      : seeded.player,
+      : structuredClone(seeded.player),
     mood: state.mood ?? seeded.mood,
     worldDescription: state.worldDescription ?? seeded.worldDescription,
-    jutsu: Array.isArray(state.jutsu) ? state.jutsu : seeded.jutsu,
-    inventory: Array.isArray(state.inventory) ? state.inventory : seeded.inventory,
+    jutsu: Array.isArray(state.jutsu) ? state.jutsu : [...seeded.jutsu],
+    inventory: Array.isArray(state.inventory) ? state.inventory : [...seeded.inventory],
     location: state.location ?? seeded.location,
     locationKind:
       state.locationKind === 'settlement' ||
