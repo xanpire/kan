@@ -627,7 +627,7 @@ function formatState(db: AppDatabase) {
     `Kan's mood: ${truncate(state.mood, 60)}`,
     `World: ${truncate(state.worldDescription, 220)}`,
     `Jutsu: ${truncate(state.jutsu.slice(-10).join(', '), 240) || 'none'}`,
-    `Inventory: ${truncate(state.inventory.slice(-10).join(', '), 240) || 'none'}`,
+    `Inventory: ${truncate(state.inventory.join(', '), 700) || 'none'}`,
     formatPurseLine(db),
     `Canon point: ${truncate(state.canonPoint, 220)}`,
     `Chapter: ${state.chapter}${state.chapterTitle ? ` (${state.chapterTitle})` : ''}`,

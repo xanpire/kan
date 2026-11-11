@@ -371,7 +371,7 @@ Each block is sent as a text part with `cache_control` for models that need expl
 
 ### Dynamic user block (in order)
 
-1. `formatState` (date, place, mood, world, inventory, purse, canon point)
+1. `formatState` (date, place, mood, world, inventory (all of it), purse, canon point)
 1a. `formatCompanions` — `TRAVELLING WITH KAN`: each companion, how long together, why/where they joined, shared scenes, how they feel (only when someone travels with Kan). Their character cards are always in `CHARACTERS IN SCENE`, companions first.
 2. `formatTimeLine` — `Year 13 · Day 4, October · 9:40 PM` plus a nudge to state durations once `turnsWithoutTimeChange >= 2`
 2a. `formatWeatherLine` — `WEATHER (the Land of Rain, late autumn; it almost never stops raining here): steady rain. …` with what it does, shaped by the mode (§8d)
@@ -775,7 +775,9 @@ Living-world section 20. Any place Kan stays can become a safehouse by itself, a
 
 **Rest** (`restQuality`): safe (own, borrowed, base) heals injuries 2 extra days per night (`restAt`, Kan's injuries only); rough (camp, rented, nowhere) is the ordinary rest; unsafe (compromised) means he may not sleep: `applyTurnDiff` doesn't end the "until rest" conditions there (`restBlocked`).
 
-**Stash**: `stored` items leave the inventory under their inventory name (fuzzy match), `taken` items come back; 30 kept.
+**Stash**: `stored` items leave the inventory under their inventory name (fuzzy match), `taken` items come back through `addItems`; 30 kept.
+
+**Inventory** (`inventory.ts`): `inventory_added` / `inventory_removed` match loosely (`sameItem`: case, plurals, leading words like "the"), and counts are read in front ("3 kunai") or behind ("Shuriken (10)", "Kunai pouch (6 kunai)"): added counts merge, a removal lowers the count (a bare "kunai" is one) and the item goes at zero (a pouch stays, empty). The list holds 40 (`INVENTORY_LIMIT`); past that the oldest item drops, never the forehead protector, the Akatsuki cloak or a ring (`isPinnedItem`).
 
 **Narrator**: one `SAFEHOUSE (where you are)` line after WEATHER: name, kind, since, who knows, the rented time, stash, upgrades, residents, a search Kan finds, compromised, overgrown, shelter (walls keep the weather out; a camp by its cover: rock overhead but cold and damp in a cave, half a shelter in ruins, walls of a sort in a hut, no roof in the open) and how sleep goes there. `SAFEHOUSE (where you are heading)` when Kan's words head back to one (its name, or "the safehouse/home/my place" with one fitting place). Otherwise only `Places you can go back to: …` in CURRENT STATE (names, up to 4, no camps). Nothing on a story with none.
 

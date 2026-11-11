@@ -145,7 +145,7 @@ describe('inline diff wiring', () => {
   test('state strings and lists stay capped', () => {
     let db = loadSave();
 
-    for (let turn = 0; turn < 40; turn += 1) {
+    for (let turn = 0; turn < 60; turn += 1) {
       const diff: TurnDiff = {
         state: {
           worldDescription: 'A very long world description. '.repeat(30),
@@ -160,7 +160,7 @@ describe('inline diff wiring', () => {
       db = applyTurnDiff(db, diff);
     }
 
-    expect(db.state.inventory.length).toBeLessThanOrEqual(12);
+    expect(db.state.inventory.length).toBeLessThanOrEqual(40);
     expect(db.state.jutsu.length).toBeLessThanOrEqual(12);
     expect(db.state.worldDescription.length).toBeLessThanOrEqual(220);
     expect(db.state.canonPoint.length).toBeLessThanOrEqual(220);

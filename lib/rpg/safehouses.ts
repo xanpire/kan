@@ -44,6 +44,7 @@ import type {
   SafehouseState,
   VillageFaction,
 } from './types';
+import { addItems } from './inventory';
 
 export const SAFEHOUSE_KINDS: SafehouseKind[] = ['own', 'rented', 'borrowed', 'base', 'camp'];
 export const SAFEHOUSE_ENDS: Exclude<SafehouseEnd, 'left'>[] = ['expired', 'destroyed', 'compromised', 'withdrawn', 'given-up'];
@@ -623,7 +624,7 @@ function takeItems(db: AppDatabase, houseId: string, items: string[]): AppDataba
 
   if (taken.length === 0) return db;
 
-  const next = { ...db, state: { ...db.state, inventory: uniqueList([...db.state.inventory, ...taken]).slice(-12) } };
+  const next = { ...db, state: { ...db.state, inventory: addItems(db.state.inventory, taken) } };
 
   return updateHouse(next, houseId, (item) => ({ ...item, stash: item.stash.filter((thing) => !taken.includes(thing)) }));
 }

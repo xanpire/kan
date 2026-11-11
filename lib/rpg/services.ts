@@ -15,6 +15,7 @@ import { type DebugCallKind, recordDebugCall, recordDebugState } from './debug';
 import { validateLocationKind } from './encounters';
 import { guardBondDiff, isBigTurn } from './bondGuard';
 import { canonRoleAhead } from './canonRoles';
+import { addItems, removeItems } from './inventory';
 import type { DebugEvent } from './debugEvents';
 import { applyEntityDiff, mergeDuplicateEntities, recordPresence, resolveCharacterRefs, resolveEntity } from './entities';
 import { applyGrudgeChanges } from './grudges';
@@ -281,17 +282,13 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
     next.state.jutsu = next.state.jutsu.filter((jutsu) => !removed.has(jutsuKey(jutsu)));
   }
 
-  if (Array.isArray(state.inventoryAdded)) {
-    next.state.inventory = uniqueList([
-      ...next.state.inventory,
-      ...state.inventoryAdded.filter(Boolean),
-    ]).slice(-12);
+  // Loose matching, merged counts, a 40-item list where who Kan is never drops (inventory.ts).
+  if (Array.isArray(state.inventoryRemoved)) {
+    next.state.inventory = removeItems(next.state.inventory, state.inventoryRemoved);
   }
 
-  if (Array.isArray(state.inventoryRemoved)) {
-    next.state.inventory = next.state.inventory.filter(
-      (item) => !state.inventoryRemoved?.includes(item)
-    );
+  if (Array.isArray(state.inventoryAdded)) {
+    next.state.inventory = addItems(next.state.inventory, state.inventoryAdded);
   }
 
   if (typeof state.location === 'string' && state.location.trim()) {
