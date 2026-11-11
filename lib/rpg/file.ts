@@ -63,7 +63,12 @@ export function downloadImage(filename: string, dataUri: string) {
   }
 }
 
-export function pickJsonFile(): Promise<string> {
+/**
+ * Lets you choose a save file (a .zip export or a .json save) and returns its
+ * bytes, or null when the picker was cancelled. The hidden input is always
+ * removed again.
+ */
+export function pickSaveFile(): Promise<Uint8Array | null> {
   return new Promise((resolve, reject) => {
     if (typeof document === 'undefined') {
       reject(new Error('File import is only available in the web app.'));
@@ -72,29 +77,32 @@ export function pickJsonFile(): Promise<string> {
 
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json,.json';
+    input.accept = 'application/json,.json,application/zip,.zip';
     input.style.display = 'none';
+    let settled = false;
+
+    const finish = (value: Uint8Array | null, error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (input.parentNode) input.parentNode.removeChild(input);
+      if (error) reject(error);
+      else resolve(value);
+    };
+
+    input.addEventListener('cancel', () => finish(null));
 
     input.onchange = () => {
       const file = input.files?.[0];
 
       if (!file) {
-        reject(new Error('No save file selected.'));
+        finish(null);
         return;
       }
 
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        resolve(String(reader.result ?? ''));
-      };
-
-      reader.onerror = () => {
-        reject(new Error('Could not read that save file.'));
-      };
-
-      reader.readAsText(file);
-      document.body.removeChild(input);
+      file
+        .arrayBuffer()
+        .then((buffer) => finish(new Uint8Array(buffer)))
+        .catch(() => finish(null, new Error('Could not read that save file.')));
     };
 
     document.body.appendChild(input);

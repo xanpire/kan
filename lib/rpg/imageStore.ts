@@ -214,6 +214,28 @@ function readStored(ref: string) {
   return run<string | Blob>('readonly', (store) => store.get(ref.slice(REF_PREFIX.length)));
 }
 
+/** A stored image as binary (for export files), by key without "img:". Null when missing. */
+export async function readImageBlob(key: string): Promise<Blob | null> {
+  const stored = await readStored(`${REF_PREFIX}${key}`);
+
+  if (typeof Blob !== 'undefined' && stored instanceof Blob) {
+    return stored;
+  }
+
+  return typeof stored === 'string' ? dataUriToBlob(stored) : null;
+}
+
+/** Stores an image under a given key (import of an export file). False if it couldn't be stored. */
+export async function putImageBlob(key: string, blob: Blob): Promise<boolean> {
+  const ok = await run('readwrite', (store) => store.put(blob, key));
+  return ok !== null;
+}
+
+/** A blob as a data URI (the fallback when an imported image can't be stored). */
+export function imageBlobToDataUri(blob: Blob) {
+  return blobToDataUri(blob);
+}
+
 /** Turns whatever an <Image> was shown (a data URI or a blob: URL) back into a data URI for a model call. */
 export async function toDataUri(uri: string): Promise<string> {
   if (!uri.startsWith('blob:') || typeof fetch === 'undefined') {
@@ -470,10 +492,6 @@ async function externalizeOne<T extends { image: string }>(item: T): Promise<T> 
   return isDataUri(item.image) ? { ...item, image: await storeImage(item.image) } : item;
 }
 
-async function inlineOne<T extends { image: string }>(item: T): Promise<T> {
-  return { ...item, image: (await loadImage(item.image)) ?? '' };
-}
-
 /** Moves inline data URIs out of the save into IndexedDB. Returns null if nothing changed. */
 export async function externalizeImages(db: AppDatabase): Promise<AppDatabase | null> {
   if (!hasInlineImages(db)) {
@@ -518,31 +536,4 @@ export async function externalizeImages(db: AppDatabase): Promise<AppDatabase | 
   }));
 
   return { ...db, rawLog, portraits, characterPortraits, characterFaces, snapshots };
-}
-
-/** Inlines referenced images back into data URIs, for export files. */
-export async function inlineImages(db: AppDatabase): Promise<AppDatabase> {
-  const rawLog = await Promise.all(
-    db.rawLog.map(async (entry) =>
-      isImageRef(entry.image) ? { ...entry, image: await loadImage(entry.image) } : entry
-    )
-  );
-  const portraits = db.portraits
-    ? (
-        await Promise.all(
-          db.portraits.map(async (portrait) => ({
-            ...portrait,
-            image: (await loadImage(portrait.image)) ?? '',
-          }))
-        )
-      ).filter((portrait) => portrait.image)
-    : db.portraits;
-  const characterPortraits = db.characterPortraits
-    ? (await Promise.all(db.characterPortraits.map(inlineOne))).filter((item) => item.image)
-    : db.characterPortraits;
-  const characterFaces = db.characterFaces
-    ? (await Promise.all(db.characterFaces.map(inlineOne))).filter((item) => item.image)
-    : db.characterFaces;
-
-  return { ...db, rawLog, portraits, characterPortraits, characterFaces };
 }

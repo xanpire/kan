@@ -15,9 +15,10 @@ import {
   createSlot,
   deleteSlot,
   duplicateSlot,
-  exportDatabase,
   freeUpImageSpace,
   importDatabase,
+  purgeTrash,
+  restoreFromTrash,
   listSlots,
   loadActiveSlot,
   loadApiKey,
@@ -37,7 +38,8 @@ import {
 import { acquireSlotLock, type SlotLock } from './tabLock';
 import { downloadJson } from './file';
 import { makeId } from './id';
-import { externalizeImages, inlineImages, storeImage } from './imageStore';
+import { externalizeImages, storeImage } from './imageStore';
+import { buildExportZip, exportFileName, readSaveFile, saveJson } from './saveFile';
 import { FACE_IMAGE } from './imageCompress';
 import { buildNarrationPrompt, stripNarrationJson } from './prompt';
 import {
@@ -151,6 +153,8 @@ type GameContextValue = {
   restoreDailyBackup: () => Promise<void>;
   /** Deletes stored images no story refers to; resolves to how many went. */
   freeUpSpace: () => Promise<number>;
+  /** Brings a story back from Recently deleted and opens it. */
+  restoreDeletedStory: (trashKey: string) => Promise<void>;
   isNarrating: boolean;
   /** True while the state step or any summary step is running. */
   isProcessing: boolean;
@@ -173,9 +177,10 @@ type GameContextValue = {
   deleteSlotById: (slotId: string) => Promise<void>;
   duplicateSlotById: (slotId: string, slotName: string) => Promise<void>;
   renameSlotById: (slotId: string, slotName: string) => Promise<void>;
-  /** The save as JSON; without images it is a small file of story and memory only. */
-  exportActiveSlot: (options?: { withImages?: boolean }) => Promise<string | null>;
-  importSlot: (json: string, slotName?: string) => Promise<void>;
+  /** The export file: a zip with images, or a small JSON of story and memory only. */
+  exportActiveSlot: (options?: { withImages?: boolean }) => Promise<{ blob: Blob; filename: string } | null>;
+  /** Imports an export file's bytes (zip or JSON) as a new story. */
+  importSlot: (file: Uint8Array | string, slotName?: string) => Promise<void>;
   updateBond: (bondId: string, patch: Partial<BondRecord>) => Promise<void>;
   /** Folds dropId into keepId: one person, with both histories. */
   mergeCharacters: (keepId: string, dropId: string) => Promise<void>;
@@ -288,6 +293,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
 
       const allSlots = await listSlots();
+      // Stories deleted more than a week ago go for good (in the background).
+      void purgeTrash().catch(() => undefined);
 
       if (!active) {
         return;
@@ -1141,15 +1148,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    if (options.withImages === false) {
-      return exportDatabase(withoutImages(current));
+    const withImages = options.withImages !== false;
+    const filename = exportFileName(current.meta.slotName, withImages);
+
+    if (!withImages) {
+      return { blob: new Blob([saveJson(withoutImages(current))], { type: 'application/json' }), filename };
     }
 
-    return exportDatabase(await inlineImages(current));
+    return { blob: await buildExportZip(current), filename };
   }, []);
 
   const importSlot = useCallback(
-    async (json: string, slotName?: string) => {
+    async (file: Uint8Array | string, slotName?: string) => {
+      const json = typeof file === 'string' ? file : await readSaveFile(file);
       const imported = await withStoredImages(await importDatabase(json, slotName));
       setBrokenError(null);
       setDb(imported);
@@ -1538,6 +1549,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return deleted;
   }, []);
 
+  const restoreDeletedStory = useCallback(
+    async (trashKey: string) => {
+      await saveQueueRef.current.catch(() => undefined);
+      const restored = await withStoredImages(await restoreFromTrash(trashKey));
+      setBrokenError(null);
+      dbRef.current = restored;
+      setDb(restored);
+      setMeta(await loadStorageMeta());
+      await refreshSlots();
+    },
+    [refreshSlots]
+  );
+
   const markExported = useCallback(async () => {
     const current = dbRef.current;
 
@@ -1588,6 +1612,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       markExported,
       restoreDailyBackup,
       freeUpSpace,
+      restoreDeletedStory,
       isNarrating,
       isProcessing,
       pendingMemoryCount,
@@ -1649,6 +1674,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       markExported,
       restoreDailyBackup,
       freeUpSpace,
+      restoreDeletedStory,
       exportActiveSlot,
       importSlot,
       isNarrating,

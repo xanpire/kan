@@ -95,3 +95,138 @@ describe('image garbage collection (audit 3.5)', () => {
     expect(displayCacheStats().data).toBeLessThanOrEqual(24);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Audit 3.6: zip export and import, and Recently deleted.
+// ---------------------------------------------------------------------------
+
+import {
+  clearBrokenSlot,
+  deleteSlot,
+  importDatabase,
+  listTrash,
+  loadSlot,
+  purgeTrash,
+  restoreFromTrash,
+} from '../lib/rpg/db';
+import { buildExportZip, exportFileName, isZip, readSaveFile, saveJson } from '../lib/rpg/saveFile';
+import { listStoredKeys } from '../lib/rpg/slotStore';
+
+describe('export files (audit 3.6)', () => {
+  beforeEach(() => {
+    local.clear();
+    (globalThis as any).indexedDB = new IDBFactory();
+    resetSlotStoreForTests({ retryDelayMs: 1 });
+    resetImageStoreForTests();
+    resetBackupsForTests();
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).indexedDB;
+    resetSlotStoreForTests();
+    resetImageStoreForTests();
+  });
+
+  test('a zip export carries compact save.json and the images, and imports back', async () => {
+    const ref = await storeImage(PIXEL);
+    const db = { ...storyWithImage('slot_a', ref), snapshots: [{ at: 1 } as any] };
+    const zip = await buildExportZip(db as any);
+    const bytes = new Uint8Array(await zip.arrayBuffer());
+    expect(isZip(bytes)).toBe(true);
+
+    // A fresh device: no images stored yet.
+    (globalThis as any).indexedDB = new IDBFactory();
+    resetSlotStoreForTests({ retryDelayMs: 1 });
+    resetImageStoreForTests();
+    expect(await listImageKeys()).toEqual([]);
+
+    const json = await readSaveFile(bytes);
+    expect(json.startsWith('{"')).toBe(true);
+    expect(json).not.toContain('\n  ');
+    expect(JSON.parse(json).snapshots).toEqual([]);
+    expect(await listImageKeys()).toEqual([ref.slice(4)]);
+
+    const imported = await importDatabase(json, 'Back');
+    expect(imported.rawLog[0].image).toBe(ref);
+  });
+
+  test('an old pretty-printed JSON save still imports', async () => {
+    const old = JSON.stringify(seedDatabase('slot_old', 'Old'), null, 2);
+    const json = await readSaveFile(new TextEncoder().encode(old));
+    expect((await importDatabase(json)).meta.slotName).toBe('Old import');
+  });
+
+  test('a zip without save.json is refused with a plain message', async () => {
+    const { zipSync, strToU8 } = await import('fflate');
+    await expect(readSaveFile(zipSync({ 'other.txt': strToU8('x') }))).rejects.toThrow('no save.json');
+  });
+
+  test('compact JSON and safe file names', () => {
+    expect(saveJson(seedDatabase('slot_x', 'X'))).not.toContain('\n');
+    expect(exportFileName('Main / Story: 2', true)).toBe('kan-story-Main-Story-2.zip');
+    expect(exportFileName('', false)).toBe('kan-story-save-no-images.json');
+  });
+});
+
+describe('Recently deleted (audit 3.6)', () => {
+  beforeEach(() => {
+    local.clear();
+    (globalThis as any).indexedDB = new IDBFactory();
+    resetSlotStoreForTests({ retryDelayMs: 1 });
+    resetBackupsForTests();
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).indexedDB;
+    resetSlotStoreForTests();
+    clearBrokenSlot('slot_a');
+  });
+
+  async function twoStories() {
+    await saveSlot({ ...storyWithImage('slot_a', 'img:pic_x'), meta: { ...seedDatabase('slot_a', 'Alpha').meta } } as any);
+    await saveSlot(seedDatabase('slot_b', 'Beta'));
+    local.set('kan.meta.v1', JSON.stringify({ activeSlotId: 'slot_a', slotOrder: ['slot_a', 'slot_b'] }));
+  }
+
+  test('deleting moves a story to the trash, and it can be restored', async () => {
+    await twoStories();
+    await deleteSlot('slot_a');
+    expect(JSON.parse(local.get('kan.meta.v1')!).slotOrder).toEqual(['slot_b']);
+    const trash = await listTrash();
+    expect(trash.map((item) => item.slotName)).toEqual(['Alpha']);
+    expect(trash[0].storyTurns).toBe(1);
+
+    const restored = await restoreFromTrash(trash[0].key);
+    expect(restored.meta.slotName).toBe('Alpha');
+    expect(JSON.parse(local.get('kan.meta.v1')!).slotOrder).toEqual(['slot_b', restored.meta.slotId]);
+    expect((await loadSlot(restored.meta.slotId)).rawLog.length).toBe(1);
+    expect(await listTrash()).toEqual([]);
+  });
+
+  test('a trashed story keeps its images from being collected', async () => {
+    await twoStories();
+    await deleteSlot('slot_a');
+    expect((await imageKeysInUse()).has('pic_x')).toBe(true);
+  });
+
+  test('after seven days the trash and every other copy of that slot go', async () => {
+    await twoStories();
+    await writeSlotJson('kan.slot.slot_a.bak', JSON.stringify(seedDatabase('slot_a', 'Alpha backup')));
+    await deleteSlot('slot_a');
+    expect(await purgeTrash(Date.now() + 6 * 86_400_000)).toBe(0);
+    expect(await purgeTrash(Date.now() + 8 * 86_400_000)).toBe(1);
+    const keys = await listStoredKeys();
+    expect(keys.filter((key) => key.startsWith('kan.slot.slot_a.'))).toEqual([]);
+    expect(keys).toContain('kan.slot.slot_b.v1');
+  });
+
+  test('deleting the last story starts a fresh one under a new id', async () => {
+    await saveSlot(seedDatabase('slot_a', 'Only'));
+    local.set('kan.meta.v1', JSON.stringify({ activeSlotId: 'slot_a', slotOrder: ['slot_a'] }));
+    await deleteSlot('slot_a');
+    const meta = JSON.parse(local.get('kan.meta.v1')!);
+    expect(meta.slotOrder.length).toBe(1);
+    expect(meta.slotOrder[0]).not.toBe('slot_a');
+    expect((await listTrash()).length).toBe(1);
+  });
+});

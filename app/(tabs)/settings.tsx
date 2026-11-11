@@ -38,9 +38,18 @@ import { fetchImageModelCaps, testOpenRouterKey } from '@/lib/openrouter';
 import { describeImageCaps } from '@/lib/rpg/imageCaps';
 import { formatDayMonth } from '@/lib/rpg/calendar';
 import { DEFAULT_SETTINGS, PROMPT_BUDGET_OPTIONS } from '@/lib/rpg/defaults';
-import { downloadJson, pickJsonFile } from '@/lib/rpg/file';
+import { pickSaveFile } from '@/lib/rpg/file';
+import { deliverFile } from '@/lib/rpg/saveFile';
 import { useGame } from '@/lib/rpg/game';
-import { EXPORT_REMINDER_TURNS, backupInfo, turnsSinceExport, type BackupInfo } from '@/lib/rpg/db';
+import {
+  EXPORT_REMINDER_TURNS,
+  TRASH_DAYS,
+  backupInfo,
+  listTrash,
+  turnsSinceExport,
+  type BackupInfo,
+  type TrashedStory,
+} from '@/lib/rpg/db';
 import { storageStatus, type StorageStatus } from '@/lib/rpg/slotStore';
 import { currentAmbience, describeAmbience } from '@/lib/rpg/ambience';
 import { ambienceEngine, ambienceSupported } from '@/lib/audio/ambienceEngine';
@@ -69,6 +78,7 @@ export default function SettingsScreen() {
     markExported,
     restoreDailyBackup,
     freeUpSpace,
+    restoreDeletedStory,
     isNarrating,
     isProcessing,
   } = useGame();
@@ -101,6 +111,21 @@ export default function SettingsScreen() {
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [freeing, setFreeing] = useState(false);
+  const [trash, setTrash] = useState<TrashedStory[]>([]);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const slotCount = slots.length;
+
+  useEffect(() => {
+    let cancelled = false;
+    void listTrash()
+      .then((items) => {
+        if (!cancelled) setTrash(items);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [slotCount]);
 
   const openSlotId = db?.meta.slotId;
   const savedAt = db?.meta.updatedAt;
@@ -236,22 +261,52 @@ export default function SettingsScreen() {
     }
   };
 
+  const [exporting, setExporting] = useState<'with' | 'without' | null>(null);
+
   const handleExport = async (withImages: boolean) => {
-    const json = await exportActiveSlot({ withImages });
+    setExporting(withImages ? 'with' : 'without');
 
-    if (!json) {
-      return;
+    try {
+      const file = await exportActiveSlot({ withImages });
+
+      if (!file) {
+        return;
+      }
+
+      const result = await deliverFile(file.blob, file.filename);
+
+      if (result === 'cancelled') {
+        return;
+      }
+
+      await markExported().catch(() => undefined);
+      showToast(
+        result === 'shared'
+          ? 'Your story is ready to save.'
+          : withImages
+            ? 'Save file downloaded.'
+            : 'Save file downloaded, without images.',
+        'success'
+      );
+    } catch (error) {
+      showToast(
+        `The export didn’t work: ${error instanceof Error ? error.message : 'unknown error'}. Try Export without images.`,
+        'error'
+      );
+    } finally {
+      setExporting(null);
     }
-
-    downloadJson(`kan-story-${db?.meta.slotName ?? 'save'}${withImages ? '' : '-no-images'}.json`, json);
-    await markExported().catch(() => undefined);
-    showToast(withImages ? 'Save file downloaded.' : 'Save file downloaded, without images.', 'success');
   };
 
   const handleImport = async () => {
     try {
-      const json = await pickJsonFile();
-      await importSlot(json);
+      const file = await pickSaveFile();
+
+      if (!file) {
+        return;
+      }
+
+      await importSlot(file);
       showToast('Story imported.', 'success');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not import that file.', 'error');
@@ -281,6 +336,16 @@ export default function SettingsScreen() {
     await renameSlotById(menuSlot.meta.slotId, name);
     closeMenu();
     showToast('Story renamed.', 'success');
+  };
+
+  const handleRestoreDeleted = async (item: TrashedStory) => {
+    try {
+      await restoreDeletedStory(item.key);
+      setTrash((items) => items.filter((other) => other.key !== item.key));
+      showToast(`${item.slotName} is back.`, 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not bring that story back.', 'error');
+    }
   };
 
   const handleFreeUp = async () => {
@@ -324,7 +389,7 @@ export default function SettingsScreen() {
     try {
       await deleteSlotById(deleteSlotId);
       setDeleteSlotId(null);
-      showToast('Story deleted.', 'success');
+      showToast(`Story deleted. It stays in Recently deleted for ${TRASH_DAYS} days.`, 'success');
     } catch {
       showToast('Could not delete that story.', 'error');
     } finally {
@@ -693,15 +758,44 @@ export default function SettingsScreen() {
             )}
           </ListCard>
 
+          {trash.length > 0 ? (
+            <ListCard style={styles.storageCard}>
+              <ListRow
+                accessibilityState={{ expanded: trashOpen }}
+                chevron
+                onPress={() => setTrashOpen((open) => !open)}
+                title={`Recently deleted (${trash.length})`}
+              />
+              {trashOpen
+                ? trash.map((item) => {
+                    const daysLeft = Math.max(1, Math.ceil(TRASH_DAYS - (Date.now() - item.deletedAt) / 86_400_000));
+                    return (
+                      <ListRow
+                        body={`Deleted ${formatRealDate(item.deletedAt)}. ${daysLeft} day${daysLeft === 1 ? '' : 's'} left.`}
+                        key={item.key}
+                        onPress={isNarrating ? undefined : () => void handleRestoreDeleted(item)}
+                        title={item.slotName}
+                        trailing={<Text style={styles.restoreLabel}>Restore</Text>}
+                      />
+                    );
+                  })
+                : null}
+            </ListCard>
+          ) : null}
+
           <View style={styles.buttonRow}>
             <AppButton
+              disabled={exporting !== null}
               label="Export with images"
+              loading={exporting === 'with'}
               onPress={() => void handleExport(true)}
               style={styles.flex}
               variant="secondary"
             />
             <AppButton
+              disabled={exporting !== null}
               label="Export without images"
+              loading={exporting === 'without'}
               onPress={() => void handleExport(false)}
               style={styles.flex}
               variant="secondary"
@@ -834,7 +928,7 @@ export default function SettingsScreen() {
       />
 
       <ConfirmDialog
-        body="This permanently deletes this story slot and its saved memory."
+        body={`It moves to Recently deleted, at the bottom of Stories, for ${TRASH_DAYS} days. After that it is gone for good.`}
         busy={deletingSlot}
         busyText="Deleting the story…"
         label="Delete story"
@@ -865,6 +959,11 @@ function formatRealDate(at: number) {
 const styles = StyleSheet.create({
   storageCard: {
     marginTop: spacing.md,
+  },
+  restoreLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.accentTint,
   },
   reminderDot: {
     width: 8,

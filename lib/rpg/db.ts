@@ -368,13 +368,10 @@ export const EXPORT_REMINDER_TURNS = 50;
  */
 export async function imageKeysInUse(extra: (AppDatabase | null | undefined)[] = []): Promise<Set<string>> {
   const inUse = new Set<string>();
-  const idbKeys = (await listStoredKeys()).filter((key) => key.startsWith(SLOT_PREFIX));
-  const localKeys = ((await AsyncStorage.getAllKeys().catch(() => [])) as string[]).filter((key) =>
-    key.startsWith(SLOT_PREFIX)
-  );
+  const idbKeys = new Set(await listStoredKeys());
 
-  for (const key of [...new Set([...idbKeys, ...localKeys])]) {
-    const text = idbKeys.includes(key) ? await readSlotJson(key) : await AsyncStorage.getItem(key);
+  for (const key of await allSlotKeys()) {
+    const text = idbKeys.has(key) ? await readSlotJson(key) : await AsyncStorage.getItem(key);
 
     if (text) {
       for (const ref of imageRefsIn(text)) inUse.add(ref);
@@ -484,20 +481,46 @@ export async function duplicateSlot(sourceSlotId: string, slotName: string): Pro
   return copy;
 }
 
+/** How long a deleted story stays in Recently deleted. */
+export const TRASH_DAYS = 7;
+const TRASH_RE = /^kan\.slot\.(.+)\.trash\.(\d+)$/;
+
+export function trashKey(slotId: string, deletedAt = Date.now()) {
+  return `${SLOT_PREFIX}${slotId}.trash.${deletedAt}`;
+}
+
+/** Every key under kan.slot.* in either backend. */
+async function allSlotKeys(): Promise<string[]> {
+  const idbKeys = await listStoredKeys();
+  const localKeys = (await AsyncStorage.getAllKeys().catch(() => [])) as string[];
+  return [...new Set([...idbKeys, ...localKeys])].filter((key) => key.startsWith(SLOT_PREFIX));
+}
+
+/**
+ * Deleting a story moves it to Recently deleted for `TRASH_DAYS` days
+ * (`kan.slot.<id>.trash.<deletedAt>`); `purgeTrash` removes it for good after that.
+ */
 export async function deleteSlot(slotId: string) {
   // Deleting is the player's choice: a broken slot's raw copy is already set aside.
   brokenSlots.delete(slotId);
   const meta = await loadStorageMeta();
   const slotOrder = meta.slotOrder.filter((id) => id !== slotId);
+  const key = `${SLOT_PREFIX}${slotId}.v1`;
+  const stored = await readSlotJson(key).catch(() => null);
 
-  await removeSlotJson(`${SLOT_PREFIX}${slotId}.v1`);
+  if (stored) {
+    // If the trash copy can't be written, the delete stops here: nothing is lost.
+    await writeSlotJson(trashKey(slotId), stored);
+  }
+
+  await removeSlotJson(key);
 
   if (slotOrder.length === 0) {
-    const fresh = seedDatabase(slotId, DEFAULT_SLOT_NAME);
+    const fresh = seedDatabase(makeId('slot'), DEFAULT_SLOT_NAME);
     await saveSlot(fresh);
     await saveStorageMeta({
-      activeSlotId: slotId,
-      slotOrder: [slotId],
+      activeSlotId: fresh.meta.slotId,
+      slotOrder: [fresh.meta.slotId],
     });
     return;
   }
@@ -509,6 +532,107 @@ export async function deleteSlot(slotId: string) {
     activeSlotId,
     slotOrder,
   });
+}
+
+export type TrashedStory = {
+  key: string;
+  slotId: string;
+  slotName: string;
+  deletedAt: number;
+  storyTurns: number;
+  inStoryDate?: AppDatabase['state']['inStoryDate'];
+};
+
+/** Stories in Recently deleted, newest first. */
+export async function listTrash(): Promise<TrashedStory[]> {
+  const found: TrashedStory[] = [];
+
+  for (const key of await allSlotKeys()) {
+    const match = TRASH_RE.exec(key);
+
+    if (!match) continue;
+
+    let slotName = 'A deleted story';
+    let storyTurns = 0;
+    let inStoryDate: TrashedStory['inStoryDate'];
+
+    try {
+      const parsed = JSON.parse((await readSlotJson(key)) ?? '') as AppDatabase;
+      slotName = parsed.meta?.slotName || slotName;
+      storyTurns = storyEntryCount(parsed);
+      inStoryDate = parsed.state?.inStoryDate;
+    } catch {
+      // Still listed, so it can be restored (or downloaded) as it is.
+    }
+
+    found.push({ key, slotId: match[1], slotName, deletedAt: Number(match[2]), storyTurns, inStoryDate });
+  }
+
+  return found.sort((a, b) => b.deletedAt - a.deletedAt);
+}
+
+/** Brings a deleted story back as a story of its own (a new slot id), and opens it. */
+export async function restoreFromTrash(key: string): Promise<AppDatabase> {
+  const stored = await readSlotJson(key);
+
+  if (!stored) {
+    throw new Error('That story is no longer in Recently deleted.');
+  }
+
+  const parsed = JSON.parse(stored) as AppDatabase;
+
+  if (!parsed || parsed.schemaVersion !== 1) {
+    throw new Error('That story could not be read.');
+  }
+
+  const slotId = makeId('slot');
+  const normalized = normalizeDatabase(parsed);
+  const restored: AppDatabase = {
+    ...normalized,
+    meta: { ...normalized.meta, slotId, updatedAt: Date.now() },
+  };
+
+  await saveSlot(restored);
+  const meta = await loadStorageMeta();
+  await saveStorageMeta({ activeSlotId: slotId, slotOrder: [...meta.slotOrder, slotId] });
+  await removeSlotJson(key);
+  return restored;
+}
+
+/**
+ * Removes trashed stories older than `TRASH_DAYS`, together with every other
+ * copy kept for that slot (daily backup, conflict, broken and before-restore
+ * copies), unless the slot is in use again.
+ */
+export async function purgeTrash(now = Date.now()): Promise<number> {
+  const keys = await allSlotKeys();
+  const meta = await loadStorageMeta();
+  let purged = 0;
+
+  for (const key of keys) {
+    const match = TRASH_RE.exec(key);
+
+    if (!match || now - Number(match[2]) < TRASH_DAYS * 86_400_000) continue;
+
+    const slotId = match[1];
+    await removeSlotJson(key);
+    purged += 1;
+
+    const stillTrashed = keys.some((other) => {
+      const again = TRASH_RE.exec(other);
+      return other !== key && again?.[1] === slotId && now - Number(again[2]) < TRASH_DAYS * 86_400_000;
+    });
+
+    if (!meta.slotOrder.includes(slotId) && !stillTrashed) {
+      for (const other of keys) {
+        if (other.startsWith(`${SLOT_PREFIX}${slotId}.`) && !TRASH_RE.test(other)) {
+          await removeSlotJson(other);
+        }
+      }
+    }
+  }
+
+  return purged;
 }
 
 export async function renameSlot(slotId: string, slotName: string) {
@@ -579,15 +703,6 @@ export async function saveApiKey(key: string) {
   }
 
   await AsyncStorage.removeItem(API_KEY_KEY);
-}
-
-export function exportDatabase(db: AppDatabase) {
-  const exportable = {
-    ...db,
-    snapshots: [],
-  };
-
-  return JSON.stringify(exportable, null, 2);
 }
 
 export async function importDatabase(

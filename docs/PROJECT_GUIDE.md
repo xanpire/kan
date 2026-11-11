@@ -98,7 +98,8 @@ Slots live in IndexedDB because localStorage is ~5 MB for the whole app, shared 
 Important functions:
 
 - `loadSlot`, `saveSlot`, `createSlot`, `duplicateSlot`, `deleteSlot`, `renameSlot`, `switchSlot`, `listSlots`, `loadActiveSlot`
-- `exportDatabase(db)` → pretty JSON string; `importDatabase(json, name?)` → new slot
+- Export / import (`saveFile.ts`): "Export with images" builds a zip (`buildExportZip`: compact `save.json` plus each referenced image as `images/<key>.<ext>`, added one at a time into a Blob). "Export without images" is compact JSON (`saveJson`). `deliverFile` hands the file to the share sheet on phones / installed apps (`navigator.share` with files) and downloads elsewhere; success is shown only after that resolves, a cancelled share shows nothing, a failure shows the real error. Import (`pickSaveFile`, which settles with null on cancel) accepts the zip or any JSON save (`readSaveFile` puts a zip's images back into the image store under their own keys, inlining any it can't store), then `importDatabase(json, name?)` → new slot
+- `deleteSlot` moves the story to Recently deleted (`kan.slot.<id>.trash.<deletedAt>`) for `TRASH_DAYS` (7); `listTrash`, `restoreFromTrash` (back as a new slot id), `purgeTrash` (on start: drops old trash and every other copy of that slot). Deleting the last story starts a fresh one under a new id
 - `normalizeDatabase(db)` → migration + repair + JSON stripping + default fields. **Every load/import passes through it.**
 - `buildIndices(db)` → the `MemoryIndex` used by retrieval
 
