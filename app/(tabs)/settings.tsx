@@ -51,6 +51,7 @@ import {
   type TrashedStory,
 } from '@/lib/rpg/db';
 import { storageStatus, type StorageStatus } from '@/lib/rpg/slotStore';
+import { setTextSize, TEXT_SIZES, useTextSize } from '@/lib/reading';
 import { loadModelLists, missingModelLine, missingModels, type ModelLists } from '@/lib/rpg/modelCheck';
 import { NO_SPENDING, spendingLine, spendingVersion, storySpending, subscribeSpending } from '@/lib/rpg/spending';
 import { currentAmbience, describeAmbience } from '@/lib/rpg/ambience';
@@ -120,6 +121,7 @@ export default function SettingsScreen() {
   const [trash, setTrash] = useState<TrashedStory[]>([]);
   const [trashOpen, setTrashOpen] = useState(false);
   const slotCount = slots.length;
+  const textSize = useTextSize();
   // Retired models are named here once the lists load (audit 10).
   const [modelLists, setModelLists] = useState<ModelLists | null>(null);
 
@@ -678,6 +680,21 @@ export default function SettingsScreen() {
             ) : null}
           </ListCard>
 
+          <SectionLabel>Reading</SectionLabel>
+          <ListCard>
+            <ListRow meta="The story, your actions and every list grow together." title="Text size">
+              <View style={styles.readingChoice}>
+                <Segmented
+                  accessibilityLabel="Text size"
+                  onChange={setTextSize}
+                  options={TEXT_SIZES.map(({ value, label }) => ({ value, label }))}
+                  value={textSize}
+                  variant="choice"
+                />
+              </View>
+            </ListRow>
+          </ListCard>
+
           <SectionLabel>Stories</SectionLabel>
           <ListCard>
             {slots.map((slot) => {
@@ -1034,6 +1051,9 @@ function formatRealDate(at: number) {
 }
 
 const styles = StyleSheet.create({
+  readingChoice: {
+    marginTop: spacing.sm,
+  },
   goneCard: {
     marginBottom: spacing.sm,
   },

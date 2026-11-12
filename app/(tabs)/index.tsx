@@ -68,6 +68,7 @@ import {
   timeOfDayOf,
 } from '@/lib/rpg/calendar';
 import { testOpenRouterKey } from '@/lib/openrouter';
+import { useReadingType } from '@/lib/reading';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { streamingPreview } from '@/lib/rpg/prompt';
 import { REDO_WINDOW_MS, useGame, useStreamingText } from '@/lib/rpg/game';
@@ -186,7 +187,8 @@ function paragraphsOf(text: string) {
 /** A narration paragraph: *action lines* and thoughts in italics. */
 function NarrationParagraph({ text, memory }: { text: string; memory?: boolean }) {
   const parts = text.split(/(\*[^*\n]+\*)/g).filter(Boolean);
-  const prose = memory ? [type.prose, styles.memoryProse] : type.prose;
+  const reading = useReadingType();
+  const prose = memory ? [reading.prose, styles.memoryProse] : reading.prose;
 
   if (parts.length === 1) {
     return <Text style={prose}>{text}</Text>;
@@ -210,9 +212,10 @@ function NarrationParagraph({ text, memory }: { text: string; memory?: boolean }
 /** Renders Kan's turn with *actions* in italics and everything else plain. */
 function PlayerText({ text, memory }: { text: string; memory?: boolean }) {
   const parts = text.split(/(\*[^*]+\*)/g).filter(Boolean);
+  const reading = useReadingType();
 
   return (
-    <Text style={[styles.playerText, memory && styles.memoryProse]}>
+    <Text style={[styles.playerText, reading.player, memory && styles.memoryProse]}>
       {parts.map((part, index) =>
         part.startsWith('*') && part.endsWith('*') && part.length > 2 ? (
           <Text key={index} style={styles.playerAction}>
@@ -463,25 +466,27 @@ function FirstRunCard({ onSave }: { onSave: (key: string) => Promise<void> }) {
 
 /** Where you left off (audit 10): what was happening, from the save alone. */
 function LeftOffCard({ leftOff }: { leftOff: LeftOff }) {
+  const reading = useReadingType();
+
   return (
     <View accessibilityLabel={`Where you left off, ${leftOff.away} ago`} style={styles.leftOff}>
       <Text style={styles.leftOffEyebrow}>Where you left off · {leftOff.away} ago</Text>
       {leftOff.chapter ? (
         <>
-          {leftOff.chapter.title ? <Text style={type.rowTitle}>{leftOff.chapter.title}</Text> : null}
-          <Text numberOfLines={5} style={styles.leftOffText}>
+          {leftOff.chapter.title ? <Text style={reading.rowTitle}>{leftOff.chapter.title}</Text> : null}
+          <Text numberOfLines={5} style={[styles.leftOffText, reading.rowBody]}>
             {leftOff.chapter.text}
           </Text>
         </>
       ) : null}
-      <Text style={styles.leftOffMeta}>
+      <Text style={[styles.leftOffMeta, reading.rowMeta]}>
         {leftOff.place}
         {leftOff.withYou.length > 0 ? ` · With you: ${leftOff.withYou.join(', ')}` : ''}
       </Text>
       {leftOff.threads.length > 0 ? (
         <View style={styles.leftOffThreads}>
           {leftOff.threads.map((thread) => (
-            <Text key={thread} numberOfLines={1} style={styles.leftOffMeta}>
+            <Text key={thread} numberOfLines={1} style={[styles.leftOffMeta, reading.rowMeta]}>
               · {thread}
             </Text>
           ))}
@@ -893,6 +898,7 @@ export default function StoryScreen() {
   const gestureStartTranslateX = useSharedValue(0);
   const gestureStartTranslateY = useSharedValue(0);
   const insets = useSafeAreaInsets();
+  const reading = useReadingType();
   const scrollRef = useRef<ScrollView | null>(null);
   const composerRef = useRef<ComposerHandle | null>(null);
   const lastActionRef = useRef('');
@@ -1464,7 +1470,7 @@ export default function StoryScreen() {
           {!storyStarted ? (
             <View style={styles.seed}>
               <Text style={styles.seedTitle}>The rain hasn’t stopped.</Text>
-              <Text style={type.prose}>
+              <Text style={reading.prose}>
                 Days ago Itachi told you he would kill the clan. You fought him, you lost, and he
                 sent you here to wait. Now you crouch in the forest outside the Leaf, soaked to the
                 bone, not knowing if he went through with it — or who is still alive. He promised you

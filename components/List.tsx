@@ -10,6 +10,7 @@ import {
 import { ChevronRight } from 'lucide-react-native';
 
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
+import { useReadingType } from '@/lib/reading';
 
 /**
  * The shared list kit. Every list screen is built from SectionLabel +
@@ -77,22 +78,24 @@ export function ListRow({
   accessibilityRole,
   accessibilityState,
 }: ListRowProps) {
+  // Row text follows Settings → Reading → Text size (audit 10).
+  const reading = useReadingType();
   const content = (
     <>
       {leading}
       <View style={styles.text}>
         {title ? (
-          <Text numberOfLines={titleLines} style={type.rowTitle}>
+          <Text numberOfLines={titleLines} style={reading.rowTitle}>
             {title}
           </Text>
         ) : null}
         {body ? (
-          <Text numberOfLines={bodyLines} style={type.rowBody}>
+          <Text numberOfLines={bodyLines} style={reading.rowBody}>
             {body}
           </Text>
         ) : null}
         {children}
-        {meta ? <Text style={type.rowMeta}>{meta}</Text> : null}
+        {meta ? <Text style={reading.rowMeta}>{meta}</Text> : null}
       </View>
       {trailing}
       {chevron ? <ChevronRight color={colors.textDim} size={16} strokeWidth={2} /> : null}
