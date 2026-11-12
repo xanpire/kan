@@ -15,6 +15,7 @@ import {
   AppState,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -33,7 +34,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
 import {
   ArrowDown,
   ArrowUp,
@@ -67,6 +67,7 @@ import {
   formatStoryDate,
   timeOfDayOf,
 } from '@/lib/rpg/calendar';
+import { testOpenRouterKey } from '@/lib/openrouter';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { streamingPreview } from '@/lib/rpg/prompt';
 import { REDO_WINDOW_MS, useGame, useStreamingText } from '@/lib/rpg/game';
@@ -389,6 +390,76 @@ const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTim
     </>
   );
 });
+
+/**
+ * First run (audit 10): paste your key, test it, begin, all on the Story tab.
+ * The key is saved only once OpenRouter accepts it.
+ */
+function FirstRunCard({ onSave }: { onSave: (key: string) => Promise<void> }) {
+  const [draft, setDraft] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const test = async () => {
+    const key = draft.trim();
+    if (!key) {
+      setProblem('Paste your key first.');
+      return;
+    }
+
+    setTesting(true);
+    setProblem(null);
+
+    try {
+      const result = await testOpenRouterKey(key);
+      if (result.ok) await onSave(key);
+      else setProblem(result.message);
+    } catch {
+      setProblem('Could not save the key on this device.');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <View style={styles.firstRun}>
+      <Text style={styles.firstRunEyebrow}>Before you begin</Text>
+      <Text style={type.rowBody}>
+        The narrator runs on OpenRouter with your own key. It stays on this device.
+      </Text>
+      <Pressable
+        accessibilityRole="link"
+        onPress={() => void Linking.openURL('https://openrouter.ai/keys')}
+        style={({ pressed }) => [styles.firstRunLink, pressed && styles.pressed]}
+      >
+        <Text style={styles.firstRunLinkText}>1. Get a key at openrouter.ai/keys</Text>
+      </Pressable>
+      <TextInput
+        accessibilityLabel="OpenRouter key"
+        autoCapitalize="none"
+        autoCorrect={false}
+        onChangeText={(value) => {
+          setDraft(value);
+          setProblem(null);
+        }}
+        onSubmitEditing={() => void test()}
+        placeholder="2. Paste it here (sk-or-…)"
+        placeholderTextColor={colors.textDim}
+        secureTextEntry
+        style={styles.firstRunInput}
+        value={draft}
+      />
+      {problem ? <Text style={styles.firstRunProblem}>{problem}</Text> : null}
+      <AppButton
+        disabled={testing}
+        label={testing ? 'Testing…' : '3. Test and save'}
+        loading={testing}
+        onPress={() => void test()}
+        variant="secondary"
+      />
+    </View>
+  );
+}
 
 /** Where you left off (audit 10): what was happening, from the save alone. */
 function LeftOffCard({ leftOff }: { leftOff: LeftOff }) {
@@ -765,10 +836,10 @@ const Composer = memo(
 );
 
 export default function StoryScreen() {
-  const router = useRouter();
   const {
     db,
     apiKey,
+    setApiKey,
     error,
     isNarrating,
     openElsewhere,
@@ -1399,9 +1470,10 @@ export default function StoryScreen() {
                 bone, not knowing if he went through with it — or who is still alive. He promised you
                 an answer. Every drop sounds like footsteps.
               </Text>
+              {!apiKey ? <FirstRunCard onSave={setApiKey} /> : null}
               <AppButton
                 disabled={!apiKey}
-                label="Wait for him"
+                label={apiKey ? 'Wait for him' : 'Begin: wait for him'}
                 onPress={() => void submit('*You wait in the rain for Itachi.*')}
                 style={styles.seedButton}
               />
@@ -1522,23 +1594,7 @@ export default function StoryScreen() {
             </ListCard>
           ) : null}
 
-          {!apiKey ? (
-            <ListCard>
-              <ListRow
-                body="Add your OpenRouter key in Settings to begin."
-                leading={<Sparkles color={colors.accentTint} size={18} strokeWidth={2} />}
-                title="No narrator yet"
-                trailing={
-                  <AppButton
-                    compact
-                    label="Settings"
-                    onPress={() => router.navigate('/(tabs)/settings')}
-                    variant="secondary"
-                  />
-                }
-              />
-            </ListCard>
-          ) : null}
+          {!apiKey && storyStarted ? <FirstRunCard onSave={setApiKey} /> : null}
         </ScrollView>
           {farFromEnd ? (
             <Pressable
@@ -2151,6 +2207,40 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     fontSize: 13,
     color: colors.text,
+  },
+  firstRun: {
+    gap: 10,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  firstRunEyebrow: {
+    ...type.sectionLabel,
+    color: colors.accentTint,
+  },
+  firstRunLink: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  firstRunLinkText: {
+    ...type.rowBody,
+    color: colors.text,
+    textDecorationLine: 'underline',
+  },
+  firstRunInput: {
+    ...type.input,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.background,
+  },
+  firstRunProblem: {
+    ...type.rowMeta,
+    color: colors.danger,
   },
   leftOff: {
     gap: 6,
