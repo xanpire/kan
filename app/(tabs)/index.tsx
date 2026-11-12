@@ -25,6 +25,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -49,6 +50,7 @@ import {
   ChevronDown,
   Paintbrush,
   RotateCcw,
+  RotateCw,
   Sparkles,
   Square,
   Wand2,
@@ -72,6 +74,7 @@ import { useReadingType } from '@/lib/reading';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { streamingPreview } from '@/lib/rpg/prompt';
 import { REDO_WINDOW_MS, useGame, useStreamingText } from '@/lib/rpg/game';
+import { dragInTurnedFrame, turnByDefault, turnedBox } from '@/lib/rpg/viewerTurn';
 import { loadDraft, saveDraft } from '@/lib/rpg/draft';
 import { companionsOf } from '@/lib/rpg/companions';
 import { useToast } from '@/components/Toast';
@@ -868,7 +871,17 @@ export default function StoryScreen() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [paintStage, setPaintStage] = useState<PaintStage | null>(null);
   const [viewer, setViewer] = useState<{ uri: string; logId?: string } | null>(null);
+  /** The viewer turns the 16:9 image on its side to fill an upright phone (audit 11c). */
+  const [viewerTurned, setViewerTurned] = useState<boolean | null>(null);
+  const [viewerBox, setViewerBox] = useState<{ width: number; height: number } | null>(null);
+  const viewerTurnedShared = useSharedValue(0);
   const selectedImage = viewer?.uri ?? null;
+  const windowSize = useWindowDimensions();
+  // Upright phone: open turned, unless you turned it back (audit 11c).
+  const turned = viewerTurned ?? turnByDefault(windowSize.width, windowSize.height);
+  useEffect(() => {
+    viewerTurnedShared.value = turned ? 1 : 0;
+  }, [turned, viewerTurnedShared]);
   /** The shot menu (long-press Paint): a forced shot and how many takes. */
   const [shotMenuOpen, setShotMenuOpen] = useState(false);
   /** The reply the shot menu paints: an older one picked from its long-press menu, or the latest. */
@@ -1176,8 +1189,11 @@ export default function StoryScreen() {
         return;
       }
 
-      imageTranslateX.value = gestureStartTranslateX.value + event.translationX;
-      imageTranslateY.value = gestureStartTranslateY.value + event.translationY;
+      const drag = viewerTurnedShared.value
+        ? dragInTurnedFrame(event.translationX, event.translationY)
+        : { x: event.translationX, y: event.translationY };
+      imageTranslateX.value = gestureStartTranslateX.value + drag.x;
+      imageTranslateY.value = gestureStartTranslateY.value + drag.y;
     });
 
   const imageDoubleTapGesture = Gesture.Tap()
@@ -1190,6 +1206,7 @@ export default function StoryScreen() {
 
   const fullscreenImageStyle = useAnimatedStyle(() => ({
     transform: [
+      { rotate: viewerTurnedShared.value ? '90deg' : '0deg' },
       { translateX: imageTranslateX.value },
       { translateY: imageTranslateY.value },
       { scale: imageScale.value },
@@ -1915,12 +1932,23 @@ export default function StoryScreen() {
                   imageDoubleTapGesture
                 )}
               >
-                <Animated.Image
-                  accessibilityLabel={retouchDraft ? 'Retouched scene, not kept yet' : 'Generated story scene'}
-                  resizeMode="contain"
-                  source={{ uri: retouchDraft?.dataUri ?? selectedImage }}
-                  style={[styles.fullscreenImage, fullscreenImageStyle]}
-                />
+                <View
+                  onLayout={(event) => {
+                    const { width, height } = event.nativeEvent.layout;
+                    setViewerBox({ width, height });
+                  }}
+                  style={styles.fullscreenFrame}
+                >
+                  <Animated.Image
+                    accessibilityLabel={retouchDraft ? 'Retouched scene, not kept yet' : 'Generated story scene'}
+                    resizeMode="contain"
+                    source={{ uri: retouchDraft?.dataUri ?? selectedImage }}
+                    style={[
+                      turned && viewerBox ? turnedBox(viewerBox.width, viewerBox.height) : styles.fullscreenImage,
+                      fullscreenImageStyle,
+                    ]}
+                  />
+                </View>
               </GestureDetector>
 
               <View
@@ -2003,6 +2031,18 @@ export default function StoryScreen() {
                         variant="secondary"
                       />
                     ) : null}
+                    <Pressable
+                      accessibilityLabel={turned ? 'Turn the picture upright' : 'Turn the picture on its side to fill the screen'}
+                      accessibilityRole="button"
+                      hitSlop={4}
+                      onPress={() => {
+                        resetImageZoom();
+                        setViewerTurned(!turned);
+                      }}
+                      style={({ pressed }) => [styles.turnButton, turned && styles.turnButtonOn, pressed && styles.pressed]}
+                    >
+                      <RotateCw color={turned ? colors.accent : colors.text} size={18} strokeWidth={2} />
+                    </Pressable>
                     <AppButton
                       compact
                       icon={<X color={colors.text} size={15} strokeWidth={2} />}
@@ -2836,6 +2876,24 @@ const styles = StyleSheet.create({
   fullscreenImage: {
     flex: 1,
     width: '100%',
+  },
+  fullscreenFrame: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  turnButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  turnButtonOn: {
+    borderColor: colors.accent,
   },
   imageActionsColumn: {
     position: 'absolute',
