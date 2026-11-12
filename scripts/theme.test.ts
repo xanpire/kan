@@ -66,7 +66,8 @@ describe('text fields and sizes', () => {
 
       for (const name of names) {
         const block = new RegExp(`\\n  ${name}: \\{([\\s\\S]*?)\\n  \\},`).exec(text)?.[1] ?? '';
-        const size = /fontSize: (\d+)/.exec(block)?.[1];
+        // The `type.input` token is 16 px (checked above).
+        const size = /fontSize: (\d+)/.exec(block)?.[1] ?? (/\.\.\.type\.input\b/.test(block) ? '16' : undefined);
         if (!size || Number(size) < 16) problems.push(`${file.replace(ROOT, '')} ${name} ${size ?? 'none'}`);
       }
     }
