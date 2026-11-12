@@ -137,6 +137,8 @@ export type RegionShape = {
   labelY?: number;
   /** Label size; small countries get small labels. */
   size?: 'large' | 'medium' | 'small';
+  /** The name split over lines when it is wider than the country ("Water-", "falls"). */
+  nameLines?: readonly string[];
   /** Shown in the anime only (Tea, the Sea, Birds, Woods): dashed outline. */
   animeOnly?: boolean;
   rings: Pt[][];
@@ -156,15 +158,15 @@ export const REGION_SHAPES: Record<Region, RegionShape> = {
     rings: [ring(B.earthBirds, rev(B.birdsRain), rev(B.birdsWind), rev(B.birdsSilence))],
   },
   rain: {
-    x: 25, y: 30.8, rx: 1.8, ry: 1, label: 'Land of Rain', labelX: 26.2, labelY: 34.2, size: 'small',
+    x: 25, y: 30.8, rx: 1.8, ry: 1, label: 'Land of Rain', labelX: 26, labelY: 32.5, size: 'small',
     rings: [ring(B.earthRain, rev(B.grassRain), B.rainFire, B.rainRivers, B.rainWind, B.birdsRain)],
   },
   grass: {
-    x: 27.5, y: 25, rx: 1.2, ry: 1.2, label: 'Land of Grass', labelX: 27.4, labelY: 24.6, size: 'small',
+    x: 27.5, y: 25, rx: 1.2, ry: 1.2, label: 'Land of Grass', labelX: 27.7, labelY: 25.15, size: 'small',
     rings: [ring(B.earthGrass, B.grassFire, B.grassRain)],
   },
   waterfall: {
-    x: 33.3, y: 18, rx: 1.5, ry: 2.5, label: 'Land of Waterfalls', labelY: 21, size: 'small',
+    x: 33.3, y: 18, rx: 1.5, ry: 2.5, label: 'Land of Waterfalls', labelY: 22.2, size: 'small', nameLines: ['Water-', 'falls'],
     rings: [ring(C.waterfall, B.waterfallGraveyard, rev(B.waterfallFire), B.earthWaterfall)],
   },
   graveyard: {
@@ -176,7 +178,7 @@ export const REGION_SHAPES: Record<Region, RegionShape> = {
     rings: [ring(C.iron, rev(B.ironGraveyard))],
   },
   rice: {
-    x: 43.5, y: 20.5, rx: 1.4, ry: 0.9, label: 'Land of Sound', labelY: 22, size: 'small',
+    x: 43.5, y: 20.5, rx: 1.4, ry: 0.9, label: 'Land of Sound', labelX: 43.2, labelY: 22.2, size: 'small',
     rings: [ring(B.graveyardSound, B.soundHot, rev(B.soundFire))],
   },
   'hot-water': {
@@ -215,7 +217,7 @@ export const REGION_SHAPES: Record<Region, RegionShape> = {
     ],
   },
   rivers: {
-    x: 32.5, y: 42, rx: 1.3, ry: 3, label: 'Land of Rivers', labelY: 39, size: 'small',
+    x: 32.5, y: 42, rx: 1.3, ry: 3, label: 'Land of Rivers', labelY: 40.5, size: 'small',
     rings: [ring(B.riversFire, C.rivers, rev(B.riversWind), rev(B.rainRivers))],
   },
   wind: {
@@ -288,6 +290,46 @@ export const BRIDGES: Array<readonly [Pt, Pt]> = [
   [[74.5, 63.5], [75.8, 65]],
 ];
 
+
+/** Label sizes in board units. */
+export const LABEL_SIZE = { large: 2.6, medium: 2.1, small: 1.6 } as const;
+
+export type LabelLine = {
+  text: string;
+  x: number;
+  /** Baseline. */
+  y: number;
+  size: number;
+  letterSpacing: number;
+  /** The name itself (true) or the small "Land of" line above it (false). */
+  name: boolean;
+};
+
+/**
+ * Where a country's label lines go: the small "Land of" line, then the name
+ * (on several lines when `nameLines` splits it), the last name line's
+ * baseline on the label point. The map draws these; `scripts/map.test.ts`
+ * measures them against the outlines.
+ */
+export function labelLayout(shape: RegionShape): LabelLine[] {
+  const size = LABEL_SIZE[shape.size ?? 'small'];
+  const large = shape.size === 'large';
+  const [first, name] = labelLines(shape.label);
+  const x = shape.labelX ?? shape.x;
+  const y = shape.labelY ?? shape.y;
+  const names = (shape.nameLines ?? [name]).map((line) => (large ? line.toUpperCase() : line));
+  const step = size * 0.95;
+  const lines: LabelLine[] = names.map((text, index) => ({
+    text,
+    x,
+    y: y - (names.length - 1 - index) * step,
+    size,
+    letterSpacing: large ? 0.35 : 0,
+    name: true,
+  }));
+  if (first) lines.unshift({ text: first, x, y: lines[0].y - size * 0.92, size: size * 0.58, letterSpacing: 0, name: false });
+  return lines;
+}
 
 /** A label split for the board: a small first line ("Land of", "Mountain") and the name. */
 export function labelLines(label: string): [string, string] {

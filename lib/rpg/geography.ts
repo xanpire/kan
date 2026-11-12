@@ -101,8 +101,8 @@ const PATTERNS: Array<[RegExp, Region]> = [
   [/\b(land of whirlpools|whirlpool country|uzushio|uzushiogakure|hidden whirlpool|hidden eddy)\b/i, 'whirlpools'],
 ];
 
-/** Travel times between neighbours, in shinobi days (from the GEOGRAPHY lore). */
-const ROADS: Array<[Region, Region, number]> = [
+/** Travel times between neighbours over land (and short crossings), in shinobi days (from the GEOGRAPHY lore). */
+export const ROADS: ReadonlyArray<readonly [Region, Region, number]> = [
   // From the Land of Fire.
   ['fire', 'rain', 3],
   ['fire', 'grass', 2.5],
@@ -162,6 +162,18 @@ const ROADS: Array<[Region, Region, number]> = [
   ['sea', 'waves', 2.5],
 ];
 
+/**
+ * Crossings by boat between coasts with no road between them (audit 11e.2):
+ * without these, Lightning to the Mist went the long way round by land,
+ * 10 days. Same days as the GEOGRAPHY lore.
+ */
+export const SEA_LANES: ReadonlyArray<readonly [Region, Region, number]> = [
+  // Down Lightning's east coast to the Mist's islands.
+  ['lightning', 'water', 4],
+  // Across the gulf between the Graveyard peninsula and Hot Water.
+  ['graveyard', 'hot-water', 1.5],
+];
+
 /** Within one country: a day or so. */
 const SAME_REGION_DAYS = 0.75;
 
@@ -178,7 +190,7 @@ function distances(): Map<string, number> {
     for (const b of regions) dist.set(key(a, b), a === b ? 0 : Infinity);
   }
 
-  for (const [a, b, days] of ROADS) {
+  for (const [a, b, days] of [...ROADS, ...SEA_LANES]) {
     dist.set(key(a, b), Math.min(days, dist.get(key(a, b))!));
     dist.set(key(b, a), Math.min(days, dist.get(key(b, a))!));
   }

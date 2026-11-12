@@ -11,7 +11,7 @@ import { dateSortValue, formatDayMonth } from '@/lib/rpg/calendar';
 import { useGame } from '@/lib/rpg/game';
 import { REGION_NAME, currentRegion, type Region } from '@/lib/rpg/geography';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
-import { BRIDGES, UNCLAIMED_LAND, labelLines, ringPath } from '@/lib/rpg/mapShapes';
+import { BRIDGES, UNCLAIMED_LAND, labelLayout, ringPath } from '@/lib/rpg/mapShapes';
 import {
   MAP_HEIGHT,
   MAP_PLACES,
@@ -66,7 +66,6 @@ const LAND = mapColors.land;
 const LAND_VISITED = mapColors.landVisited;
 const LAND_SELECTED = mapColors.landSelected;
 const BORDER = mapColors.border;
-const LABEL_SIZE = { large: 2.6, medium: 2.1, small: 1.6 } as const;
 const PLACE_NAME_SIZE = 0.9;
 /** How close a tap must land to a place to pick it, in board units. */
 const PLACE_REACH = 2.4;
@@ -237,32 +236,27 @@ function WorldBoard({
             {REGIONS.map((region) => {
               const shape = REGION_SHAPES[region];
               const count = peopleByRegion.get(region);
-              const size = LABEL_SIZE[shape.size ?? 'small'];
               const large = shape.size === 'large';
-              const [first, name] = labelLines(shape.label);
-              const x = shape.labelX ?? shape.x;
-              const y = shape.labelY ?? shape.y;
+              const lines = labelLayout(shape);
               const fill = region === here ? colors.accentTint : large ? colors.textDim : mapColors.label;
 
               return (
                 <G key={`label-${region}`}>
-                  {first ? (
-                    <SvgText fill={fill} fontFamily={fonts.semibold} fontSize={size * 0.58} textAnchor="middle" x={x} y={y - size * 0.92}>
-                      {first}
+                  {lines.map((line, index) => (
+                    <SvgText
+                      fill={fill}
+                      fontFamily={fonts.semibold}
+                      fontSize={line.size}
+                      key={index}
+                      letterSpacing={line.letterSpacing || undefined}
+                      textAnchor="middle"
+                      x={line.x}
+                      y={line.y}
+                    >
+                      {line.text}
+                      {count && index === lines.length - 1 ? ` · ${count}` : ''}
                     </SvgText>
-                  ) : null}
-                  <SvgText
-                    fill={fill}
-                    fontFamily={fonts.semibold}
-                    fontSize={size}
-                    letterSpacing={large ? 0.35 : 0}
-                    textAnchor="middle"
-                    x={x}
-                    y={y}
-                  >
-                    {large ? name.toUpperCase() : name}
-                    {count ? ` · ${count}` : ''}
-                  </SvgText>
+                  ))}
                 </G>
               );
             })}
