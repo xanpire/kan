@@ -1041,7 +1041,7 @@ How the fixes from the save-analysis list work, and where they live. Tests: `scr
 - **Kan's sheet**: `player.natures` (innate / Thousand Souls) and `player.abilities` (stage + history), from `natures_gained` / `abilities_changed`; shown on the Kan tab.
 - **Threads**: matched on normalized titles and wording before opening; casing kept; `participantIds`, `sourceEventId`, `sourceLogId`. Story hooks (hooks.ts) open and close Izumi's grave, Survive Kakuzu and the bingo-book thread by condition, and each waits for the milestones its words rest on to have happened **and** reached Kan (`knows`: the funeral, being paired with Kakuzu, the bingo-book page; an engaged beat is not enough). A hook goal an older build opened too early is withdrawn until then.
 - **Narrator**: exact time and earliest end time, FIGURES ALREADY SAID, ELSEWHERE, VARIETY (question endings, repeated motifs, settled decisions), geography, inventory rule.
-- **Images**: WebP recompression (imageCompress.ts) and binary IndexedDB storage; `imageMeta` on scene images; export with or without images; older chat images load on tap; portrait painting lock (`beginPainting`) and duplicate guard.
+- **Images**: WebP recompression, JPEG where the browser has no WebP encoder, scene images to about 500 KB (imageCompress.ts, `encodeWithin`; audit 11c) and binary IndexedDB storage; `imageMeta` on scene images; export with or without images; older chat images load on tap; portrait painting lock (`beginPainting`) and duplicate guard.
 - **Undo**: snapshots (last 5) survive saves and hold no images; restore takes images from the live save.
 
 ## 13c. Proving there are no bugs (audit 11d)

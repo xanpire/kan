@@ -1,6 +1,8 @@
 // Smaller images: generated pictures arrive as large JPEG/PNG data URIs
-// (~900 KB). On the web they are redrawn as WebP, stepping quality down until
-// they fit, so a save's images take a fraction of the space.
+// (~900 KB). On the web they are redrawn as WebP (JPEG where the browser
+// cannot encode WebP, as older iOS), stepping quality down until they fit.
+// Scene images aim for about 500 KB (audit 11c): they are reused as style
+// and character references, so a heavier squeeze compounded.
 
 export type CompressOptions = {
   /** Longest side in pixels after resizing. */
@@ -12,7 +14,7 @@ export type CompressOptions = {
 };
 
 /** Scene images and portraits. */
-export const SCENE_IMAGE: CompressOptions = { maxSide: 1376, quality: 0.8, maxBytes: 200_000 };
+export const SCENE_IMAGE: CompressOptions = { maxSide: 1376, quality: 0.88, maxBytes: 500_000 };
 /** Face references: small, they only need to show a face. */
 export const FACE_IMAGE: CompressOptions = { maxSide: 512, quality: 0.8, maxBytes: 60_000 };
 
@@ -37,9 +39,9 @@ function loadBitmap(dataUri: string): Promise<HTMLImageElement | null> {
 }
 
 /**
- * Re-encodes a data URI as WebP within the size limits. Returns the input
- * unchanged where there is no canvas (native), WebP is not supported, or the
- * result would not be smaller.
+ * Re-encodes a data URI as WebP (or JPEG) within the size limits. Returns
+ * the input unchanged where there is no canvas (native), or when the result
+ * would not be smaller.
  */
 export async function compressImage(dataUri: string, options: CompressOptions = SCENE_IMAGE): Promise<string> {
   if (typeof document === 'undefined' || !dataUri.startsWith('data:image/') || dataUri.startsWith('data:image/svg')) {
@@ -64,14 +66,34 @@ export async function compressImage(dataUri: string, options: CompressOptions = 
 
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
+  return encodeWithin((type, quality) => canvas.toDataURL(type, quality), dataUri, options);
+}
+
+/**
+ * Encodes with the best format the browser has, stepping quality down until
+ * the result fits: WebP first, JPEG when WebP comes back as something else
+ * (a browser that cannot encode WebP returns PNG). Never returns something
+ * bigger than the input.
+ */
+export function encodeWithin(
+  encode: (type: 'image/webp' | 'image/jpeg', quality: number) => string,
+  original: string,
+  options: CompressOptions
+): string {
+  let type: 'image/webp' | 'image/jpeg' = 'image/webp';
   let quality = options.quality;
-  let best = dataUri;
+  let best = original;
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const encoded = canvas.toDataURL('image/webp', quality);
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const encoded = encode(type, quality);
 
-    if (!encoded.startsWith('data:image/webp')) {
-      return dataUri;
+    if (!encoded.startsWith(`data:${type}`)) {
+      if (type === 'image/jpeg') return best;
+      // No WebP encoder here: start again in JPEG.
+      type = 'image/jpeg';
+      quality = options.quality;
+      attempt -= 1;
+      continue;
     }
 
     if (dataUriBytes(encoded) < dataUriBytes(best)) {
@@ -82,7 +104,7 @@ export async function compressImage(dataUri: string, options: CompressOptions = 
       break;
     }
 
-    quality = Math.max(0.4, quality - 0.12);
+    quality = Math.max(0.5, quality - 0.08);
   }
 
   return best;
