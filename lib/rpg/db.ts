@@ -31,6 +31,8 @@ import { normalizePurse } from './money';
 import { SCENE_CAST_LIMIT } from './sceneLimits';
 
 const META_KEY = 'kan.meta.v1';
+/** A reply that may still hold a state block or code fence: anything else is left as saved. */
+const MAY_HOLD_JSON = /```|\{|\n\n\n|state|json/i;
 const SLOT_PREFIX = 'kan.slot.';
 const API_KEY_KEY = 'kan.apiKey.v1';
 
@@ -914,7 +916,9 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     },
     rawLog: Array.isArray(db.rawLog)
       ? db.rawLog.map((entry) =>
-          entry.kind === 'story' && entry.role === 'assistant' && entry.content
+          // Replies are cleaned when they are saved; only one that still
+          // looks like it carries JSON (an old save) is cleaned here (audit 9).
+          entry.kind === 'story' && entry.role === 'assistant' && entry.content && MAY_HOLD_JSON.test(entry.content)
             ? { ...entry, content: stripNarrationJson(entry.content) }
             : entry
         )

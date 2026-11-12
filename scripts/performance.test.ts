@@ -192,3 +192,15 @@ describe('9.4 indices in one pass', () => {
     expect(buildIndices(db)).toEqual(oldIndices(db));
   });
 });
+
+describe('9.6 stray JSON is cleaned once, not on every load', () => {
+  test('an old reply with a state block is cleaned on load; a clean reply is left as saved', () => {
+    let db = seed();
+    db = appendStoryMessage(db, 'assistant', 'Rain falls.\n\n```json\n{"state": {"mood": "wary"}}\n```', 'm', 0, 0);
+    db = appendStoryMessage(db, 'assistant', 'Itachi says nothing.', 'm', 0, 0);
+    const loaded = normalizeDatabase(db);
+    const [dirty, clean] = loaded.rawLog.slice(-2);
+    expect(dirty.content).toBe('Rain falls.');
+    expect(clean).toBe(db.rawLog[db.rawLog.length - 1]);
+  });
+});

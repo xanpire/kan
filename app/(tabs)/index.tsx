@@ -1,4 +1,14 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -49,8 +59,8 @@ import {
   timeOfDayOf,
 } from '@/lib/rpg/calendar';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
-import { streamingPreview, stripNarrationJson } from '@/lib/rpg/prompt';
-import { REDO_WINDOW_MS, useGame } from '@/lib/rpg/game';
+import { streamingPreview } from '@/lib/rpg/prompt';
+import { REDO_WINDOW_MS, useGame, useStreamingText } from '@/lib/rpg/game';
 import { loadDraft, saveDraft } from '@/lib/rpg/draft';
 import { companionsOf } from '@/lib/rpg/companions';
 import { useToast } from '@/components/Toast';
@@ -70,7 +80,7 @@ import {
   flashbackView,
   rememberChip,
 } from '@/lib/rpg/flashbacks';
-import type { SceneModeName } from '@/lib/rpg/types';
+import type { AppDatabase, RawLogEntry, SceneModeName } from '@/lib/rpg/types';
 import { displayName } from '@/lib/rpg/names';
 
 type StoryMessage = {
@@ -281,6 +291,323 @@ function InlineAction({
   );
 }
 
+/** The story opens on this many turns; "Show earlier" adds as many again (audit 9). */
+const VISIBLE_TURNS = 40;
+
+const NO_OPTIONS: string[] = [];
+
+type MessageRowProps = {
+  message: StoryMessage;
+  eager: boolean;
+  onOpenImage: (uri: string, logId: string) => void;
+  onTimePress: (logId: string, seconds: number) => void;
+  /** The controls under the latest reply; other replies show only their time chip. */
+  footer?: ReactNode;
+};
+
+/** One saved turn. Memoised by its message, so a new turn or a keystroke never redraws the log. */
+const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTimePress, footer }: MessageRowProps) {
+  const paragraphs = useMemo(
+    () => (message.role === 'assistant' ? paragraphsOf(message.content) : []),
+    [message.role, message.content]
+  );
+
+  return (
+    <>
+      {message.memoryHeading ? (
+        <View accessibilityRole="header" style={styles.memoryHeading}>
+          <History color={colors.memoryAccent} size={14} strokeWidth={2} />
+          <Text style={styles.memoryHeadingText}>
+            <Text style={styles.memoryHeadingTitle}>{message.memoryHeading.title}</Text>
+            {'  '}
+            {message.memoryHeading.dateLine}
+          </Text>
+        </View>
+      ) : null}
+      {message.role === 'user' ? (
+        <View style={[styles.playerBlock, message.memory && styles.memoryPlayerBlock]}>
+          <PlayerText memory={message.memory} text={message.content} />
+        </View>
+      ) : (
+        <View style={[styles.narration, message.memory && styles.memoryNarration]}>
+          {paragraphs.map((paragraph, index) => (
+            <NarrationParagraph key={index} memory={message.memory} text={paragraph} />
+          ))}
+          {message.image ? (
+            <SceneImage eager={eager} onOpen={(uri) => onOpenImage(uri, message.id)} value={message.image} />
+          ) : null}
+          {footer ??
+            (message.elapsedSeconds !== undefined ? (
+              <View style={styles.inlineActions}>
+                <TimeChip
+                  onPress={() => onTimePress(message.id, message.elapsedSeconds ?? 0)}
+                  seconds={message.elapsedSeconds}
+                />
+              </View>
+            ) : null)}
+        </View>
+      )}
+    </>
+  );
+});
+
+/** Kan's action and the reply as it streams. The only part of the screen that redraws while the narrator writes. */
+function LiveReply({ pendingAction, memory }: { pendingAction: string | null; memory: boolean }) {
+  const streamingText = useStreamingText();
+  const paragraphs = useMemo(() => paragraphsOf(streamingPreview(streamingText)), [streamingText]);
+
+  return (
+    <>
+      {pendingAction ? (
+        <View style={[styles.playerBlock, memory && styles.memoryPlayerBlock]}>
+          <PlayerText memory={memory} text={pendingAction} />
+        </View>
+      ) : null}
+      <View style={[styles.narration, memory && styles.memoryNarration]}>
+        {paragraphs.map((paragraph, index) => (
+          <NarrationParagraph key={index} memory={memory} text={paragraph} />
+        ))}
+        {paragraphs.length === 0 ? (
+          <View style={styles.typingRow}>
+            <ActivityIndicator color={colors.accent} size="small" />
+            <Text style={type.rowMeta}>The world is moving…</Text>
+          </View>
+        ) : null}
+      </View>
+    </>
+  );
+}
+
+type ComposerHandle = {
+  /** Empties the box (a turn was sent). */
+  clear: () => void;
+  /** Empties the box only if it holds exactly this (a retried action that was put back). */
+  clearIf: (text: string) => void;
+};
+
+type ComposerProps = {
+  db: AppDatabase;
+  isNarrating: boolean;
+  storyStarted: boolean;
+  /** The fight moves offered under the latest reply. */
+  fightOptions: string[];
+  returnedAction: { text: string; id: number } | null;
+  onSubmit: (value: string) => void;
+  onStop: () => void;
+  onOpenMode: () => void;
+};
+
+/**
+ * The input box, its markers, the send/stop button, the mode chip and the
+ * fight moves. It owns what you type, so a keystroke redraws only this.
+ */
+const Composer = memo(
+  forwardRef<ComposerHandle, ComposerProps>(function Composer(
+    { db, isNarrating, storyStarted, fightOptions, returnedAction, onSubmit, onStop, onOpenMode },
+    ref
+  ) {
+    const [input, setInput] = useState('');
+    const inputRef = useRef<TextInput | null>(null);
+    const selectionRef = useRef<{ start: number; end: number } | null>(null);
+    const slotId = db.meta.slotId;
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        clear: () => {
+          setInput('');
+          selectionRef.current = null;
+        },
+        clearIf: (text: string) => setInput((current) => (current.trim() === text ? '' : current)),
+      }),
+      []
+    );
+
+    // The input box is kept per story, so a reload never loses what you typed.
+    const draftSlotRef = useRef<string | null>(null);
+
+    useEffect(() => {
+      if (draftSlotRef.current === slotId) {
+        return;
+      }
+
+      draftSlotRef.current = slotId;
+      setInput(loadDraft(slotId));
+    }, [slotId]);
+
+    useEffect(() => {
+      if (draftSlotRef.current !== slotId) {
+        return;
+      }
+
+      const timer = setTimeout(() => saveDraft(slotId, input), 300);
+      return () => clearTimeout(timer);
+    }, [slotId, input]);
+
+    // A turn that failed or was stopped with nothing kept: your action comes back.
+    useEffect(() => {
+      if (returnedAction) {
+        setInput((current) => (current.trim() ? current : returnedAction.text));
+      }
+    }, [returnedAction]);
+
+    const insertMarker = useCallback((marker: string) => {
+      setInput((current) => {
+        const selection = selectionRef.current;
+
+        if (!selection) {
+          return current + marker;
+        }
+
+        const next = current.slice(0, selection.start) + marker + current.slice(selection.end);
+
+        selectionRef.current = {
+          start: selection.start + marker.length,
+          end: selection.start + marker.length,
+        };
+
+        return next;
+      });
+
+      inputRef.current?.focus();
+    }, []);
+
+    // The mode the next turn will be narrated in, read live from what you type.
+    const turnMode = useMemo(() => resolveTurnMode(db, input), [db, input]);
+    const override = db.state.sceneMode?.override ?? null;
+    const shownMode: SceneModeName = turnMode?.mode ?? 'normal';
+    const shownFightOptions = shownMode === 'fight' && !isNarrating ? fightOptions : NO_OPTIONS;
+    const modeHint =
+      shownMode === 'normal' && turnMode?.lean && !override
+        ? 'Talk is building'
+        : turnMode?.with.length && shownMode !== 'normal'
+          ? turnMode.with.slice(0, 2).join(', ')
+          : null;
+    const canSend = Boolean(input.trim()) && !isNarrating;
+
+    return (
+      <>
+        {shownFightOptions.length > 0 ? (
+          <ScrollView
+            contentContainerStyle={styles.fightOptions}
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+          >
+            {shownFightOptions.map((option) => (
+              <Pressable
+                accessibilityLabel={`Fight move: ${option}`}
+                accessibilityRole="button"
+                disabled={isNarrating}
+                key={option}
+                onPress={() => onSubmit(fightOptionInput(option))}
+                style={({ pressed }) => [styles.fightOption, pressed && styles.pressed]}
+              >
+                <Text numberOfLines={2} style={styles.fightOptionLabel}>
+                  {option}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+        {storyStarted ? (
+          <View style={styles.modeRow}>
+            <Pressable
+              accessibilityLabel={`Scene mode: ${MODE_LABEL[shownMode]}${override ? ', set by you' : ', automatic'}. Change it`}
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={onOpenMode}
+              style={({ pressed }) => [
+                styles.modeChip,
+                shownMode === 'conversation' && styles.modeChipTalk,
+                shownMode === 'fight' && styles.modeChipFight,
+                pressed && styles.pressed,
+              ]}
+            >
+              {shownMode !== 'normal' ? (
+                <View style={[styles.modeDot, shownMode === 'fight' && styles.modeDotFight]} />
+              ) : null}
+              <Text
+                style={[
+                  styles.modeChipLabel,
+                  shownMode !== 'normal' && styles.modeChipLabelOn,
+                ]}
+              >
+                {MODE_LABEL[shownMode]}
+                {override ? ' · set by you' : ''}
+              </Text>
+            </Pressable>
+            {modeHint ? (
+              <Text numberOfLines={1} style={styles.modeHint}>
+                {modeHint}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+        <View style={styles.composer}>
+          <Pressable
+            accessibilityLabel="Insert speech marks"
+            accessibilityRole="button"
+            onPress={() => insertMarker('"')}
+            style={({ pressed }) => [styles.markerButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.markerLabel}>“</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Insert action marker"
+            accessibilityRole="button"
+            onPress={() => insertMarker('*')}
+            style={({ pressed }) => [
+              styles.markerButton,
+              styles.markerTight,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.markerLabel}>*</Text>
+          </Pressable>
+          <TextInput
+            accessibilityLabel="What do you do?"
+            editable={!isNarrating}
+            maxLength={1000}
+            multiline
+            numberOfLines={1}
+            onChangeText={setInput}
+            onSelectionChange={(event) => {
+              selectionRef.current = {
+                start: event.nativeEvent.selection.start,
+                end: event.nativeEvent.selection.end,
+              };
+            }}
+            placeholder="What do you do?"
+            placeholderTextColor={colors.textDim}
+            ref={inputRef}
+            style={styles.composerInput}
+            value={input}
+          />
+          <Pressable
+            accessibilityHint={isNarrating ? 'Keeps what is written so far' : undefined}
+            accessibilityLabel={isNarrating ? 'Stop the reply' : 'Send'}
+            accessibilityRole="button"
+            disabled={!isNarrating && !canSend}
+            onPress={() => (isNarrating ? onStop() : onSubmit(input))}
+            style={({ pressed }) => [
+              styles.sendButton,
+              !isNarrating && !canSend && styles.sendDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            {isNarrating ? (
+              <Square color={colors.onAccent} fill={colors.onAccent} size={14} strokeWidth={2.4} />
+            ) : (
+              <ArrowUp color={colors.onAccent} size={19} strokeWidth={2.4} />
+            )}
+          </Pressable>
+        </View>
+      </>
+    );
+  })
+);
+
 export default function StoryScreen() {
   const router = useRouter();
   const {
@@ -292,7 +619,6 @@ export default function StoryScreen() {
     isProcessing,
     pendingMemoryCount,
     retryPendingMemory,
-    streamingText,
     pendingAction,
     stopNarration,
     returnedAction,
@@ -309,7 +635,6 @@ export default function StoryScreen() {
   } = useGame();
   const { showToast } = useToast();
 
-  const [input, setInput] = useState('');
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [viewer, setViewer] = useState<{ uri: string; logId?: string } | null>(null);
   const selectedImage = viewer?.uri ?? null;
@@ -341,9 +666,12 @@ export default function StoryScreen() {
   const gestureStartTranslateY = useSharedValue(0);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView | null>(null);
-  const inputRef = useRef<TextInput | null>(null);
-  const selectionRef = useRef<{ start: number; end: number } | null>(null);
+  const composerRef = useRef<ComposerHandle | null>(null);
   const lastActionRef = useRef('');
+
+  // Each turn's message is built once and reused while its log entry is
+  // unchanged, so the memoised rows below keep their props (audit 9).
+  const messageCacheRef = useRef(new Map<string, { entry: RawLogEntry; opens: boolean; message: StoryMessage }>());
 
   const messages = useMemo<StoryMessage[]>(() => {
     if (!db) {
@@ -351,44 +679,71 @@ export default function StoryScreen() {
     }
 
     const story = db.rawLog.filter((message) => message.kind === 'story');
+    const cache = messageCacheRef.current;
+    const next = new Map<string, { entry: RawLogEntry; opens: boolean; message: StoryMessage }>();
 
-    return story.map((message, index) => {
-      const memory = message.flashback;
+    const built = story.map((entry, index) => {
+      const memory = entry.flashback;
       // A flashback opens with its date line, so it is never taken for the present.
-      const opens = memory && story[index - 1]?.flashback?.id !== memory.id;
-      const record = memory ? FLASHBACK_BY_ID[memory.id] : undefined;
+      const opens = Boolean(memory && story[index - 1]?.flashback?.id !== memory.id);
+      const cached = cache.get(entry.id);
 
-      return {
-        id: message.id,
-        role: message.role === 'user' ? 'user' : 'assistant',
-        content:
-          message.role === 'assistant'
-            ? stripNarrationJson(message.content)
-            : message.content,
-        image: message.image ?? null,
-        ...(message.role === 'assistant' && message.imageWorthy ? { imageWorthy: true } : {}),
-        elapsedSeconds: message.role === 'assistant' ? message.elapsedSeconds : undefined,
-        fightOptions: message.role === 'assistant' ? message.fightOptions : undefined,
+      if (cached && cached.entry === entry && cached.opens === opens) {
+        next.set(entry.id, cached);
+        return cached.message;
+      }
+
+      const record = memory ? FLASHBACK_BY_ID[memory.id] : undefined;
+      // Replies are cleaned of stray JSON when saved (and old saves on load), not here.
+      const message: StoryMessage = {
+        id: entry.id,
+        role: entry.role === 'user' ? 'user' : 'assistant',
+        content: entry.content,
+        image: entry.image ?? null,
+        ...(entry.role === 'assistant' && entry.imageWorthy ? { imageWorthy: true } : {}),
+        elapsedSeconds: entry.role === 'assistant' ? entry.elapsedSeconds : undefined,
+        fightOptions: entry.role === 'assistant' ? entry.fightOptions : undefined,
         ...(memory ? { memory: true } : {}),
         ...(opens && memory
           ? { memoryHeading: { title: record?.title ?? 'A memory', dateLine: flashbackDateLine(db, memory.date) } }
           : {}),
       };
+      next.set(entry.id, { entry, opens, message });
+      return message;
     });
-  }, [db]);
 
-  // The mode the next turn will be narrated in, read live from what you type.
-  const turnMode = useMemo(() => (db ? resolveTurnMode(db, input) : null), [db, input]);
+    messageCacheRef.current = next;
+    return built;
+  }, [db]);
 
   const eagerImages = useMemo(
     () => new Set(messages.filter((message) => message.image).slice(-EAGER_SCENE_IMAGES).map((message) => message.id)),
     [messages]
   );
 
-  const liveParagraphs = useMemo(
-    () => (isNarrating ? paragraphsOf(streamingPreview(streamingText)) : []),
-    [isNarrating, streamingText]
-  );
+  // Only the latest turns are drawn; "Show earlier" opens more (audit 9).
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_TURNS * 2);
+  const hiddenCount = Math.max(0, messages.length - visibleCount);
+  const visibleMessages = useMemo(() => messages.slice(hiddenCount), [messages, hiddenCount]);
+  const scrollYRef = useRef(0);
+  const contentHeightRef = useRef(0);
+  const anchorRef = useRef<{ height: number; y: number } | null>(null);
+
+  const showEarlier = useCallback(() => {
+    // Keep the turn you were reading where it is when earlier turns appear above it.
+    anchorRef.current = { height: contentHeightRef.current, y: scrollYRef.current };
+    setVisibleCount((count) => count + VISIBLE_TURNS * 2);
+  }, []);
+
+  const onContentSizeChange = useCallback((_width: number, height: number) => {
+    const anchor = anchorRef.current;
+    contentHeightRef.current = height;
+
+    if (anchor && height > anchor.height) {
+      anchorRef.current = null;
+      scrollRef.current?.scrollTo({ y: anchor.y + (height - anchor.height), animated: false });
+    }
+  }, []);
 
   // The story only scrolls itself at two moments: when a save is opened (jump
   // to the latest turn) and when you send an action (show it and where the
@@ -397,33 +752,10 @@ export default function StoryScreen() {
   const slotId = db?.meta.slotId ?? null;
   const scrolledSlotRef = useRef<string | null>(null);
 
-  // The input box is kept per story, so a reload never loses what you typed.
-  const draftSlotRef = useRef<string | null>(null);
-
+  // A story opens on its latest turns.
   useEffect(() => {
-    if (!slotId || draftSlotRef.current === slotId) {
-      return;
-    }
-
-    draftSlotRef.current = slotId;
-    setInput(loadDraft(slotId));
+    setVisibleCount(VISIBLE_TURNS * 2);
   }, [slotId]);
-
-  useEffect(() => {
-    if (!slotId || draftSlotRef.current !== slotId) {
-      return;
-    }
-
-    const timer = setTimeout(() => saveDraft(slotId, input), 300);
-    return () => clearTimeout(timer);
-  }, [slotId, input]);
-
-  // A turn that failed or was stopped with nothing kept: your action comes back.
-  useEffect(() => {
-    if (returnedAction) {
-      setInput((current) => (current.trim() ? current : returnedAction.text));
-    }
-  }, [returnedAction]);
 
   useEffect(() => {
     if (!slotId || messages.length === 0 || scrolledSlotRef.current === slotId) {
@@ -455,8 +787,7 @@ export default function StoryScreen() {
       }
 
       lastActionRef.current = action;
-      setInput('');
-      selectionRef.current = null;
+      composerRef.current?.clear();
       setEnteringMemory(Boolean(remember));
 
       try {
@@ -607,28 +938,6 @@ export default function StoryScreen() {
     await attachImage(logId, draft.dataUri, draft.meta);
   }, [attachImage, retouchDraft, viewer]);
 
-  const insertMarker = useCallback((marker: string) => {
-    setInput((current) => {
-      const selection = selectionRef.current;
-
-      if (!selection) {
-        return current + marker;
-      }
-
-      const next =
-        current.slice(0, selection.start) + marker + current.slice(selection.end);
-
-      selectionRef.current = {
-        start: selection.start + marker.length,
-        end: selection.start + marker.length,
-      };
-
-      return next;
-    });
-
-    inputRef.current?.focus();
-  }, []);
-
   // Retry and Undo need the snapshot taken before the turn. An imported save
   // starts without one, and undo can use them up.
   const canUndo = (db?.snapshots.length ?? 0) > 0;
@@ -658,7 +967,7 @@ export default function StoryScreen() {
 
     if (action) {
       // The failed action was put back in the box; sending it empties the box again.
-      setInput((current) => (current.trim() === action ? '' : current));
+      composerRef.current?.clearIf(action);
       await sendTurn(action);
       return;
     }
@@ -683,6 +992,15 @@ export default function StoryScreen() {
     setViewer(null);
   }, [resetImageZoom]);
 
+  const openTimeSheet = useCallback((id: string, seconds: number) => {
+    setCustomAmount('');
+    setCustomUnit(seconds >= 86400 ? 'd' : seconds >= 3600 ? 'h' : 'min');
+    setTimeTarget({ id, seconds });
+  }, []);
+
+  const openModeSheet = useCallback(() => setModeOpen(true), []);
+  const submitTyped = useCallback((value: string) => void submit(value), [submit]);
+
   if (!db) {
     return (
       <View style={styles.root}>
@@ -693,12 +1011,6 @@ export default function StoryScreen() {
       </View>
     );
   }
-
-  const openTimeSheet = (id: string, seconds: number) => {
-    setCustomAmount('');
-    setCustomUnit(seconds >= 86400 ? 'd' : seconds >= 3600 ? 'h' : 'min');
-    setTimeTarget({ id, seconds });
-  };
 
   const applyTime = (seconds: number) => {
     const target = timeTarget;
@@ -723,19 +1035,8 @@ export default function StoryScreen() {
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
   const night = ['night', 'evening'].includes(timeOfDayOf(state.inStoryDate));
   const weather = db ? currentWeather(playing ? flashbackView(db) ?? db : db) : { condition: 'clear' as const, seasonLabel: '', night, region: 'fire' as const };
-  const canSend = Boolean(input.trim()) && !isNarrating;
   const override = state.sceneMode?.override ?? null;
-  const shownMode: SceneModeName = turnMode?.mode ?? 'normal';
-  const latestFightOptions =
-    shownMode === 'fight' && !isNarrating
-      ? messages.find((message) => message.id === lastAssistantId)?.fightOptions ?? []
-      : [];
-  const modeHint =
-    shownMode === 'normal' && turnMode?.lean && !override
-      ? 'Talk is building'
-      : turnMode?.with.length && shownMode !== 'normal'
-        ? turnMode.with.slice(0, 2).join(', ')
-        : null;
+  const latestFightOptions = messages.find((message) => message.id === lastAssistantId)?.fightOptions ?? NO_OPTIONS;
   const location = localizePlaceNames(state.location);
 
   return (
@@ -787,7 +1088,12 @@ export default function StoryScreen() {
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={onContentSizeChange}
+          onScroll={(event) => {
+            scrollYRef.current = event.nativeEvent.contentOffset.y;
+          }}
           ref={scrollRef}
+          scrollEventThrottle={100}
           showsVerticalScrollIndicator={false}
         >
           <Text style={type.sectionLabel}>
@@ -812,35 +1118,22 @@ export default function StoryScreen() {
             </View>
           ) : null}
 
-          {messages.map((message) => (
-            <Fragment key={message.id}>
-            {message.memoryHeading ? (
-              <View accessibilityRole="header" style={styles.memoryHeading}>
-                <History color={colors.memoryAccent} size={14} strokeWidth={2} />
-                <Text style={styles.memoryHeadingText}>
-                  <Text style={styles.memoryHeadingTitle}>{message.memoryHeading.title}</Text>
-                  {'  '}
-                  {message.memoryHeading.dateLine}
-                </Text>
-              </View>
-            ) : null}
-            {message.role === 'user' ? (
-              <View style={[styles.playerBlock, message.memory && styles.memoryPlayerBlock]}>
-                <PlayerText memory={message.memory} text={message.content} />
-              </View>
-            ) : (
-              <View style={[styles.narration, message.memory && styles.memoryNarration]}>
-                {paragraphsOf(message.content).map((paragraph, index) => (
-                  <NarrationParagraph key={index} memory={message.memory} text={paragraph} />
-                ))}
-                {message.image ? (
-                  <SceneImage
-                    eager={eagerImages.has(message.id)}
-                    onOpen={(uri) => openImage(uri, message.id)}
-                    value={message.image}
-                  />
-                ) : null}
-                {message.id === lastAssistantId && !isNarrating ? (
+          {hiddenCount > 0 ? (
+            <Pressable
+              accessibilityLabel={`Show earlier turns, ${Math.ceil(hiddenCount / 2)} more`}
+              accessibilityRole="button"
+              onPress={showEarlier}
+              style={({ pressed }) => [styles.showEarlier, pressed && styles.pressed]}
+            >
+              <Text style={styles.showEarlierLabel}>Show earlier</Text>
+            </Pressable>
+          ) : null}
+
+          {visibleMessages.map((message) => (
+            <MessageRow
+              eager={eagerImages.has(message.id)}
+              footer={
+                message.id === lastAssistantId && !isNarrating ? (
                   <View style={styles.inlineActions}>
                     {message.elapsedSeconds !== undefined ? (
                       <TimeChip
@@ -887,38 +1180,16 @@ export default function StoryScreen() {
                       </>
                     ) : null}
                   </View>
-                ) : message.elapsedSeconds !== undefined ? (
-                  <View style={styles.inlineActions}>
-                    <TimeChip
-                      onPress={() => openTimeSheet(message.id, message.elapsedSeconds ?? 0)}
-                      seconds={message.elapsedSeconds}
-                    />
-                  </View>
-                ) : null}
-              </View>
-            )}
-            </Fragment>
+                ) : undefined
+              }
+              key={message.id}
+              message={message}
+              onOpenImage={openImage}
+              onTimePress={openTimeSheet}
+            />
           ))}
 
-          {isNarrating && pendingAction ? (
-            <View style={[styles.playerBlock, liveMemory && styles.memoryPlayerBlock]}>
-              <PlayerText memory={liveMemory} text={pendingAction} />
-            </View>
-          ) : null}
-
-          {isNarrating ? (
-            <View style={[styles.narration, liveMemory && styles.memoryNarration]}>
-              {liveParagraphs.map((paragraph, index) => (
-                <NarrationParagraph key={index} memory={liveMemory} text={paragraph} />
-              ))}
-              {liveParagraphs.length === 0 ? (
-                <View style={styles.typingRow}>
-                  <ActivityIndicator color={colors.accent} size="small" />
-                  <Text style={type.rowMeta}>The world is moving…</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
+          {isNarrating ? <LiveReply memory={liveMemory} pendingAction={pendingAction} /> : null}
 
           {openElsewhere ? (
             <ListCard>
@@ -1001,122 +1272,17 @@ export default function StoryScreen() {
               </Pressable>
             </View>
           ) : null}
-          {latestFightOptions.length > 0 ? (
-            <ScrollView
-              contentContainerStyle={styles.fightOptions}
-              horizontal
-              keyboardShouldPersistTaps="handled"
-              showsHorizontalScrollIndicator={false}
-            >
-              {latestFightOptions.map((option) => (
-                <Pressable
-                  accessibilityLabel={`Fight move: ${option}`}
-                  accessibilityRole="button"
-                  disabled={isNarrating}
-                  key={option}
-                  onPress={() => void submit(fightOptionInput(option))}
-                  style={({ pressed }) => [styles.fightOption, pressed && styles.pressed]}
-                >
-                  <Text numberOfLines={2} style={styles.fightOptionLabel}>
-                    {option}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
-          {storyStarted ? (
-            <View style={styles.modeRow}>
-              <Pressable
-                accessibilityLabel={`Scene mode: ${MODE_LABEL[shownMode]}${override ? ', set by you' : ', automatic'}. Change it`}
-                accessibilityRole="button"
-                hitSlop={6}
-                onPress={() => setModeOpen(true)}
-                style={({ pressed }) => [
-                  styles.modeChip,
-                  shownMode === 'conversation' && styles.modeChipTalk,
-                  shownMode === 'fight' && styles.modeChipFight,
-                  pressed && styles.pressed,
-                ]}
-              >
-                {shownMode !== 'normal' ? (
-                  <View style={[styles.modeDot, shownMode === 'fight' && styles.modeDotFight]} />
-                ) : null}
-                <Text
-                  style={[
-                    styles.modeChipLabel,
-                    shownMode !== 'normal' && styles.modeChipLabelOn,
-                  ]}
-                >
-                  {MODE_LABEL[shownMode]}
-                  {override ? ' · set by you' : ''}
-                </Text>
-              </Pressable>
-              {modeHint ? (
-                <Text numberOfLines={1} style={styles.modeHint}>
-                  {modeHint}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-          <View style={styles.composer}>
-            <Pressable
-              accessibilityLabel="Insert speech marks"
-              accessibilityRole="button"
-              onPress={() => insertMarker('"')}
-              style={({ pressed }) => [styles.markerButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.markerLabel}>“</Text>
-            </Pressable>
-            <Pressable
-              accessibilityLabel="Insert action marker"
-              accessibilityRole="button"
-              onPress={() => insertMarker('*')}
-              style={({ pressed }) => [
-                styles.markerButton,
-                styles.markerTight,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.markerLabel}>*</Text>
-            </Pressable>
-            <TextInput
-              accessibilityLabel="What do you do?"
-              editable={!isNarrating}
-              maxLength={1000}
-              multiline
-              numberOfLines={1}
-              onChangeText={setInput}
-              onSelectionChange={(event) => {
-                selectionRef.current = {
-                  start: event.nativeEvent.selection.start,
-                  end: event.nativeEvent.selection.end,
-                };
-              }}
-              placeholder="What do you do?"
-              placeholderTextColor={colors.textDim}
-              ref={inputRef}
-              style={styles.composerInput}
-              value={input}
-            />
-            <Pressable
-              accessibilityHint={isNarrating ? 'Keeps what is written so far' : undefined}
-              accessibilityLabel={isNarrating ? 'Stop the reply' : 'Send'}
-              accessibilityRole="button"
-              disabled={!isNarrating && !canSend}
-              onPress={() => (isNarrating ? stopNarration() : void submit(input))}
-              style={({ pressed }) => [
-                styles.sendButton,
-                !isNarrating && !canSend && styles.sendDisabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              {isNarrating ? (
-                <Square color={colors.onAccent} fill={colors.onAccent} size={14} strokeWidth={2.4} />
-              ) : (
-                <ArrowUp color={colors.onAccent} size={19} strokeWidth={2.4} />
-              )}
-            </Pressable>
-          </View>
+          <Composer
+            db={db}
+            fightOptions={latestFightOptions}
+            isNarrating={isNarrating}
+            onOpenMode={openModeSheet}
+            onStop={stopNarration}
+            onSubmit={submitTyped}
+            ref={composerRef}
+            returnedAction={returnedAction}
+            storyStarted={storyStarted}
+          />
         </View>
       </SafeAreaView>
 
@@ -1537,6 +1703,17 @@ export default function StoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  showEarlier: {
+    alignSelf: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  showEarlierLabel: {
+    ...type.rowMeta,
+    color: colors.textMuted,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.background,

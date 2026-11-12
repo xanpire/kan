@@ -182,7 +182,6 @@ type GameContextValue = {
   /** Memory steps that failed or were interrupted and are waiting for a retry. */
   pendingMemoryCount: number;
   retryPendingMemory: () => Promise<void>;
-  streamingText: string;
   pendingAction: string | null;
   /** Stops the reply being written. What is usable of it is kept. */
   stopNarration: () => void;
@@ -247,7 +246,32 @@ type GameContextValue = {
   setCharacterFace: (entityId: string, image: string | null) => Promise<void>;
 };
 
-const GameContext = createContext<GameContextValue | null>(null);
+/** What the screens read: changes when the story is saved or a flag flips. */
+type GameStateKey =
+  | 'db'
+  | 'slots'
+  | 'meta'
+  | 'apiKey'
+  | 'loading'
+  | 'error'
+  | 'brokenSave'
+  | 'openElsewhere'
+  | 'isNarrating'
+  | 'isProcessing'
+  | 'pendingMemoryCount'
+  | 'pendingAction'
+  | 'returnedAction'
+  | 'lastPromptTokens'
+  | 'worldEventNotice';
+type GameStateValue = Pick<GameContextValue, GameStateKey>;
+/** The functions screens call. They rarely change, so reading them costs no re-renders. */
+type GameActionsValue = Omit<GameContextValue, GameStateKey>;
+
+// Three contexts (audit 9): the reply streams into its own, so only the live
+// reply re-renders while the narrator writes; the Kan and Settings tabs don't.
+const GameStateContext = createContext<GameStateValue | null>(null);
+const GameActionsContext = createContext<GameActionsValue | null>(null);
+const GameStreamContext = createContext<string>('');
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<AppDatabase | null>(null);
@@ -1801,7 +1825,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setWorldEventNotice(null);
   }, []);
 
-  const value = useMemo<GameContextValue>(
+  const stateValue = useMemo<GameStateValue>(
     () => ({
       db,
       slots,
@@ -1810,23 +1834,44 @@ export function GameProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       brokenSave,
+      openElsewhere,
+      isNarrating,
+      isProcessing,
+      pendingMemoryCount,
+      pendingAction,
+      returnedAction,
+      lastPromptTokens,
+      worldEventNotice,
+    }),
+    [
+      apiKey,
+      brokenSave,
+      db,
+      error,
+      isNarrating,
+      isProcessing,
+      lastPromptTokens,
+      loading,
+      meta,
+      openElsewhere,
+      pendingAction,
+      pendingMemoryCount,
+      returnedAction,
+      slots,
+      worldEventNotice,
+    ]
+  );
+
+  const actionsValue = useMemo<GameActionsValue>(
+    () => ({
       retryBrokenSave,
       downloadBrokenSave,
-      openElsewhere,
       markExported,
       restoreDailyBackup,
       freeUpSpace,
       restoreDeletedStory,
-      isNarrating,
-      isProcessing,
-      pendingMemoryCount,
       retryPendingMemory,
-      streamingText,
-      pendingAction,
       stopNarration,
-      returnedAction,
-      lastPromptTokens,
-      worldEventNotice,
       dismissWorldEventNotice,
       setApiKey,
       sendTurn,
@@ -1859,72 +1904,80 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setCharacterFace,
     }),
     [
-      apiKey,
-      createNewSlot,
-      db,
-      deleteMemory,
-      renameJutsu,
-      deleteJutsu,
-      attachImage,
-      addPortrait,
       addCharacterPortrait,
-      setCharacterFace,
+      addPortrait,
+      attachImage,
       correctTurnTime,
+      createNewSlot,
+      deleteJutsu,
+      deleteMemory,
       deleteSlotById,
+      dismissWorldEventNotice,
+      downloadBrokenSave,
       duplicateSlotById,
       editMemory,
-      error,
-      brokenSave,
-      retryBrokenSave,
-      downloadBrokenSave,
-      openElsewhere,
-      markExported,
-      restoreDailyBackup,
-      freeUpSpace,
-      restoreDeletedStory,
       exportActiveSlot,
+      freeUpSpace,
       importSlot,
-      isNarrating,
-      isProcessing,
-      lastPromptTokens,
-      loading,
-      meta,
-      pendingMemoryCount,
-      retryPendingMemory,
+      markExported,
+      mergeCharacters,
+      redoLastUndo,
       regenerate,
+      renameJutsu,
       renameSlotById,
+      restoreDailyBackup,
+      restoreDeletedStory,
+      retryBrokenSave,
+      retryPendingMemory,
       sendTurn,
       setApiKey,
-      slots,
-      streamingText,
-      pendingAction,
+      setCharacterDeceased,
+      setCharacterFace,
+      setSceneMode,
+      setTravelling,
       stopNarration,
-      returnedAction,
-      worldEventNotice,
-      dismissWorldEventNotice,
       switchSlotById,
       toggleMemoryPin,
       undoLastTurn,
-      redoLastUndo,
       updateBond,
-      mergeCharacters,
-      setCharacterDeceased,
-      setTravelling,
-      setSceneMode,
       updateSettings,
       updateThread,
     ]
   );
 
-  return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
+  return (
+    <GameActionsContext.Provider value={actionsValue}>
+      <GameStateContext.Provider value={stateValue}>
+        <GameStreamContext.Provider value={streamingText}>{children}</GameStreamContext.Provider>
+      </GameStateContext.Provider>
+    </GameActionsContext.Provider>
+  );
 }
 
-export function useGame() {
-  const context = useContext(GameContext);
+/** The story and its flags plus every action. Does not re-render while a reply streams. */
+export function useGame(): GameContextValue {
+  const state = useContext(GameStateContext);
+  const actions = useContext(GameActionsContext);
 
-  if (!context) {
+  if (!state || !actions) {
     throw new Error('useGame must be used inside a GameProvider');
   }
 
-  return context;
+  return useMemo(() => ({ ...state, ...actions }), [state, actions]);
+}
+
+/** Only the actions: a component using this re-renders only if an action changes. */
+export function useGameActions(): GameActionsValue {
+  const actions = useContext(GameActionsContext);
+
+  if (!actions) {
+    throw new Error('useGameActions must be used inside a GameProvider');
+  }
+
+  return actions;
+}
+
+/** The reply being written, updated about 16 times a second while the narrator streams. */
+export function useStreamingText(): string {
+  return useContext(GameStreamContext);
 }
