@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, G, Line, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
 import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
@@ -46,6 +47,7 @@ import {
   whoKnows,
 } from '@/lib/rpg/safehouses';
 import type { Safehouse } from '@/lib/rpg/types';
+import { DOUBLE_TAP_SPAN, NAMES_SPAN, WHOLE_MAP, boardPoint, panBy, viewOrigin, zoomTo, type MapView } from '@/lib/rpg/mapView';
 import { displayName } from '@/lib/rpg/names';
 
 type Selection = { kind: 'place'; id: string } | { kind: 'region'; id: Region };
@@ -65,8 +67,6 @@ const LAND_VISITED = '#1f1416';
 const LAND_SELECTED = '#26262a';
 const BORDER = '#3a3a3e';
 const LABEL_SIZE = { large: 2.6, medium: 2.1, small: 1.6 } as const;
-/** Zoomed in, the board shows this much of the map around Kan or the selection. */
-const ZOOM_SPAN = 50;
 const PLACE_NAME_SIZE = 0.9;
 /** How close a tap must land to a place to pick it, in board units. */
 const PLACE_REACH = 2.4;
@@ -105,7 +105,12 @@ function WorldBoard({
   onSelect: (selection: Selection) => void;
 }) {
   const [width, setWidth] = useState(0);
-  const [zoomed, setZoomed] = useState(false);
+  // Pinch to zoom, drag to pan, double tap to look closer (audit 11a). Only
+  // the window moves; the borders and coasts stay exactly as drawn.
+  const [view, setView] = useState<MapView>(WHOLE_MAP);
+  const gestureStart = useRef<MapView>(WHOLE_MAP);
+  const zoomed = view.span < WHOLE_MAP.span;
+  const named = view.span <= NAMES_SPAN;
   const here = currentRegion(db);
   const visited = useMemo(() => regionsVisited(db), [db]);
   const visits = useMemo(() => placeVisits(db), [db]);
@@ -132,30 +137,63 @@ function WorldBoard({
     return counts;
   }, [people]);
 
-  // Zoomed in, the window centres on the selection (or Kan) and stays on the board.
-  const focus = selection?.kind === 'place' ? mapPlace(selection.id) : selection?.kind === 'region' ? REGION_SHAPES[selection.id] : null;
-  const center = focus ?? you;
-  const span = zoomed ? ZOOM_SPAN : MAP_WIDTH;
-  const viewX = zoomed ? Math.min(MAP_WIDTH - span, Math.max(0, center.x - span / 2)) : 0;
-  const viewY = zoomed ? Math.min(MAP_HEIGHT - span, Math.max(0, center.y - span / 2)) : 0;
+  const span = view.span;
+  const { x: viewX, y: viewY } = viewOrigin(view);
   const height = width;
-  const scale = width / span;
 
   const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
-  const onPress = (event: GestureResponderEvent) => {
-    if (!scale) return;
+  const pick = (x: number, y: number) => {
+    if (!width) return;
 
-    const picked = selectionAt(viewX + event.nativeEvent.locationX / scale, viewY + event.nativeEvent.locationY / scale, places);
+    const point = boardPoint(view, width, x, y);
+    const picked = selectionAt(point.x, point.y, places);
 
     if (picked) onSelect(picked);
   };
+
+  const pinch = Gesture.Pinch()
+    .runOnJS(true)
+    .onBegin(() => {
+      gestureStart.current = view;
+    })
+    .onUpdate((event) => {
+      setView(zoomTo(gestureStart.current, gestureStart.current.span / event.scale, width, { x: event.focalX, y: event.focalY }));
+    });
+  // Panning only when zoomed in, so on the whole map a drag still scrolls the page.
+  const pan = Gesture.Pan()
+    .runOnJS(true)
+    .enabled(zoomed)
+    .minDistance(8)
+    .averageTouches(true)
+    .onBegin(() => {
+      gestureStart.current = view;
+    })
+    .onUpdate((event) => {
+      if (gestureStart.current.span < WHOLE_MAP.span) {
+        setView(panBy(gestureStart.current, width, event.translationX, event.translationY));
+      }
+    });
+  const doubleTap = Gesture.Tap()
+    .runOnJS(true)
+    .numberOfTaps(2)
+    .onEnd((event) => {
+      setView((current) =>
+        zoomTo(current, current.span > DOUBLE_TAP_SPAN ? DOUBLE_TAP_SPAN : current.span / 2, width, { x: event.x, y: event.y })
+      );
+    });
+  const tap = Gesture.Tap()
+    .runOnJS(true)
+    .maxDistance(10)
+    .onEnd((event) => pick(event.x, event.y));
+  const gestures = Gesture.Simultaneous(pinch, pan, Gesture.Exclusive(doubleTap, tap));
   const selectedRegion =
     selection?.kind === 'region' ? selection.id : selection?.kind === 'place' ? mapPlace(selection.id)?.region ?? null : null;
 
   return (
     <View onLayout={onLayout} style={[styles.board, { height: height || 320 }]}>
       {width > 0 ? (
-        <Pressable accessibilityHint="Tap a country or a place" accessibilityLabel="World map" onPress={onPress}>
+        <GestureDetector gesture={gestures}>
+        <View accessibilityHint="Tap a country or a place; pinch or double tap to zoom" accessibilityLabel="World map" accessible>
           <Svg height={height} viewBox={`${viewX} ${viewY} ${span} ${span}`} width={width}>
             <Rect fill={SEA} height={MAP_HEIGHT} width={MAP_WIDTH} x={0} y={0} />
 
@@ -260,7 +298,7 @@ function WorldBoard({
             })}
 
             {/* Zoomed in, every place is named; the whole map only names the countries. */}
-            {zoomed
+            {named
               ? places.map((place) => {
                   const spot = placeNameSpot(place);
 
@@ -296,17 +334,18 @@ function WorldBoard({
               <Circle cx={you.x} cy={you.y} fill={colors.accent} r={1} stroke={colors.white} strokeWidth={0.28} />
             </G>
           </Svg>
-        </Pressable>
+        </View>
+        </GestureDetector>
       ) : null}
-      {width > 0 ? (
+      {width > 0 && zoomed ? (
         <Pressable
-          accessibilityLabel={zoomed ? 'Show the whole map' : 'Zoom in'}
+          accessibilityLabel="Show the whole map"
           accessibilityRole="button"
           hitSlop={8}
-          onPress={() => setZoomed((value) => !value)}
+          onPress={() => setView(WHOLE_MAP)}
           style={styles.zoomButton}
         >
-          <Text style={styles.zoomText}>{zoomed ? 'Whole map' : 'Zoom in'}</Text>
+          <Text style={styles.zoomText}>Whole map</Text>
         </Pressable>
       ) : null}
     </View>
@@ -494,6 +533,14 @@ function placeBody(db: AppDatabase, house: Safehouse) {
     .join('\n');
 }
 
+/** "2 to go back to · 1 former". */
+function placesLine(db: AppDatabase) {
+  const active = activeSafehouses(db).length;
+  const former = formerSafehouses(db).length;
+  const parts = [active === 0 ? 'Nowhere to go back to, yet' : `${active} to go back to`, former > 0 ? `${former} former` : null];
+  return parts.filter(Boolean).join(' · ');
+}
+
 /** Kan's places: safehouses, rooms, hideouts, camps, and the ones he lost. */
 function PlacesList({ db }: { db: AppDatabase }) {
   const here = currentSafehouse(db)?.id;
@@ -552,6 +599,9 @@ export function MapSection() {
   const { db } = useGame();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [wholeRoad, setWholeRoad] = useState(false);
+  // Below the board and the selected place, the long lists open from rows (audit 11a).
+  const [open, setOpen] = useState<'places' | 'road' | 'unplaced' | 'people' | null>(null);
+  const toggle = (which: NonNullable<typeof open>) => setOpen((current) => (current === which ? null : which));
 
   const people = useMemo(() => (db ? knownWhereabouts(db) : []), [db]);
   const road = useMemo(() => [...(db?.state.travelLog ?? [])].reverse(), [db]);
@@ -591,44 +641,46 @@ export function MapSection() {
 
       <WorldBoard db={db} onSelect={setSelection} selection={shown} />
       <Text style={styles.legend}>
-        Tap a country or a place; zoom in to see every place's name. White dots are places you have been; the red line is your road; squares are your places. Numbers count people you know of there. Dashed borders are lands only the anime shows.
+        Pinch or double tap to zoom, drag to look around. White dots: places you have been. Red line: your road. Squares: your places. Numbers: people you know of there.
       </Text>
 
       <SelectedCard db={db} people={people} selection={shown} />
 
-      <PlacesList db={db} />
-
-      <SectionLabel>Not on any map you know</SectionLabel>
       <ListCard>
-        {UNPLACED.map((place) => (
-          <ListRow
-            accessibilityRole="button"
-            body={place.note ?? null}
-            bodyLines={2}
-            key={place.id}
-            meta={placeVisits(db).get(place.id) ? 'You have been there' : 'Location unknown'}
-            onPress={() => setSelection({ kind: 'place', id: place.id })}
-            title={place.name}
-          />
-        ))}
+        <ListRow
+          accessibilityState={{ expanded: open === 'places' }}
+          chevron={open !== 'places'}
+          meta={placesLine(db)}
+          onPress={() => toggle('places')}
+          title="Your places"
+        />
+        <ListRow
+          accessibilityState={{ expanded: open === 'road' }}
+          chevron={open !== 'road'}
+          meta={road.length === 0 ? 'It starts here' : road.length === 1 ? '1 stop' : `${road.length} stops`}
+          onPress={() => toggle('road')}
+          title="Your road"
+        />
+        <ListRow
+          accessibilityState={{ expanded: open === 'people' }}
+          chevron={open !== 'people'}
+          meta={elsewhere.length === 0 ? 'No one you know of, yet' : elsewhere.length === 1 ? '1 person' : `${elsewhere.length} people`}
+          onPress={() => toggle('people')}
+          title="Where people are, as far as you know"
+        />
+        <ListRow
+          accessibilityState={{ expanded: open === 'unplaced' }}
+          chevron={open !== 'unplaced'}
+          meta={`${UNPLACED.length} lands`}
+          onPress={() => toggle('unplaced')}
+          title="Not on any map you know"
+        />
       </ListCard>
 
-      <SectionLabel>Where people are, as far as you know</SectionLabel>
-      {byRegion.size > 0 ? (
-        <>
-          <Text style={styles.legend}>What you were told or last saw. It may not be true any more.</Text>
-          {[...byRegion.entries()].map(([region, entries]) => (
-            <View key={region} style={styles.group}>
-              <Text style={styles.groupLabel}>{regionLabel(region)}</Text>
-              <PersonRows entries={entries.slice(0, 12)} />
-            </View>
-          ))}
-        </>
-      ) : (
-        <EmptyRow title="No one you know of, yet" />
-      )}
+      {open === 'places' ? <PlacesList db={db} /> : null}
 
-      <SectionLabel>Your road</SectionLabel>
+      {open === 'road' ? (
+        <>
       {road.length > 0 ? (
         <ListCard>
           {visibleRoad.map((stop, index) => (
@@ -649,6 +701,46 @@ export function MapSection() {
       ) : (
         <EmptyRow title="Your road starts here" />
       )}
+        </>
+      ) : null}
+
+      {open === 'people' ? (
+        <>
+      {byRegion.size > 0 ? (
+        <>
+          <Text style={styles.legend}>What you were told or last saw. It may not be true any more.</Text>
+          {[...byRegion.entries()].map(([region, entries]) => (
+            <View key={region} style={styles.group}>
+              <Text style={styles.groupLabel}>{regionLabel(region)}</Text>
+              <PersonRows entries={entries.slice(0, 12)} />
+            </View>
+          ))}
+        </>
+      ) : (
+        <EmptyRow title="No one you know of, yet" />
+      )}
+
+        </>
+      ) : null}
+
+      {open === 'unplaced' ? (
+        <>
+      <ListCard>
+        {UNPLACED.map((place) => (
+          <ListRow
+            accessibilityRole="button"
+            body={place.note ?? null}
+            bodyLines={2}
+            key={place.id}
+            meta={placeVisits(db).get(place.id) ? 'You have been there' : 'Location unknown'}
+            onPress={() => setSelection({ kind: 'place', id: place.id })}
+            title={place.name}
+          />
+        ))}
+      </ListCard>
+
+        </>
+      ) : null}
     </>
   );
 }
