@@ -70,6 +70,8 @@ export type AmbienceInput = {
   fight: boolean;
   /** The kind of safehouse Kan is at: walls and a roof, or a camp under the sky. */
   shelter?: SafehouseKind;
+  /** The calendar month, for when the light goes (birds stop after dusk). */
+  month?: number;
 };
 
 export type AmbienceMix = {
@@ -115,6 +117,7 @@ export function ambienceInputOf(db: AppDatabase): AmbienceInput {
     condition: weather.condition,
     period: timeOfDayOf(db.state.inStoryDate),
     hour: db.state.inStoryDate.hour,
+    month: db.state.inStoryDate.month,
     season: weather.season,
     region: weather.region,
     kind: locationKindOf(db),
@@ -175,6 +178,15 @@ function rainOf(condition: WeatherCondition) {
     default:
       return 0;
   }
+}
+
+/**
+ * Roughly when the sun sets in the shinobi lands: about 8 PM at midsummer,
+ * 5 PM at midwinter (6 PM in March and September). No month: 7 PM.
+ */
+export function sunsetHour(month: number | undefined): number {
+  if (!month) return 19;
+  return 18.5 + 1.5 * Math.cos(((month - 6.5) / 12) * 2 * Math.PI);
 }
 
 /** What Kan should hear, from where he is. */
@@ -250,7 +262,9 @@ export function ambienceMix(input: AmbienceInput): AmbienceMix {
     }
     if (period === 'evening') {
       if (season !== 'winter') add(beds, 'forest-night', forest ? 0.4 : 0.25);
-      add(beds, 'forest-day', season === 'winter' ? 0.1 : 0.22);
+      // The last birds only while there is light (Session 1: birds at 7 PM
+      // in a pitch-dark October gorge).
+      if (input.hour < sunsetHour(input.month) + 0.5) add(beds, 'forest-day', season === 'winter' ? 0.1 : 0.22);
     }
     if (night) {
       // Insects stop in the cold; the owl doesn't.

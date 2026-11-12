@@ -128,7 +128,9 @@ describe('weather', () => {
   });
 
   test('a scene keeps its weather; a new scene gets the world\'s', () => {
-    const db = seed();
+    // A new story opens in the downpour (Session 1); without that lock the world's weather holds.
+    expect(seed().state.weather?.condition).toBe('downpour');
+    const db = at(seed(), { weather: undefined });
     const held = applyWeather(db, undefined);
     expect(held.state.weather?.source).toBe('world');
 

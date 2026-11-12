@@ -5,6 +5,7 @@
 
 import { conditionHolds } from './lore';
 import { threadKey } from './facts';
+import { happened, kanKnowsOf } from './names';
 import type { AppDatabase, LoreCondition, ThreadRecord, ThreadType } from './types';
 
 type StoryHook = {
@@ -15,6 +16,13 @@ type StoryHook = {
   participants: string[];
   /** Opens once this holds. */
   opensWhen: LoreCondition;
+  /**
+   * Milestones Kan must have heard of (or lived) first: the goal's words rest
+   * on them, and a goal must never tell Kan what he couldn't know (audit 6b,
+   * Session 1: "Survive Kakuzu" showed from turn 1, the grave before the
+   * funeral).
+   */
+  knows: string[];
   /** Resolves once this holds. */
   resolvesWhen?: LoreCondition;
 };
@@ -27,6 +35,7 @@ export const STORY_HOOKS: StoryHook[] = [
     importance: 5,
     participants: ['Kan'],
     opensWhen: { flag: 'knowsIzumiDead' },
+    knows: ['izumi-funeral'],
     resolvesWhen: { milestone: 'kan-mangekyo' },
   },
   {
@@ -36,6 +45,8 @@ export const STORY_HOOKS: StoryHook[] = [
     importance: 4,
     participants: ['Kan', 'Kakuzu'],
     opensWhen: { milestone: 'kan-joins-akatsuki' },
+    // Completed (Pain names the partner), not only engaged.
+    knows: ['kan-joins-akatsuki'],
     resolvesWhen: { milestone: 'roster-completes' },
   },
   {
@@ -45,6 +56,7 @@ export const STORY_HOOKS: StoryHook[] = [
     importance: 3,
     participants: ['Kan', 'Itachi Uchiha'],
     opensWhen: { milestone: 'itachi-bingo-book' },
+    knows: ['itachi-bingo-book'],
     resolvesWhen: { milestone: 'kan-bingo-book' },
   },
 ];
@@ -58,9 +70,19 @@ export function applyStoryHooks(db: AppDatabase): AppDatabase {
     const key = threadKey(hook.title);
     const index = threads.findIndex((thread) => threadKey(thread.title) === key);
     const resolved = hook.resolvesWhen ? conditionHolds(db, hook.resolvesWhen) : false;
+    // Happened in the world, and reached Kan (an engaged beat is not done yet).
+    const known = hook.knows.every((id) => happened(db, id) && kanKnowsOf(db, id));
+
+    // An older build opened it before Kan knew what it rests on: take it back
+    // until he does (only the hook's own thread, never one the story made).
+    if (index !== -1 && !known && threads[index].status === 'open' && threads[index].id.startsWith('thread_hook_')) {
+      threads = threads.filter((_, position) => position !== index);
+      changed = true;
+      continue;
+    }
 
     if (index === -1) {
-      if (!conditionHolds(db, hook.opensWhen) || resolved) continue;
+      if (!known || !conditionHolds(db, hook.opensWhen) || resolved) continue;
 
       const thread: ThreadRecord = {
         id: `thread_hook_${key.replace(/\s+/g, '-')}`,

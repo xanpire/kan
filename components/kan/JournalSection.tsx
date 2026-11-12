@@ -15,7 +15,8 @@ import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
 import { AUDIENCE_NAME, knownEpithets } from '@/lib/rpg/renown';
 import { PurseCard } from '@/components/kan/PurseCard';
 import { ScrapbookView } from '@/components/kan/ScrapbookView';
-import { displayName } from '@/lib/rpg/names';
+import { displayName, loreTitle, scrubNameLeaks } from '@/lib/rpg/names';
+import { knownCanonPoint } from '@/lib/rpg/canon';
 
 type JournalView = 'now' | 'recap' | 'world' | 'memories' | 'letters' | 'scrapbook';
 
@@ -256,7 +257,7 @@ function WorldView({ db }: { db: AppDatabase }) {
       <SectionLabel>The world as you know it</SectionLabel>
       <ListCard>
         <ListRow body={localizePlaceNames(db.state.worldDescription)} title="The world" />
-        <ListRow body={localizePlaceNames(db.state.canonPoint)} title="Timeline" />
+        {knownCanonPoint(db) ? <ListRow body={localizePlaceNames(knownCanonPoint(db))} title="Timeline" /> : null}
       </ListCard>
 
       {visibleLore.length > 0 ? (
@@ -265,9 +266,9 @@ function WorldView({ db }: { db: AppDatabase }) {
           <ListCard>
             {visibleLore.map((lore) => (
               <ListRow
-                body={lore.text}
+                body={scrubNameLeaks(db, lore.text).text}
                 key={lore.id}
-                title={lore.keywords.slice(0, 3).join(', ')}
+                title={loreTitle(db, lore.keywords)}
               />
             ))}
           </ListCard>

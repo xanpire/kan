@@ -139,11 +139,20 @@ function partnerNames(db: AppDatabase, partners: string[]) {
     .slice(0, 4);
 }
 
+/**
+ * The people in the scene, by the names Kan knows (the mode line under the
+ * reply prints these: Session 1 showed the internal name "Tobi" there).
+ */
 function castNames(db: AppDatabase) {
-  return (db.state.sceneCast ?? []).filter((name) => {
-    const entity = resolveEntity(db, name);
-    return name.toLowerCase() !== 'kan' && !(entity && isDeceased(entity));
-  });
+  return (db.state.sceneCast ?? [])
+    .filter((name) => {
+      const entity = resolveEntity(db, name);
+      return name.toLowerCase() !== 'kan' && !(entity && isDeceased(entity));
+    })
+    .map((name) => {
+      const entity = resolveEntity(db, name);
+      return entity ? displayName(db, entity) : name;
+    });
 }
 
 /**

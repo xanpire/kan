@@ -531,7 +531,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     },
     {
       id: makeId('lore'),
-      keywords: ['nine-tails', 'kurma', 'kurama', 'attack'],
+      keywords: ['nine-tails', 'kurama', 'attack'],
       priority: 5,
       text: 'The Nine-Tails attack killed your parents when you were five. It left you quiet, guarded, and slow to rely on anyone.',
       enabled: true,
@@ -695,6 +695,8 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       chapterTitle: 'The flight from the Leaf',
       chapterStart: { turn: 1, date: DEFAULT_DATE },
       scene: 'The rain after',
+      // The opening is a heavy downpour (Session 1: the world rolled "cloudy").
+      weather: { region: 'fire', condition: 'downpour', text: 'heavy rain', since: DEFAULT_DATE, source: 'story' },
       purse: startingPurse(),
       // A new story tracks which names Kan knows from the start (names.ts).
       namesVersion: NAMES_VERSION,

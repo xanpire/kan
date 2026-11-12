@@ -32,7 +32,7 @@ import { advanceConsequences, applyConsequences, markConsequenceOffered, turnCon
 import { applyEpithet, markEpithetsSeen, recordDeeds } from './renown';
 import { applyYearly, yearlyOffer } from './yearly';
 import { recordTravel } from './mapData';
-import { applyWeather } from './weather';
+import { applyWeather, weatherFromNarration } from './weather';
 import { applySafehouses } from './safehouses';
 import { applyPurse } from './money';
 import {
@@ -392,7 +392,9 @@ export function applyStateStep(
   next = stampTurnScene(latest, next, turn.turnLogId, extraction?.scene?.ended === true, next.state.chapter !== chapterBefore);
   // Kan's road and the scene's weather (held through the scene unless the page changed it).
   next = recordTravel(next);
-  next = applyWeather(next, extraction?.weather);
+  // A miss by the tracker no longer leaves the sky wrong: the prose's own
+  // rain, snow or fog wins over the world's roll for this turn.
+  next = applyWeather(next, extraction?.weather ?? weatherFromNarration(next, turn.narration));
 
   // One piece of news per turn (or one catch-up report); nothing in the
   // world fires mid-fight. The allowance comes from the state the turn's

@@ -1040,3 +1040,23 @@ export function worldClock(db: AppDatabase): WorldClock {
     missed,
   };
 }
+
+/**
+ * The canon point of the latest world event Kan has heard of (or lived), for
+ * the Journal's Timeline row. `state.canonPoint` moves when a milestone
+ * fires, which can be days before the news reaches him (Session 1: the
+ * bingo-book line showed a turn before he was told).
+ */
+export function knownCanonPoint(db: AppDatabase): string {
+  const heard = normalizeProgress(db).heard ?? {};
+  const latest = db.events
+    .filter((event) => event.tags.includes('canon') && heard[event.id] && event.id.startsWith('event_canon_'))
+    .sort((a, b) => dateSortValue(b.inStoryDate) - dateSortValue(a.inStoryDate))
+    .map((event) => byId.get(event.id.replace('event_canon_', ''))?.canonPoint)
+    .find((point): point is string => Boolean(point));
+
+  if (latest) return latest.slice(0, 220);
+
+  // The opening's own point (what Kan already knows) until the first news.
+  return normalizeProgress(db).completed.length === 0 ? db.state.canonPoint : '';
+}

@@ -667,6 +667,39 @@ export function learnFromDialogue(db: AppDatabase, narration: string, presentIds
   return next;
 }
 
+/** Every name some person goes by that Kan has not learned (lower case). */
+export function namesKanDoesNotKnow(db: AppDatabase): Set<string> {
+  const known = new Set(
+    db.entities.filter((entity) => entity.type === 'character').flatMap((entity) => [lower(displayName(db, entity)), ...alsoKnownAs(db, entity).map(lower)])
+  );
+  const unknown = new Set<string>();
+
+  for (const entity of db.entities) {
+    for (const candidate of unknownNames(entity)) {
+      const name = lower(candidate.name);
+      if (name && !known.has(name)) unknown.add(name);
+    }
+  }
+
+  return unknown;
+}
+
+/**
+ * A Lore row's title for the Journal: its keywords, without any name Kan
+ * hasn't learned (Session 1: "kurama" showed in the nine-tails entry). The
+ * keywords themselves stay as they are, for retrieval.
+ */
+export function loreTitle(db: AppDatabase, keywords: string[]): string {
+  const unknown = namesKanDoesNotKnow(db);
+  const shown = keywords.filter((keyword) => {
+    const word = lower(keyword);
+    return word && !unknown.has(word) && !word.split(/\s+/).some((part) => part.length >= 3 && unknown.has(part));
+  });
+  const title = shown.slice(0, 3).join(', ');
+
+  return title ? `${title.charAt(0).toUpperCase()}${title.slice(1)}` : 'Something you know';
+}
+
 /** Names the narration used outside dialogue that Kan could not know: for the Debug panel. */
 export function nameLeaks(db: AppDatabase, narration: string): string[] {
   const prose = withoutQuotes(narration);

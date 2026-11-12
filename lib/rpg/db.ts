@@ -984,11 +984,18 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       : [],
     // The geography paragraph is the app's, not the story's: older saves get the current one.
     loreEntries: Array.isArray(db.loreEntries)
-      ? db.loreEntries.map((lore) =>
-          typeof lore.text === 'string' && lore.text.startsWith('GEOGRAPHY (fixed') && lore.text !== GEOGRAPHY_LORE
-            ? { ...lore, text: GEOGRAPHY_LORE }
-            : lore
-        )
+      ? db.loreEntries
+          .map((lore) =>
+            typeof lore.text === 'string' && lore.text.startsWith('GEOGRAPHY (fixed') && lore.text !== GEOGRAPHY_LORE
+              ? { ...lore, text: GEOGRAPHY_LORE }
+              : lore
+          )
+          // The seed's old typo "kurma" (audit 11).
+          .map((lore) =>
+            Array.isArray(lore.keywords) && lore.keywords.includes('kurma')
+              ? { ...lore, keywords: lore.keywords.filter((keyword) => keyword !== 'kurma') }
+              : lore
+          )
       : [],
     // The same summary saved twice (a job that ran twice) is kept once.
     summaries: Array.isArray(db.summaries)

@@ -144,6 +144,22 @@ describe('28. story hooks', () => {
     expect(thread(db, "Visit Izumi's grave")).toBeUndefined();
 
     db = play(db, 'Itachi tells you Izumi died.', { characters_present: ['itachi-uchiha'], deaths: [{ character_id: 'izumi-uchiha', cause: 'the massacre' }] });
+    // Knowing she died is not knowing where she lies: the goal waits for word of the funeral (Session 1).
+    expect(thread(db, "Visit Izumi's grave")).toBeUndefined();
+
+    const progress = db.state.canonProgress!;
+    db = {
+      ...db,
+      state: {
+        ...db.state,
+        canonProgress: {
+          ...progress,
+          completed: [...progress.completed, 'izumi-funeral'],
+          heard: { ...(progress.heard ?? {}), 'event_canon_izumi-funeral': { from: 'Itachi Uchiha', date: db.state.inStoryDate } },
+        },
+      },
+    };
+    db = play(db, 'You listen.', { characters_present: ['itachi-uchiha'] });
     expect(thread(db, "Visit Izumi's grave")?.status).toBe('open');
 
     db = play(underway(db, 'kan-mangekyo'), 'At her grave, your eyes change.', { canon_completed: ['kan-mangekyo'] });
@@ -153,6 +169,9 @@ describe('28. story hooks', () => {
 
   test('joining opens Survive Kakuzu; the Shisui truth closes the Shisui thread', () => {
     let db = seed();
+    // Agreeing to go is not being paired with Kakuzu (Session 1: the goal showed from turn 1).
+    expect(thread(underway(db, 'kan-joins-akatsuki'), 'Survive Kakuzu')).toBeUndefined();
+    expect(thread(play(underway(db, 'kan-joins-akatsuki'), 'You follow Itachi west.', { characters_present: ['itachi-uchiha'] }), 'Survive Kakuzu')).toBeUndefined();
     db = play(underway(db, 'kan-joins-akatsuki'), 'Pain hands you the cloak.', { characters_present: ['pain', 'kakuzu'], canon_completed: ['kan-joins-akatsuki'] });
     expect(thread(db, 'Survive Kakuzu')?.participantIds).toContain(db.entities.find((e) => e.name === 'Kakuzu')!.id);
 

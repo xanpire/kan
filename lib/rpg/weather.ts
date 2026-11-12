@@ -554,6 +554,60 @@ export function conditionFromText(text: string | undefined | null): WeatherCondi
   return null;
 }
 
+/** Weather in the prose, narrow on purpose: only what falls from the sky, or fog. */
+const PROSE_PATTERNS: [RegExp, WeatherCondition][] = [
+  [/\b(rain|downpour|drizzle)\b[^.]*\b(stops|stopped|eases off|eased off|lets up|let up|ends|ended|dies away|died away)\b/i, 'cloudy'],
+  [/\b(blizzard|white-?out)\b/i, 'blizzard'],
+  [/\b(thunder|thunderclap|thunderstorm)\b/i, 'storm'],
+  [/\b(downpour|pouring rain|torrential|sheets of rain|deluge|cloudburst|lashing rain)\b/i, 'downpour'],
+  [/\bsleet\b/i, 'sleet'],
+  [/\b(snow is falling|snow falls|snow fell|snowfall|snowing|falling snow|flurr(?:y|ies))\b/i, 'snow'],
+  [/\b(drizzle|drizzling)\b/i, 'drizzle'],
+  [/\b(fog|thick mist|the mist)\b/i, 'fog'],
+  [/\b(rain|raining|rainfall|rainwater)\b/i, 'rain'],
+];
+
+const FAMILY: Partial<Record<WeatherCondition, string>> = {
+  drizzle: 'wet', rain: 'wet', downpour: 'wet', storm: 'wet',
+  snow: 'snow', sleet: 'snow', blizzard: 'snow',
+  fog: 'fog',
+};
+
+/**
+ * The weather the narration shows, when it disagrees with the held weather
+ * (Session 1: a downpour all turn under a "cloudy" sky, because the tracker
+ * only reports changes). Speech, and the Rain and the Mist as places, don't
+ * count. Returns words applyWeather reads, or undefined.
+ */
+export function weatherFromNarration(db: AppDatabase, narration: string): string | undefined {
+  const prose = narration
+    .replace(/"[^"\n]*(?:"|(?=\n)|$)/g, ' ')
+    .replace(/“[^”\n]*(?:”|(?=\n)|$)/g, ' ')
+    // Place names: "the Rain", "Hidden Mist", "Land of Snow" (capital, mid-sentence).
+    .replace(/(?<![.!?]\s|^|\n)\b(?:Rain|Mist|Snow)\b/g, ' ')
+    .replace(/\b(?:Amegakure|Kirigakure)\b/gi, ' ');
+  const now = currentWeather(db).condition;
+
+  for (const [pattern, condition] of PROSE_PATTERNS) {
+    const global = new RegExp(pattern.source, `${pattern.flags}g`);
+
+    for (const match of prose.matchAll(global)) {
+      const before = prose.slice(Math.max(0, (match.index ?? 0) - 24), match.index);
+      if (NEGATED.test(before)) continue;
+
+      if (condition === 'cloudy') {
+        return FAMILY[now] === 'wet' ? 'the rain stops' : undefined;
+      }
+
+      if (FAMILY[condition] === FAMILY[now] && FAMILY[now]) return undefined;
+
+      return CONDITION_INFO[condition].label;
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * After a turn: the story's weather if the page changed it, else keep the
  * scene's held weather, else hold the world's weather for this new scene.
