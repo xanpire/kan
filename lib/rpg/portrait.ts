@@ -1,4 +1,5 @@
 import { calculateAge } from './calendar';
+import { KAN_HAIR_AND_EYES, kanOutfit } from './kanLook';
 import { locationKindOf } from './encounters';
 import { localizePlaceNames } from './glossary';
 import type { PlannedReference } from './referencePlan';
@@ -53,8 +54,9 @@ function settingOf(db: AppDatabase): PortraitSetting {
   }
 }
 
+/** Wearing the cloak now, not merely owning it (audit 11c; `kanOutfit`). */
 export function wearsAkatsukiCloak(db: AppDatabase) {
-  return db.state.inventory.some((item) => /akatsuki cloak/i.test(item));
+  return kanOutfit(db).sheet === 'akatsuki';
 }
 
 export function portraitSignature(db: AppDatabase): PortraitSignature {
@@ -153,7 +155,7 @@ export function buildPortraitPrompt(
 
     if (reference.kind === 'face') {
       lines.push(
-        `Reference image ${n}: Kan's face sheet. Match his face exactly: black spiky hair, brown eyes, facial structure, hairline.`
+        `Reference image ${n}: Kan's face sheet. Match his face exactly: ${KAN_HAIR_AND_EYES}, facial structure, hairline.`
       );
     } else if (reference.kind === 'outfit') {
       lines.push(
@@ -167,7 +169,7 @@ export function buildPortraitPrompt(
   });
 
   if (!references.some((reference) => reference.kind === 'face')) {
-    lines.push('Kan has black spiky hair, brown eyes, and a lean, guarded face.');
+    lines.push(`Kan has ${KAN_HAIR_AND_EYES}, and a lean, guarded face.`);
   }
 
   lines.push(

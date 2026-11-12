@@ -17,6 +17,7 @@
  *   tagged `flashback`, shared by everyone in it, and it can nudge a bond by
  *   one point at most. Each flashback plays once.
  */
+import { KAN_EYES, KAN_HAIR, KAN_HAIR_AND_EYES } from './kanLook';
 import { advanceSeconds, calculateAge, daysBetween, daysFromCivil, entityAge, formatDate, timeOfDayOf } from './calendar';
 import { FLASHBACKS, FLASHBACK_BY_ID, KAN_PARENTS, type FlashbackRecord } from './flashbackData';
 import { milestoneStage } from './canon';
@@ -180,18 +181,18 @@ export function kanThen(age: number): string {
 /** How Kan looks at an age, for images (his reference sheets show him at 13 and older). */
 export function kanLookAt(age: number): string {
   if (age <= 5) {
-    return `Kan as a small child of ${age}: round face, short black spiky hair, the same brown eyes, small and slight, in plain child’s clothes`;
+    return `Kan as a small child of ${age}: round face, short ${KAN_HAIR}, the same ${KAN_EYES}, small and slight, in plain child’s clothes`;
   }
 
   if (age <= 8) {
-    return `Kan at ${age}: a skinny Academy boy with black spiky hair and brown eyes, in a plain dark shirt and shorts`;
+    return `Kan at ${age}: a skinny Academy boy with ${KAN_HAIR_AND_EYES}, in a plain dark shirt and shorts`;
   }
 
   if (age <= 11) {
-    return `Kan at ${age}: a young genin with black spiky hair and brown eyes, a Leaf forehead protector, dark shinobi clothes cut small`;
+    return `Kan at ${age}: a young genin with ${KAN_HAIR_AND_EYES}, a Leaf forehead protector, dark shinobi clothes cut small`;
   }
 
-  return `Kan at ${age}: a boy in ANBU gear, black spiky hair and brown eyes, grey armour and arm guards, an animal mask pushed up on his head or worn over his face`;
+  return `Kan at ${age}: a boy in ANBU gear, ${KAN_HAIR_AND_EYES}, grey armour and arm guards, an animal mask pushed up on his head or worn over his face`;
 }
 
 // ---------------------------------------------------------------------------

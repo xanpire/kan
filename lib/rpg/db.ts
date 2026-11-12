@@ -1,3 +1,4 @@
+import { KAN_APPEARANCE, migrateKanEyes } from './kanLook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAppModels, withAppModels } from './modelDefaults';
 import { normalizePost } from './letters';
@@ -960,8 +961,10 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
             entity.mood ??
             (entity.type === 'character' ? 'Unknown' : undefined),
           appearance:
-            entity.appearance ??
-            (entity.type === 'character' ? 'Unknown' : undefined),
+            entity.type === 'character' && entity.name.toLowerCase() === 'kan'
+              ? migrateKanEyes(entity.appearance) ?? KAN_APPEARANCE
+              : entity.appearance ??
+                (entity.type === 'character' ? 'Unknown' : undefined),
           gender: entity.type === 'character' ? (entity.gender ?? genderOf(entity)) : undefined,
           // Kan is straight: men are never romance options, and he has none himself.
           romanceAccessibility:

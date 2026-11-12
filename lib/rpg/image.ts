@@ -4,7 +4,7 @@ import { displayName } from './names';
 import { mentionsEntity } from './characterRefs';
 import { localizePlaceNames } from './glossary';
 import { completeChat, type CallUsage } from '../openrouter';
-import { wearsAkatsukiCloak } from './portrait';
+import { KAN_HAIR_AND_EYES, kanAgeLine, kanAgeNow, kanOutfit, kanRightNow, type KanOutfit } from './kanLook';
 import type { PlannedReference } from './referencePlan';
 import { flashbackImageNote, kanAgeAt, latestReplyIsFlashback } from './flashbacks';
 import { entityAge, timeOfDayOf } from './calendar';
@@ -317,7 +317,8 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
       ? `This reply is a memory from Year ${reply.flashback!.date.year}: Kan is ${kanAgeAt(db, reply.flashback!.date)} years old in it.${memory ? ` Location: ${memory.place}.` : ''}`
       : `Location: ${db.state.location}.`,
     reply.flashback ? '' : `Scene: ${db.state.scene}.`,
-    reply.flashback ? '' : `Kan wears ${wearsAkatsukiCloak(db) ? 'the Akatsuki cloak' : 'a plain black shinobi outfit'}.`,
+    reply.flashback ? '' : `Kan's clothes: ${outfitWords(kanOutfit(db))}. ${kanAgeLine(kanAgeNow(db))}`,
+    reply.flashback ? '' : kanRightNow(db) ?? '',
     reply.flashback || !db.state.mood ? '' : `Kan's mood: ${db.state.mood}.`,
     reply.flashback
       ? ''
@@ -430,7 +431,7 @@ export async function writeImageAction(
   return null;
 }
 
-const KAN_LOOK = 'Kan: a lean young shinobi with black spiky hair and brown eyes.';
+const KAN_LOOK = `Kan: a lean young shinobi with ${KAN_HAIR_AND_EYES}.`;
 
 const STYLE_OPENER =
   'A dramatic widescreen anime key frame, like a still from a high-budget Naruto Shippuden fight episode: bold cel shading, clean line art, saturated colour with strong contrast, dynamic composition, film grain.';
@@ -441,6 +442,13 @@ function impactOpener(accent: string) {
 
 const IDENTITY_ONLY =
   'Identity only: copy face, hair, eyes and clothing design. Ignore its pose, expression, framing, lighting and background. The expression comes from the ACTION and SHOT.';
+
+/** What Kan wears, for the director. */
+function outfitWords(outfit: KanOutfit) {
+  if (outfit.sheet === 'akatsuki') return 'the Akatsuki cloak';
+  if (outfit.sheet === 'black') return 'a plain black shinobi outfit';
+  return outfit.words ?? 'his own clothes';
+}
 
 export type ScenePromptOptions = {
   shot?: string;
@@ -459,7 +467,8 @@ export function buildSceneImagePrompt(
   const shotType = options.shotType ?? shotTypeOf(options.shot);
   const ensemble = shotType === 'ensemble';
   const cast = memoryNote ? [] : sceneCast(db, ensemble ? ENSEMBLE_CAST_LIMIT : SCENE_CAST_LIMIT);
-  const cloak = wearsAkatsukiCloak(db);
+  const outfit = kanOutfit(db);
+  const cloak = outfit.sheet === 'akatsuki';
   const reply = latestStoryReply(db);
   const sceneText = `${action} ${options.shot ?? ''}`;
   const jutsu = jutsuOnScreen(db, `${sceneText} ${reply?.content ?? ''}`);
@@ -540,7 +549,12 @@ export function buildSceneImagePrompt(
   }
 
   if (!memoryNote) {
-    if (!hasOutfit) {
+    // His age now: the face sheet shows him at about 13 (audit 11c).
+    lines.push(kanAgeLine(kanAgeNow(db)));
+
+    if (outfit.sheet === null) {
+      lines.push(`Kan's clothes right now: ${outfit.words}; neither of his usual outfits.`);
+    } else if (!hasOutfit) {
       lines.push(
         cloak
           ? 'Kan wears the Akatsuki cloak: long black cloak with red clouds outlined in white, high collar.'
@@ -549,6 +563,9 @@ export function buildSceneImagePrompt(
     } else {
       lines.push(`Kan currently wears ${currentOutfit}.`);
     }
+
+    const now = kanRightNow(db);
+    if (now) lines.push(now);
   }
 
   if (looks.length > 0) {
@@ -567,7 +584,7 @@ export function buildSceneImagePrompt(
       lines.push(`Reference image ${n}: the image to edit.`);
     } else if (reference.kind === 'face') {
       lines.push(
-        `Reference image ${n}: Kan's face sheet (front, both profiles, back of head; no clothes). Match his face exactly: black spiky hair, brown eyes, facial structure, hairline. ${IDENTITY_ONLY}`
+        `Reference image ${n}: Kan's face sheet (front, both profiles, back of head; no clothes). Match his face exactly: ${KAN_HAIR_AND_EYES}, facial structure, hairline. ${IDENTITY_ONLY}`
       );
     } else if (reference.kind === 'outfit') {
       lines.push(

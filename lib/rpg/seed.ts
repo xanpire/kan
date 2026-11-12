@@ -1,3 +1,4 @@
+import { KAN_APPEARANCE } from './kanLook';
 import { DEFAULT_DATE } from './calendar';
 import { ensureCanonCast } from './canonCast';
 import { NAMES_VERSION } from './names';
@@ -47,7 +48,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       status: 'Former ANBU, now missing-nin',
       notes: 'Original character. Uchiha-Uzumaki lineage, usually goes only by Kan. Grew up with Itachi and Shisui; the three were inseparable. Outside Team 3 they were his only real friends. Lost a fight to Itachi days before the massacre, but held back because he would not truly hurt him; how strong Kan really is remains an open question.',
       mood: 'Numb, guarded, torn',
-      appearance: 'Lean teenage shinobi with black hair, dark watchful eyes, wearing a plain black high-collared shinobi outfit with bandage-wrapped forearms. No ANBU gear.',
+      appearance: KAN_APPEARANCE,
       gender: 'male',
       met: true,
       tags: ['player', 'uchiha', 'uzumaki', 'anbu'],

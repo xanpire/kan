@@ -22,6 +22,7 @@ import {
 import { checkSceneImage, imageCheckEnabled, sharperActorRule, type ImageCheck } from './imageCheck';
 import { wantsEnsemble, type ShotChip } from './imageDirection';
 import { loadImage, toDataUri } from './imageStore';
+import { kanOutfit } from './kanLook';
 import { wearsAkatsukiCloak } from './portrait';
 import { faceDroppedWarning, loadKanReferenceImages, planReferences, type PlannedReference } from './referenceImages';
 import type { AppDatabase, SceneImageMeta } from './types';
@@ -78,8 +79,10 @@ export async function paintScene({
   const shot = written?.shot;
   const shotType = written?.shotType ?? null;
   const ensemble = wantsEnsemble(chip, shotType);
-  // A memory: Kan is a child there, so his present outfits stay out.
+  // A memory: Kan is a child there, so his present outfits stay out. Neither
+  // do they when he wears something else (a disguise): it goes in words.
   const inMemory = Boolean(latestAssistant.flashback);
+  const sheets = !inMemory && kanOutfit(db).sheet !== null;
 
   // People named in the action with a face reference or a portrait; original
   // characters first, since the model already knows the canon cast.
@@ -92,7 +95,7 @@ export async function paintScene({
       ref: person.image,
     }))
   );
-  const people = await packPeopleReferences(loaded, personReferenceSlots(caps.maxReferences, !inMemory));
+  const people = await packPeopleReferences(loaded, personReferenceSlots(caps.maxReferences, sheets));
 
   // Which stored image each sent reference came from, for the image's record.
   const refOf = new Map<string, string>();
@@ -106,10 +109,10 @@ export async function paintScene({
   const plan = planReferences(
     [
       { kind: 'face', uri: kanRefs.face },
-      ...(inMemory ? [] : [{ kind: 'outfit' as const, uri: kanRefs.outfit }]),
+      ...(sheets ? [{ kind: 'outfit' as const, uri: kanRefs.outfit }] : []),
       ...people,
       ...recentImages.map((uri) => ({ kind: 'previous' as const, uri })),
-      ...(inMemory ? [] : [{ kind: 'alternate' as const, uri: kanRefs.alternate }]),
+      ...(sheets ? [{ kind: 'alternate' as const, uri: kanRefs.alternate }] : []),
     ],
     caps.maxReferences
   );
