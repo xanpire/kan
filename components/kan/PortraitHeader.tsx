@@ -4,12 +4,12 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { RefreshCw, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useToast } from '@/components/Toast';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
@@ -58,41 +58,36 @@ function PortraitImage({ value, width, height }: { value: string | null; width: 
   return <Image resizeMode="cover" source={{ uri }} style={StyleSheet.absoluteFill} />;
 }
 
-function Thumb({
-  portrait,
-  tag,
-  onOpen,
-}: {
-  portrait: PortraitRecord;
-  tag: string;
-  onOpen: (portrait: PortraitRecord) => void;
-}) {
-  return (
-    <Pressable
-      accessibilityLabel={`Portrait at age ${portrait.signature.age}, ${formatDayMonth(portrait.inStoryDate)}`}
-      accessibilityRole="imagebutton"
-      onPress={() => onOpen(portrait)}
-      style={({ pressed }) => [styles.thumb, pressed && styles.pressed]}
-    >
-      <PortraitImage height={58} value={portrait.image} width={44} />
-      <View style={styles.thumbTag}>
-        <Text style={styles.thumbTagText}>{tag}</Text>
-      </View>
-    </Pressable>
-  );
-}
-
 export function PortraitHeader() {
   const { db, apiKey, addPortrait, updateSettings } = useGame();
   const { showToast } = useToast();
   const [busy, setBusy] = useState(false);
-  const [viewing, setViewing] = useState<PortraitRecord | null>(null);
-  const viewingUri = useStoredImage(viewing?.image ?? null);
+  // The portrait viewer: swipe (or the arrows) through every portrait, newest
+  // first (audit 11a: the history strip folded into the viewer).
+  const [viewIndex, setViewIndex] = useState<number | null>(null);
 
   const latest = db ? latestPortrait(db) : null;
   const signature = useMemo(() => (db ? portraitSignature(db) : null), [db]);
   const staleReason = signature ? portraitStaleReason(latest, signature) : null;
   const history = useMemo(() => [...(db?.portraits ?? [])], [db?.portraits]);
+  const newestFirst = useMemo(() => [...history].reverse(), [history]);
+  const viewing = viewIndex !== null ? newestFirst[viewIndex] ?? null : null;
+  const viewingUri = useStoredImage(viewing?.image ?? null);
+  const step = useCallback(
+    (by: number) => setViewIndex((index) => (index === null ? index : Math.max(0, Math.min(newestFirst.length - 1, index + by)))),
+    [newestFirst.length]
+  );
+  const swipe = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .activeOffsetX([-24, 24])
+        .onEnd((event) => {
+          if (event.translationX < -50) step(1);
+          else if (event.translationX > 50) step(-1);
+        }),
+    [step]
+  );
 
   const refresh = useCallback(async () => {
     if (!db || !signature || busy) {
@@ -168,7 +163,7 @@ export function PortraitHeader() {
           accessibilityLabel="Open current portrait"
           accessibilityRole="imagebutton"
           disabled={!latest}
-          onPress={() => latest && setViewing(latest)}
+          onPress={() => latest && setViewIndex(0)}
           style={styles.portrait}
         >
           <PortraitImage height={138} value={latest?.image ?? null} width={104} />
@@ -225,55 +220,72 @@ export function PortraitHeader() {
         </View>
       </View>
 
-      {history.length > 0 ? (
-        <View style={styles.historyRow}>
-          <Text style={type.sectionLabel}>Portraits</Text>
-          <ScrollView
-            contentContainerStyle={styles.historyList}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          >
-            {history
-              .map((portrait, index) => ({ portrait, tag: portraitTag(portrait, index, history) }))
-              .reverse()
-              .map(({ portrait, tag }) => (
-                <Thumb key={portrait.id} onOpen={setViewing} portrait={portrait} tag={tag} />
-              ))}
-          </ScrollView>
-        </View>
-      ) : null}
-
       <Modal
         animationType="fade"
-        onRequestClose={() => setViewing(null)}
+        onRequestClose={() => setViewIndex(null)}
         transparent
         visible={Boolean(viewing)}
       >
-        <View style={styles.viewer}>
+        <GestureHandlerRootView style={styles.viewer}>
           <Pressable
             accessibilityLabel="Close portrait"
-            onPress={() => setViewing(null)}
+            onPress={() => setViewIndex(null)}
             style={StyleSheet.absoluteFill}
           />
-          {viewingUri ? (
-            <Image resizeMode="contain" source={{ uri: viewingUri }} style={styles.viewerImage} />
-          ) : (
-            <ActivityIndicator color={colors.textDim} />
-          )}
-          {viewing ? (
-            <Text style={styles.viewerCaption}>
-              Age {viewing.signature.age} · {formatDayMonth(viewing.inStoryDate)} · {viewing.location}
-            </Text>
+          <GestureDetector gesture={swipe}>
+            <View style={styles.viewerStage}>
+              {viewingUri ? (
+                <Image resizeMode="contain" source={{ uri: viewingUri }} style={styles.viewerImage} />
+              ) : (
+                <ActivityIndicator color={colors.textDim} />
+              )}
+            </View>
+          </GestureDetector>
+          {viewing && viewIndex !== null ? (
+            <View style={styles.viewerFoot}>
+              <Pressable
+                accessibilityLabel="Newer portrait"
+                accessibilityRole="button"
+                disabled={viewIndex === 0}
+                onPress={() => step(-1)}
+                style={({ pressed }) => [styles.viewerStep, viewIndex === 0 && styles.disabled, pressed && styles.pressed]}
+              >
+                <ChevronLeft color={colors.text} size={20} strokeWidth={2} />
+              </Pressable>
+              <View style={styles.viewerText}>
+                <Text style={styles.viewerCaption}>
+                  {portraitTag(viewing, history.indexOf(viewing), history)} · Age {viewing.signature.age} · {formatDayMonth(viewing.inStoryDate)} · {viewing.location}
+                </Text>
+                {newestFirst.length > 1 ? (
+                  <Text style={styles.viewerCount}>
+                    {viewIndex + 1} of {newestFirst.length} · swipe for {viewIndex === 0 ? 'earlier ones' : 'more'}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable
+                accessibilityLabel="Earlier portrait"
+                accessibilityRole="button"
+                disabled={viewIndex >= newestFirst.length - 1}
+                onPress={() => step(1)}
+                style={({ pressed }) => [
+                  styles.viewerStep,
+                  viewIndex >= newestFirst.length - 1 && styles.disabled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <ChevronRight color={colors.text} size={20} strokeWidth={2} />
+              </Pressable>
+            </View>
           ) : null}
           <Pressable
             accessibilityLabel="Close portrait"
             accessibilityRole="button"
-            onPress={() => setViewing(null)}
+            onPress={() => setViewIndex(null)}
             style={({ pressed }) => [styles.viewerClose, pressed && styles.pressed]}
           >
             <X color={colors.text} size={20} strokeWidth={2} />
           </Pressable>
-        </View>
+        </GestureHandlerRootView>
       </Modal>
     </View>
   );
@@ -381,39 +393,6 @@ const styles = StyleSheet.create({
   refreshLabelQuiet: {
     color: colors.textSoft,
   },
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  historyList: {
-    gap: spacing.sm,
-  },
-  thumb: {
-    width: 44,
-    height: 58,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surfaceRaised,
-  },
-  thumbTag: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(5, 5, 5, 0.78)',
-  },
-  thumbTagText: {
-    fontFamily: fonts.bold,
-    fontSize: 9,
-    textAlign: 'center',
-    color: colors.textSoft,
-  },
   pressed: {
     opacity: 0.65,
   },
@@ -428,11 +407,40 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     backgroundColor: 'rgba(0, 0, 0, 0.96)',
   },
+  viewerStage: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   viewerImage: {
     width: '100%',
+    height: '100%',
+  },
+  viewerFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    width: '100%',
+    maxWidth: 520,
+  },
+  viewerText: {
     flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  viewerStep: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   viewerCaption: {
+    ...type.rowMeta,
+    color: colors.textSoft,
+    textAlign: 'center',
+  },
+  viewerCount: {
     ...type.rowMeta,
     textAlign: 'center',
   },

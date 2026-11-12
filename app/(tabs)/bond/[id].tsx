@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Flame, Footprints, GitMerge, HeartPulse, Skull, UserMinus } from 'lucide-react-native';
+import { ChevronLeft, Flame, Footprints, GitMerge, HeartPulse, Skull, UserMinus, Wrench } from 'lucide-react-native';
+
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
 import { formatAffinity } from '@/components/kan/BondsSection';
@@ -34,6 +36,8 @@ export default function BondScreen() {
   const router = useRouter();
   const { db, mergeCharacters, setCharacterDeceased, setTravelling } = useGame();
   const [merging, setMerging] = useState(false);
+  const [fixOpen, setFixOpen] = useState(false);
+  const [confirmDead, setConfirmDead] = useState(false);
 
   const entity = db?.entities.find((item) => item.id === id) ?? null;
   const bond = db?.bonds.find((item) => item.entityId === id) ?? null;
@@ -257,84 +261,103 @@ export default function BondScreen() {
 
         {entity.name.toLowerCase() !== 'kan' ? (
           <>
-            {!dead ? (
+            {companion ? (
               <>
-                <SectionLabel>Travelling</SectionLabel>
+                <SectionLabel>With you</SectionLabel>
                 <ListCard>
-                  {companion ? (
-                    <ListRow
-                      body={[
-                        companion.reason ? `${companion.reason.charAt(0).toUpperCase()}${companion.reason.slice(1)}.` : null,
-                        companion.sinceLocation ? `Joined you at ${companion.sinceLocation}.` : null,
-                        'In every scene with you until the story parts you. The scenes you share move their bond.',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      leading={<Footprints color={colors.accentText} size={18} strokeWidth={2} />}
-                      meta={`${togetherLabel} · ${companion.sharedScenes} scene${companion.sharedScenes === 1 ? '' : 's'} shared`}
-                      title="Travelling with you"
-                    />
-                  ) : null}
                   <ListRow
-                    accessibilityLabel={
-                      companion ? `Part ways with ${name}` : `Travel together with ${name}`
-                    }
-                    body={
-                      companion
-                        ? 'If they left in the story and it was missed, let them go.'
-                        : partyFull
-                          ? `You already travel with ${MAX_COMPANIONS} people. Part ways with someone first.`
-                          : 'If they are coming along and the story missed it, keep them at your side.'
-                    }
-                    leading={
-                      companion ? (
-                        <UserMinus color={colors.textMuted} size={18} strokeWidth={2} />
-                      ) : (
-                        <Footprints color={colors.textMuted} size={18} strokeWidth={2} />
-                      )
-                    }
-                    onPress={partyFull ? undefined : () => setTravelling(entity.id, !companion)}
-                    title={companion ? 'Part ways' : 'Travel together'}
+                    body={[
+                      companion.reason ? `${companion.reason.charAt(0).toUpperCase()}${companion.reason.slice(1)}.` : null,
+                      companion.sinceLocation ? `Joined you at ${companion.sinceLocation}.` : null,
+                      'In every scene with you until the story parts you. The scenes you share move their bond.',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    bodyLines={2}
+                    leading={<Footprints color={colors.accentTint} size={18} strokeWidth={2} />}
+                    meta={`${togetherLabel} · ${companion.sharedScenes} scene${companion.sharedScenes === 1 ? '' : 's'} shared`}
+                    title="Travelling with you"
                   />
                 </ListCard>
               </>
             ) : null}
 
-            <SectionLabel>Same person?</SectionLabel>
-            <ListCard>
+            {/* One row for the hand fixes (audit 11a); Mark as dead asks first. */}
+            <ListCard style={styles.fixCard}>
               <ListRow
-                accessibilityLabel={`Merge ${name} with someone else`}
-                body="If the story split one person into two, fold them back together."
-                chevron
-                leading={<GitMerge color={colors.textMuted} size={18} strokeWidth={2} />}
-                onPress={() => setMerging(true)}
-                title="Merge with…"
+                accessibilityState={{ expanded: fixOpen }}
+                chevron={!fixOpen}
+                leading={<Wrench color={colors.textMuted} size={18} strokeWidth={2} />}
+                meta={`When the story got ${name} wrong`}
+                onPress={() => setFixOpen((value) => !value)}
+                title="Fix the story"
               />
-            </ListCard>
-
-            <SectionLabel>{dead ? 'Not really dead?' : 'Died in the story?'}</SectionLabel>
-            <ListCard>
-              <ListRow
-                accessibilityLabel={dead ? `Mark ${name} as alive` : `Mark ${name} as dead`}
-                body={
-                  dead
-                    ? 'If the story got this wrong, or they truly came back, bring them back.'
-                    : 'If they died and the story missed it, mark them dead so they stay dead.'
-                }
-                leading={
-                  dead ? (
-                    <HeartPulse color={colors.textMuted} size={18} strokeWidth={2} />
-                  ) : (
-                    <Skull color={colors.textMuted} size={18} strokeWidth={2} />
-                  )
-                }
-                onPress={() => setCharacterDeceased(entity.id, !dead)}
-                title={dead ? 'Mark as alive' : 'Mark as dead'}
-              />
+              {fixOpen && !dead ? (
+                <ListRow
+                  accessibilityLabel={companion ? `Part ways with ${name}` : `Travel together with ${name}`}
+                  body={
+                    companion
+                      ? 'If they left in the story and it was missed, let them go.'
+                      : partyFull
+                        ? `You already travel with ${MAX_COMPANIONS} people. Part ways with someone first.`
+                        : 'If they are coming along and the story missed it, keep them at your side.'
+                  }
+                  leading={
+                    companion ? (
+                      <UserMinus color={colors.textMuted} size={18} strokeWidth={2} />
+                    ) : (
+                      <Footprints color={colors.textMuted} size={18} strokeWidth={2} />
+                    )
+                  }
+                  onPress={partyFull ? undefined : () => setTravelling(entity.id, !companion)}
+                  title={companion ? 'Part ways' : 'Travel together'}
+                />
+              ) : null}
+              {fixOpen ? (
+                <ListRow
+                  accessibilityLabel={`Merge ${name} with someone else`}
+                  body="If the story split one person into two, fold them back together."
+                  chevron
+                  leading={<GitMerge color={colors.textMuted} size={18} strokeWidth={2} />}
+                  onPress={() => setMerging(true)}
+                  title="Merge with…"
+                />
+              ) : null}
+              {fixOpen ? (
+                <ListRow
+                  accessibilityLabel={dead ? `Mark ${name} as alive` : `Mark ${name} as dead`}
+                  body={
+                    dead
+                      ? 'If the story got this wrong, or they truly came back, bring them back.'
+                      : 'If they died and the story missed it, mark them dead so they stay dead.'
+                  }
+                  leading={
+                    dead ? (
+                      <HeartPulse color={colors.textMuted} size={18} strokeWidth={2} />
+                    ) : (
+                      <Skull color={colors.danger} size={18} strokeWidth={2} />
+                    )
+                  }
+                  onPress={() => (dead ? void setCharacterDeceased(entity.id, false) : setConfirmDead(true))}
+                  title={dead ? 'Mark as alive' : 'Mark as dead'}
+                />
+              ) : null}
             </ListCard>
           </>
         ) : null}
       </ScrollView>
+
+      <ConfirmDialog
+        body={`Only if the story already killed ${name} and missed it. They move to The dead and the narrator treats them as gone. Mark as alive brings them back.`}
+        confirmLabel="Mark as dead"
+        onCancel={() => setConfirmDead(false)}
+        onConfirm={() => {
+          setConfirmDead(false);
+          void setCharacterDeceased(entity.id, true);
+        }}
+        title={`Mark ${name} as dead?`}
+        visible={confirmDead}
+      />
 
       <MergeSheet
         db={db}
@@ -355,6 +378,9 @@ export default function BondScreen() {
 }
 
 const styles = StyleSheet.create({
+  fixCard: {
+    marginTop: spacing.lg,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.background,

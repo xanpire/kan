@@ -84,6 +84,8 @@ export default function SettingsScreen() {
   } = useGame();
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
+  // Switching, deleting, importing or restoring waits for the reply (audit 10).
+  const busyStory = isNarrating || isProcessing;
   const ambience = useAmbienceSettings();
   const [ambienceVolume, setAmbienceVolume] = useState<number | null>(null);
   const soundSupported = Platform.OS === 'web' && ambienceSupported();
@@ -97,6 +99,9 @@ export default function SettingsScreen() {
   const [testingKey, setTestingKey] = useState(false);
   const [removingKey, setRemovingKey] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [backupsOpen, setBackupsOpen] = useState(false);
+  const [storageOpen, setStorageOpen] = useState(false);
   const [capsState, setCapsState] = useState<'idle' | 'loading' | 'failed'>('idle');
 
   const [creating, setCreating] = useState(false);
@@ -588,61 +593,6 @@ export default function SettingsScreen() {
                 />
               }
             />
-            <ListRow
-              accessibilityState={{ expanded: advancedOpen }}
-              onPress={() => setAdvancedOpen((open) => !open)}
-              title="Advanced"
-              trailing={
-                <View style={styles.trailingValue}>
-                  <Text style={styles.valueText}>Summary, images, memory, context</Text>
-                  {advancedOpen ? (
-                    <ChevronDown color={colors.textDim} size={16} strokeWidth={2} />
-                  ) : (
-                    <ChevronRight color={colors.textDim} size={16} strokeWidth={2} />
-                  )}
-                </View>
-              }
-            />
-            {advancedOpen ? (
-              <View style={styles.nested}>
-                <ModelSelect
-                  hint="Rolls chapters and arcs into summaries."
-                  label="Summaries"
-                  onChange={(value) => void updateSettings({ summaryModel: value })}
-                  value={db.settings.summaryModel}
-                />
-                <View style={styles.nestedDivider} />
-                <ModelSelect
-                  hint="Frames each scene image like a storyboard artist and checks it afterwards. Starts as the story model; it needs to see images."
-                  label="Image director"
-                  onChange={(value) => void updateSettings({ imageDirectorModel: value })}
-                  value={db.settings.imageDirectorModel?.trim() || db.settings.narrationModel}
-                />
-                <View style={styles.nestedDivider} />
-                <ModelSelect
-                  hint="Reads each turn and records time, place, bonds, facts, and threads. A cheap model with structured output works best."
-                  label="Memory"
-                  onChange={(value) => void updateSettings({ extractionModel: value })}
-                  value={db.settings.extractionModel}
-                />
-                <View style={styles.nestedDivider} />
-                <View style={styles.budgetRow}>
-                  <Text style={styles.budgetLabel}>Story context</Text>
-                  <Text style={styles.budgetHint}>
-                    How much the narrator reads each turn, in tokens. More remembers more of the scene; less costs less.
-                  </Text>
-                  <SegmentedControl
-                    accessibilityLabel="Story context size"
-                    onChange={(value) => void updateSettings({ promptTokenBudget: Number(value) })}
-                    options={PROMPT_BUDGET_OPTIONS.map((option) => ({
-                      value: String(option),
-                      label: `${option % 1000 === 0 ? option / 1000 : (option / 1000).toFixed(1)}k`,
-                    }))}
-                    value={String(db.settings.promptTokenBudget ?? DEFAULT_SETTINGS.promptTokenBudget)}
-                  />
-                </View>
-              </View>
-            ) : null}
           </ListCard>
 
           <SectionLabel>Sound</SectionLabel>
@@ -709,7 +659,7 @@ export default function SettingsScreen() {
                   accessibilityLabel={active ? `${slot.slotName}, playing` : `Switch to ${slot.slotName}`}
                   key={slot.slotId}
                   meta={`Chapter ${chapter} · ${formatDayMonth(date)}, year ${date.year}`}
-                  onPress={active ? undefined : () => void switchSlotById(slot.slotId)}
+                  onPress={active || busyStory ? undefined : () => void switchSlotById(slot.slotId)}
                   trailing={
                     <Pressable
                       accessibilityLabel={`More options for ${slot.slotName}`}
@@ -785,75 +735,154 @@ export default function SettingsScreen() {
             </ListCard>
           ) : null}
 
-          <View style={styles.buttonRow}>
-            <AppButton
-              disabled={exporting !== null}
-              label="Export with images"
-              loading={exporting === 'with'}
-              onPress={() => void handleExport(true)}
-              style={styles.flex}
-              variant="secondary"
-            />
-            <AppButton
-              disabled={exporting !== null}
-              label="Export without images"
-              loading={exporting === 'without'}
-              onPress={() => void handleExport(false)}
-              style={styles.flex}
-              variant="secondary"
-            />
-          </View>
-          <View style={styles.buttonRow}>
-            <AppButton
-              label="Import save"
-              onPress={() => void handleImport()}
-              style={styles.flex}
-              variant="secondary"
-            />
-          </View>
-
+          {/* Export, import and backups behind one row; Free up space inside Storage (step 10 mockup). */}
           <ListCard style={styles.storageCard}>
-            {storage && storage.persisted !== null ? (
-              <ListRow
-                body={
-                  storage.persisted
-                    ? 'Protected: the browser keeps your stories even when space runs low.'
-                    : 'Not protected: the browser may clear your stories if you don’t open Kan for a while. Install Kan to your home screen to keep them safe.'
-                }
-                meta={storage.usage !== undefined ? `${formatBytes(storage.usage)} used` : null}
-                title="Storage"
-              />
-            ) : null}
             <ListRow
-              body="Removes images left over from undone turns, repainted scenes and deleted stories."
-              onPress={freeing || isNarrating ? undefined : () => void handleFreeUp()}
-              title="Free up space"
-              trailing={freeing ? <ActivityIndicator color={colors.textMuted} size="small" /> : null}
-            />
-            <ListRow
-              body={
-                backup
-                  ? `Saved ${formatRealDate(backup.updatedAt)}, ${Math.floor(backup.storyTurns / 2)} turns in, on ${formatDayMonth(backup.inStoryDate)}, year ${backup.inStoryDate.year}.`
-                  : 'A copy from the day before is kept from tomorrow on.'
-              }
-              onPress={backup && !isNarrating && !isProcessing ? () => setRestoreOpen(true) : undefined}
-              title="Restore yesterday’s backup"
-            />
-            <ListRow
-              body={
-                exportLine(db.meta.exportedAt ? formatRealDate(db.meta.exportedAt) : null, turnsSinceExport(db))
-              }
-              title="Your last export"
+              accessibilityState={{ expanded: backupsOpen }}
+              chevron={!backupsOpen}
+              meta={exportLine(db.meta.exportedAt ? formatRealDate(db.meta.exportedAt) : null, turnsSinceExport(db))}
+              onPress={() => setBackupsOpen((open) => !open)}
+              title="Export, import and backups"
               trailing={
                 turnsSinceExport(db) >= EXPORT_REMINDER_TURNS ? (
                   <View accessibilityLabel="Time to export" style={styles.reminderDot} />
                 ) : null
               }
             />
+            {backupsOpen ? (
+              <View style={styles.groupBody}>
+                <View style={styles.buttonRow}>
+                  <AppButton
+                    disabled={exporting !== null}
+                    label="Export with images"
+                    loading={exporting === 'with'}
+                    onPress={() => void handleExport(true)}
+                    style={styles.flex}
+                    variant="secondary"
+                  />
+                  <AppButton
+                    disabled={exporting !== null}
+                    label="Export without images"
+                    loading={exporting === 'without'}
+                    onPress={() => void handleExport(false)}
+                    style={styles.flex}
+                    variant="secondary"
+                  />
+                </View>
+                <AppButton
+                  disabled={busyStory}
+                  label={busyStory ? 'Import save (after the reply)' : 'Import save'}
+                  onPress={() => void handleImport()}
+                  variant="secondary"
+                />
+              </View>
+            ) : null}
+            {backupsOpen ? (
+              <ListRow
+                body={
+                  backup
+                    ? `Saved ${formatRealDate(backup.updatedAt)}, ${Math.floor(backup.storyTurns / 2)} turns in, on ${formatDayMonth(backup.inStoryDate)}, year ${backup.inStoryDate.year}.`
+                    : 'A copy from the day before is kept from tomorrow on.'
+                }
+                onPress={backup && !busyStory ? () => setRestoreOpen(true) : undefined}
+                title="Restore yesterday’s backup"
+              />
+            ) : null}
           </ListCard>
 
-          <SectionLabel>Debug</SectionLabel>
-          <DebugPanel slotId={db?.meta.slotId} />
+          <ListCard style={styles.storageCard}>
+            <ListRow
+              accessibilityState={{ expanded: storageOpen }}
+              body={
+                storage && storage.persisted !== null
+                  ? storage.persisted
+                    ? 'Protected: the browser keeps your stories even when space runs low.'
+                    : 'Not protected: the browser may clear your stories if you don’t open Kan for a while. Install Kan to your home screen to keep them safe.'
+                  : null
+              }
+              bodyLines={storageOpen ? undefined : 2}
+              chevron={!storageOpen}
+              meta={storage?.usage !== undefined ? `${formatBytes(storage.usage)} used` : null}
+              onPress={() => setStorageOpen((open) => !open)}
+              title="Storage"
+            />
+            {storageOpen ? (
+              <ListRow
+                body="Removes images left over from undone turns, repainted scenes and deleted stories."
+                onPress={freeing || isNarrating ? undefined : () => void handleFreeUp()}
+                title="Free up space"
+                trailing={freeing ? <ActivityIndicator color={colors.textMuted} size="small" /> : null}
+              />
+            ) : null}
+          </ListCard>
+
+          {/* Advanced, closed by default: the engine's models and the Debug panel (audit 11a). */}
+          <SectionLabel>Advanced</SectionLabel>
+          <ListCard>
+            <ListRow
+              accessibilityState={{ expanded: advancedOpen }}
+              onPress={() => setAdvancedOpen((open) => !open)}
+              title="Models for the engine"
+              trailing={
+                <View style={styles.trailingValue}>
+                  <Text style={styles.valueText}>Models, context</Text>
+                  {advancedOpen ? (
+                    <ChevronDown color={colors.textDim} size={16} strokeWidth={2} />
+                  ) : (
+                    <ChevronRight color={colors.textDim} size={16} strokeWidth={2} />
+                  )}
+                </View>
+              }
+            />
+            {advancedOpen ? (
+              <View style={styles.nested}>
+                <ModelSelect
+                  hint="Rolls chapters and arcs into summaries."
+                  label="Summaries"
+                  onChange={(value) => void updateSettings({ summaryModel: value })}
+                  value={db.settings.summaryModel}
+                />
+                <View style={styles.nestedDivider} />
+                <ModelSelect
+                  hint="Frames each scene image like a storyboard artist and checks it afterwards. Starts as the story model; it needs to see images."
+                  label="Image director"
+                  onChange={(value) => void updateSettings({ imageDirectorModel: value })}
+                  value={db.settings.imageDirectorModel?.trim() || db.settings.narrationModel}
+                />
+                <View style={styles.nestedDivider} />
+                <ModelSelect
+                  hint="Reads each turn and records time, place, bonds, facts, and threads. A cheap model with structured output works best."
+                  label="Memory"
+                  onChange={(value) => void updateSettings({ extractionModel: value })}
+                  value={db.settings.extractionModel}
+                />
+                <View style={styles.nestedDivider} />
+                <View style={styles.budgetRow}>
+                  <Text style={styles.budgetLabel}>Story context</Text>
+                  <Text style={styles.budgetHint}>
+                    How much the narrator reads each turn, in tokens. More remembers more of the scene; less costs less.
+                  </Text>
+                  <SegmentedControl
+                    accessibilityLabel="Story context size"
+                    onChange={(value) => void updateSettings({ promptTokenBudget: Number(value) })}
+                    options={PROMPT_BUDGET_OPTIONS.map((option) => ({
+                      value: String(option),
+                      label: `${option % 1000 === 0 ? option / 1000 : (option / 1000).toFixed(1)}k`,
+                    }))}
+                    value={String(db.settings.promptTokenBudget ?? DEFAULT_SETTINGS.promptTokenBudget)}
+                  />
+                </View>
+              </View>
+            ) : null}
+            <ListRow
+              accessibilityState={{ expanded: debugOpen }}
+              chevron={!debugOpen}
+              meta="Turn log, tracker fields, the world clock, checking this save"
+              onPress={() => setDebugOpen((open) => !open)}
+              title="Debug"
+            />
+          </ListCard>
+          {debugOpen ? <DebugPanel slotId={db?.meta.slotId} /> : null}
 
           <View style={styles.about}>
             <Text style={type.rowMeta}>{`KAN · v${APP_VERSION}`}</Text>
@@ -884,7 +913,8 @@ export default function SettingsScreen() {
                 <ListCard>
                   {!menuIsActive ? (
                     <ListRow
-                      onPress={() => {
+                      meta={busyStory ? 'Wait for the reply to finish' : null}
+                      onPress={busyStory ? undefined : () => {
                         void switchSlotById(menuSlot.slotId);
                         closeMenu();
                       }}
@@ -900,7 +930,8 @@ export default function SettingsScreen() {
                   />
                   <ListRow onPress={() => setRenaming(true)} title="Rename" />
                   <ListRow
-                    onPress={() => {
+                    meta={busyStory ? 'Wait for the reply to finish' : null}
+                    onPress={busyStory ? undefined : () => {
                       setDeleteSlotId(menuSlot.slotId);
                       closeMenu();
                     }}
@@ -1053,6 +1084,11 @@ const styles = StyleSheet.create({
   fieldError: {
     ...type.rowMeta,
     color: colors.danger,
+  },
+  groupBody: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   buttonRow: {
     flexDirection: 'row',

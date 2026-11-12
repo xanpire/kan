@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search } from 'lucide-react-native';
+import { Cake, Search } from 'lucide-react-native';
 
 import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
-import { colors, fonts, radius, spacing } from '@/constants/theme';
+import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { formatDayMonth } from '@/lib/rpg/calendar';
 import { kanKnowsDeath } from '@/lib/rpg/deaths';
 import { grudgeKnown, shownField } from '@/lib/rpg/disclosure';
@@ -35,12 +35,15 @@ export function formatAffinity(affinity: number) {
   return `${affinity > 0 ? '+' : ''}${affinity}`;
 }
 
-/** "Hana · today", "Shisui · in 5 days (remembered)". */
-export function formatUpcomingBirthday(item: UpcomingBirthday, db?: AppDatabase) {
-  const when = item.inDays === 0 ? 'today' : item.inDays === 1 ? 'tomorrow' : `in ${item.inDays} days`;
+/** Seen recently: this many, then "Everyone you know (N)". */
+const RECENT_COUNT = 10;
+
+/** "Hana's birthday is in 3 days", "Shisui's birthday is today (remembered)". */
+export function birthdayLine(item: UpcomingBirthday, db?: AppDatabase) {
+  const when = item.inDays === 0 ? 'is today' : item.inDays === 1 ? 'is tomorrow' : `is in ${item.inDays} days`;
   const first = (db ? displayName(db, item.entity) : item.entity.name).split(' ')[0];
 
-  return `${first} · ${when}${item.dead ? ' (remembered)' : item.turning !== undefined ? `, turns ${item.turning}` : ''}`;
+  return `${first}’s birthday ${when}${item.dead ? ' (remembered)' : ''}`;
 }
 
 export function bondSubtitle(entry: BondEntry, db: AppDatabase) {
@@ -135,6 +138,8 @@ export function BondsSection() {
   const { db } = useGame();
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [everyoneOpen, setEveryoneOpen] = useState(false);
+  const [deadOpen, setDeadOpen] = useState(false);
 
   const entries = useMemo<BondEntry[]>(() => {
     if (!db) {
@@ -187,8 +192,8 @@ export function BondsSection() {
     [db]
   );
 
-  // Birthdays you know in the next month (the dead you remember included).
-  const birthdays = useMemo(() => (db ? upcomingBirthdays(db, 30).slice(0, 4) : []), [db]);
+  // Birthdays you know in the next week, as one line (audit 11a).
+  const birthdays = useMemo(() => (db ? upcomingBirthdays(db, 7).slice(0, 2) : []), [db]);
 
   // People travelling with you lead the list; everyone else by last contact.
   const travelling = query ? [] : entries.filter((entry) => !entry.dead && entry.entity.companion);
@@ -218,7 +223,6 @@ export function BondsSection() {
         <Text numberOfLines={1} style={[styles.name, entry.dead && styles.nameDead]}>
           {displayName(db, entry.entity)}
         </Text>
-        {entry.bond?.isMajor && !entry.dead ? <Text style={styles.major}>Major</Text> : null}
         {entry.entity.companion && !entry.dead && query ? <Text style={styles.major}>With you</Text> : null}
         {entry.bond?.grudge && grudgeKnown(entry.bond.grudge) && !entry.dead ? (
           <Text style={styles.grudge}>{STAGE_LABEL[grudgeStage(db, entry.bond) ?? 'resentful']}</Text>
@@ -231,33 +235,34 @@ export function BondsSection() {
   // People who want you to pay, hottest first, under their own heading.
   const enemies = query ? [] : living.filter((entry) => grudgeKnown(entry.bond?.grudge));
   const others = living.filter((entry) => !enemies.includes(entry));
+  // The ten you saw most recently; everyone else behind one row (audit 11a).
+  const recent = query ? others : others.slice(0, RECENT_COUNT);
+  const everyone = [...others].sort((a, b) => displayName(db, a.entity).localeCompare(displayName(db, b.entity)));
 
   return (
     <View style={styles.section}>
-
-      {!query && birthdays.length > 0 ? (
-        <ListCard>
-          <ListRow
-            body={birthdays.map((item) => formatUpcomingBirthday(item, db)).join('   ·   ')}
-            bodyLines={3}
-            title="Upcoming birthdays"
-          />
-        </ListCard>
-      ) : null}
-
       <View style={styles.search}>
         <Search color={colors.textDim} size={16} strokeWidth={2} />
         <TextInput
-          accessibilityLabel="Search bonds"
+          accessibilityLabel="Search people you know"
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setQuery}
-          placeholder="Search bonds"
+          placeholder="Search people you know"
           placeholderTextColor={colors.textDim}
           style={styles.searchInput}
           value={query}
         />
       </View>
+
+      {!query && birthdays.length > 0 ? (
+        <View style={styles.birthday}>
+          <Cake color={colors.accentTint} size={15} strokeWidth={2} />
+          <Text numberOfLines={1} style={styles.birthdayText}>
+            {birthdays.map((item) => birthdayLine(item, db)).join(' · ')}
+          </Text>
+        </View>
+      ) : null}
 
       {entries.length === 0 ? (
         <>
@@ -271,7 +276,7 @@ export function BondsSection() {
 
       {travelling.length > 0 ? (
         <>
-          <SectionLabel>Travelling with you</SectionLabel>
+          <SectionLabel>With you</SectionLabel>
           <ListCard>{travelling.map(renderRow)}</ListCard>
         </>
       ) : null}
@@ -283,19 +288,43 @@ export function BondsSection() {
         </>
       ) : null}
 
-      {others.length > 0 ? (
+      {recent.length > 0 ? (
         <>
           <SectionLabel>{query ? 'Results' : 'Seen recently'}</SectionLabel>
-          <ListCard>{others.map(renderRow)}</ListCard>
+          <ListCard>{recent.map(renderRow)}</ListCard>
         </>
       ) : null}
 
-      {dead.length > 0 ? (
+      {query ? (
+        dead.length > 0 ? <ListCard>{dead.map(renderRow)}</ListCard> : null
+      ) : (
         <>
-          <SectionLabel>The dead</SectionLabel>
-          <ListCard>{dead.map(renderRow)}</ListCard>
+          {others.length > RECENT_COUNT || dead.length > 0 ? (
+            <ListCard>
+              {others.length > RECENT_COUNT ? (
+                <ListRow
+                  accessibilityState={{ expanded: everyoneOpen }}
+                  chevron={!everyoneOpen}
+                  meta={`${others.length} people, A to Z`}
+                  onPress={() => setEveryoneOpen((value) => !value)}
+                  title="Everyone you know"
+                />
+              ) : null}
+              {everyoneOpen ? everyone.map(renderRow) : null}
+              {dead.length > 0 ? (
+                <ListRow
+                  accessibilityState={{ expanded: deadOpen }}
+                  chevron={!deadOpen}
+                  meta={dead.length === 1 ? '1 person' : `${dead.length} people`}
+                  onPress={() => setDeadOpen((value) => !value)}
+                  title="The dead"
+                />
+              ) : null}
+              {deadOpen ? dead.map(renderRow) : null}
+            </ListCard>
+          ) : null}
         </>
-      ) : null}
+      )}
     </View>
   );
 }
@@ -308,7 +337,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    height: 44,
+    height: 48,
     paddingHorizontal: 14,
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -318,10 +347,21 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     minWidth: 0,
-    height: 44,
+    height: 48,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
+  },
+  birthday: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  birthdayText: {
+    ...type.rowMeta,
+    flex: 1,
+    color: colors.textSoft,
   },
   avatar: {
     alignItems: 'center',
@@ -369,10 +409,10 @@ const styles = StyleSheet.create({
   },
   major: {
     fontFamily: fonts.bold,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: colors.accentText,
+    color: colors.accentTint,
   },
   barRow: {
     flexDirection: 'row',
