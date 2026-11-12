@@ -1,3 +1,4 @@
+import { copyText } from '@/lib/rpg/storyControls';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ChevronDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react-native';
@@ -66,21 +67,6 @@ function formatTime(at: number) {
 
 function shortModel(model: string) {
   return model.includes('/') ? model.split('/').slice(1).join('/') : model;
-}
-
-async function copyText(text: string) {
-  const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
-
-  if (!clipboard?.writeText) {
-    return false;
-  }
-
-  try {
-    await clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export function DebugPanel({ slotId }: { slotId?: string | null }) {

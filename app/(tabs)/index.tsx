@@ -38,6 +38,9 @@ import {
   Image as ImageIcon,
   Clock3,
   History,
+  MoreHorizontal,
+  Pencil,
+  Copy as CopyIcon,
   Paintbrush,
   RotateCcw,
   Sparkles,
@@ -82,6 +85,14 @@ import {
 } from '@/lib/rpg/flashbacks';
 import type { AppDatabase, RawLogEntry, SceneModeName } from '@/lib/rpg/types';
 import { displayName } from '@/lib/rpg/names';
+import {
+  WAIT_INPUT,
+  copyText,
+  copyableText,
+  enterSends,
+  hasFinePointer,
+  lastPlayerAction,
+} from '@/lib/rpg/storyControls';
 
 type StoryMessage = {
   id: string;
@@ -303,10 +314,14 @@ type MessageRowProps = {
   onTimePress: (logId: string, seconds: number) => void;
   /** The controls under the latest reply; other replies show only their time chip. */
   footer?: ReactNode;
+  /** Long-press a reply: copy it. */
+  onCopy?: (content: string) => void;
+  /** Long-press your last action: edit and resend it. */
+  onEdit?: () => void;
 };
 
 /** One saved turn. Memoised by its message, so a new turn or a keystroke never redraws the log. */
-const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTimePress, footer }: MessageRowProps) {
+const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTimePress, footer, onCopy, onEdit }: MessageRowProps) {
   const paragraphs = useMemo(
     () => (message.role === 'assistant' ? paragraphsOf(message.content) : []),
     [message.role, message.content]
@@ -325,14 +340,28 @@ const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTim
         </View>
       ) : null}
       {message.role === 'user' ? (
-        <View style={[styles.playerBlock, message.memory && styles.memoryPlayerBlock]}>
+        <Pressable
+          accessibilityHint={onEdit ? 'Long-press to edit and send it again' : undefined}
+          delayLongPress={500}
+          disabled={!onEdit}
+          onLongPress={onEdit}
+          style={[styles.playerBlock, message.memory && styles.memoryPlayerBlock]}
+        >
           <PlayerText memory={message.memory} text={message.content} />
-        </View>
+        </Pressable>
       ) : (
         <View style={[styles.narration, message.memory && styles.memoryNarration]}>
-          {paragraphs.map((paragraph, index) => (
-            <NarrationParagraph key={index} memory={message.memory} text={paragraph} />
-          ))}
+          <Pressable
+            accessibilityHint={onCopy ? 'Long-press to copy' : undefined}
+            delayLongPress={500}
+            disabled={!onCopy}
+            onLongPress={onCopy ? () => onCopy(message.content) : undefined}
+            style={styles.narrationText}
+          >
+            {paragraphs.map((paragraph, index) => (
+              <NarrationParagraph key={index} memory={message.memory} text={paragraph} />
+            ))}
+          </Pressable>
           {message.image ? (
             <SceneImage eager={eager} onOpen={(uri) => onOpenImage(uri, message.id)} value={message.image} />
           ) : null}
@@ -383,6 +412,8 @@ type ComposerHandle = {
   clear: () => void;
   /** Empties the box only if it holds exactly this (a retried action that was put back). */
   clearIf: (text: string) => void;
+  /** Puts this in the box to edit (Edit your action). */
+  set: (text: string) => void;
 };
 
 type ComposerProps = {
@@ -419,6 +450,11 @@ const Composer = memo(
           selectionRef.current = null;
         },
         clearIf: (text: string) => setInput((current) => (current.trim() === text ? '' : current)),
+        set: (text: string) => {
+          setInput(text);
+          selectionRef.current = null;
+          inputRef.current?.focus();
+        },
       }),
       []
     );
@@ -484,6 +520,9 @@ const Composer = memo(
           ? turnMode.with.slice(0, 2).join(', ')
           : null;
     const canSend = Boolean(input.trim()) && !isNarrating;
+    // An empty box sends Wait: the scene goes on without Kan acting (audit 10).
+    const canWait = !isNarrating && storyStarted && !input.trim();
+    const finePointer = useMemo(() => hasFinePointer(), []);
 
     return (
       <>
@@ -578,12 +617,30 @@ const Composer = memo(
                 end: event.nativeEvent.selection.end,
               };
             }}
+            onKeyPress={(event) => {
+              // Enter sends on a hardware keyboard; Shift+Enter is a new line.
+              if (enterSends(event.nativeEvent as never, finePointer)) {
+                event.preventDefault();
+                if (canSend) onSubmit(input);
+              }
+            }}
             placeholder="What do you do?"
             placeholderTextColor={colors.textDim}
             ref={inputRef}
             style={styles.composerInput}
             value={input}
           />
+          {canWait ? (
+            <Pressable
+              accessibilityHint="The scene goes on without you acting"
+              accessibilityLabel="Wait"
+              accessibilityRole="button"
+              onPress={() => onSubmit(WAIT_INPUT)}
+              style={({ pressed }) => [styles.waitButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.waitLabel}>Wait</Text>
+            </Pressable>
+          ) : (
           <Pressable
             accessibilityHint={isNarrating ? 'Keeps what is written so far' : undefined}
             accessibilityLabel={isNarrating ? 'Stop the reply' : 'Send'}
@@ -602,6 +659,7 @@ const Composer = memo(
               <ArrowUp color={colors.onAccent} size={19} strokeWidth={2.4} />
             )}
           </Pressable>
+          )}
         </View>
       </>
     );
@@ -654,6 +712,8 @@ export default function StoryScreen() {
   const [customAmount, setCustomAmount] = useState('');
   const [customUnit, setCustomUnit] = useState<TimeUnit>('min');
   const [modeOpen, setModeOpen] = useState(false);
+  /** Retry, Undo, Edit and Copy, behind the ⋯ under the latest reply (audit 11a). */
+  const [moreOpen, setMoreOpen] = useState(false);
   /** The turn being narrated steps into a memory (the Remember chip). */
   const [enteringMemory, setEnteringMemory] = useState(false);
   const imageScale = useSharedValue(1);
@@ -940,12 +1000,19 @@ export default function StoryScreen() {
   // starts without one, and undo can use them up.
   const canUndo = (db?.snapshots.length ?? 0) > 0;
 
-  const undo = useCallback(async () => {
+  const undo = useCallback(async (edit = false) => {
+    const action = edit && db ? lastPlayerAction(db) : null;
+
     if (!(await undoLastTurn())) {
       return;
     }
 
-    showToast('Turn undone.', 'info', {
+    if (action) {
+      // Edit and resend: the turn is undone and your action is back in the box.
+      composerRef.current?.set(action);
+    }
+
+    showToast(action ? 'Change your action and send it again.' : 'Turn undone.', 'info', {
       durationMs: REDO_WINDOW_MS,
       action: {
         label: 'Redo',
@@ -958,7 +1025,16 @@ export default function StoryScreen() {
         },
       },
     });
-  }, [redoLastUndo, showToast, undoLastTurn]);
+  }, [db, redoLastUndo, showToast, undoLastTurn]);
+
+  const editLastAction = useCallback(() => void undo(true), [undo]);
+
+  const copyReply = useCallback(
+    (content: string) => {
+      void copyText(copyableText(content)).then((done) => showToast(done ? 'Copied.' : 'Copying isn’t allowed here.', 'info'));
+    },
+    [showToast]
+  );
 
   const retry = useCallback(async () => {
     const action = lastActionRef.current;
@@ -1031,6 +1107,8 @@ export default function StoryScreen() {
   const liveMemory = Boolean(playing) || enteringMemory;
   const remember = !isNarrating ? rememberChip(db, [...messages].reverse().find((m) => m.role === 'assistant')?.id) : null;
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
+  const lastUserId = [...messages].reverse().find((m) => m.role === 'user')?.id;
+  const lastReply = messages.find((message) => message.id === lastAssistantId) ?? null;
   const night = ['night', 'evening'].includes(timeOfDayOf(state.inStoryDate));
   const weather = db ? currentWeather(playing ? flashbackView(db) ?? db : db) : { condition: 'clear' as const, seasonLabel: '', night, region: 'fire' as const };
   const override = state.sceneMode?.override ?? null;
@@ -1146,25 +1224,22 @@ export default function StoryScreen() {
                       onLongPress={() => setShotMenuOpen(true)}
                       onPress={() => void generateSceneImage()}
                     />
-                    {canUndo ? (
-                      <>
-                        <InlineAction
-                          icon={<RotateCcw color={colors.textMuted} size={15} strokeWidth={2} />}
-                          label="Retry"
-                          onPress={() => void regenerate()}
-                        />
-                        <InlineAction
-                          icon={<Undo2 color={colors.textMuted} size={15} strokeWidth={2} />}
-                          label="Undo"
-                          onPress={() => void undo()}
-                        />
-                      </>
-                    ) : null}
+                    <Pressable
+                      accessibilityLabel="More: retry, undo, edit, copy"
+                      accessibilityRole="button"
+                      hitSlop={4}
+                      onPress={() => setMoreOpen(true)}
+                      style={({ pressed }) => [styles.moreButton, pressed && styles.pressed]}
+                    >
+                      <MoreHorizontal color={colors.textMuted} size={18} strokeWidth={2} />
+                    </Pressable>
                   </View>
                 ) : undefined
               }
               key={message.id}
               message={message}
+              onCopy={message.role === 'assistant' ? copyReply : undefined}
+              onEdit={message.id === lastUserId && canUndo && !isNarrating ? editLastAction : undefined}
               onOpenImage={openImage}
               onTimePress={openTimeSheet}
             />
@@ -1609,6 +1684,58 @@ export default function StoryScreen() {
             </>
           ) : null}
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal animationType="fade" onRequestClose={() => setMoreOpen(false)} transparent visible={moreOpen}>
+        <View style={styles.sheetOverlay}>
+          <Pressable accessibilityLabel="Close" onPress={() => setMoreOpen(false)} style={StyleSheet.absoluteFill} />
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <SectionLabel first>This turn</SectionLabel>
+            <ListCard>
+              {canUndo ? (
+                <>
+                  <ListRow
+                    leading={<RotateCcw color={colors.textMuted} size={18} strokeWidth={2} />}
+                    meta="The narrator writes this reply again"
+                    onPress={() => {
+                      setMoreOpen(false);
+                      void regenerate();
+                    }}
+                    title="Retry this reply"
+                  />
+                  <ListRow
+                    leading={<Undo2 color={colors.textMuted} size={18} strokeWidth={2} />}
+                    meta="Back to before your last action"
+                    onPress={() => {
+                      setMoreOpen(false);
+                      void undo();
+                    }}
+                    title="Undo your turn"
+                  />
+                  <ListRow
+                    leading={<Pencil color={colors.textMuted} size={18} strokeWidth={2} />}
+                    meta="Undo it and put your action back in the box"
+                    onPress={() => {
+                      setMoreOpen(false);
+                      editLastAction();
+                    }}
+                    title="Edit your action"
+                  />
+                </>
+              ) : null}
+              <ListRow
+                leading={<CopyIcon color={colors.textMuted} size={18} strokeWidth={2} />}
+                meta="Long-press any reply to copy it"
+                onPress={() => {
+                  setMoreOpen(false);
+                  if (lastReply) copyReply(lastReply.content);
+                }}
+                title="Copy"
+              />
+            </ListCard>
+            <AppButton label="Cancel" onPress={() => setMoreOpen(false)} variant="secondary" />
+          </View>
+        </View>
       </Modal>
 
       <Modal
@@ -2078,6 +2205,29 @@ const styles = StyleSheet.create({
   },
   sendDisabled: {
     backgroundColor: '#3A1013',
+  },
+  waitButton: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  waitLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.textSoft,
+  },
+  moreButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  narrationText: {
+    gap: 14,
   },
   sheetOverlay: {
     flex: 1,
