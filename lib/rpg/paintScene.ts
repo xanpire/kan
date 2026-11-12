@@ -3,6 +3,7 @@
 // made (one or two takes), and the swapped-roles check runs and retries
 // once. Also the quick retouch. The Story screen only shows the results.
 
+import type { PaintStage } from './storyMarkers';
 import { generateImage, type ImageModelCaps } from '../openrouter';
 import { packPeopleReferences } from './castSheet';
 import { recordDebugImage, recordDebugSideCall } from './debug';
@@ -41,6 +42,7 @@ export async function paintScene({
   chip,
   takes = 1,
   onWarning,
+  onStage,
 }: {
   apiKey: string;
   db: AppDatabase;
@@ -48,6 +50,8 @@ export async function paintScene({
   chip?: ShotChip;
   takes?: 1 | 2;
   onWarning?: (message: string) => void;
+  /** Where the painting is, for the Story screen (audit 11b). */
+  onStage?: (stage: PaintStage) => void;
 }): Promise<{ turnId: string; takes: PaintedTake[] }> {
   const latestAssistant = [...db.rawLog]
     .reverse()
@@ -58,6 +62,7 @@ export async function paintScene({
   }
 
   const turnId = latestAssistant.id;
+  onStage?.('framing');
   const recentRefs = collectRecentSceneImages(db);
   const [written, recentLoaded, kanRefs] = await Promise.all([
     writeImageAction(apiKey, db, undefined, { chip }),
@@ -117,6 +122,7 @@ export async function paintScene({
   const inputReferences = plan.references.map((reference) => reference.uri);
 
   const makeOne = async (text: string) => {
+    onStage?.('painting');
     const startedAt = Date.now();
     const result = await generateImage({ apiKey, caps, prompt: text, inputReferences });
     recordDebugImage(turnId, 'image', caps.modelId, result.cost, Date.now() - startedAt);
@@ -139,6 +145,7 @@ export async function paintScene({
 
   if (takes === 2) {
     const images = await Promise.all([makeOne(prompt), makeOne(prompt)]);
+    if (check) onStage?.('checking');
     const checks = check
       ? await Promise.all(images.map((image) => checkSceneImage(apiKey, db, image, action)))
       : [null, null];
@@ -159,7 +166,7 @@ export async function paintScene({
     return { turnId, takes: [{ dataUri: first, meta: metaFor(prompt, false) }] };
   }
 
-  const firstCheck = await checkSceneImage(apiKey, db, first, action);
+  const firstCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, first, action));
   recordCheck(turnId, apiKey, firstCheck);
 
   // Only reversed roles are worth a second image; extra people are flagged.
@@ -174,7 +181,7 @@ export async function paintScene({
 
   try {
     const second = await makeOne(retryPrompt);
-    const secondCheck = await checkSceneImage(apiKey, db, second, action);
+    const secondCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, second, action));
     recordCheck(turnId, apiKey, secondCheck);
 
     if (!secondCheck || secondCheck.rolesOk) {

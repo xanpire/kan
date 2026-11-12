@@ -1,4 +1,5 @@
 import {
+  Fragment,
   forwardRef,
   memo,
   useCallback,
@@ -26,6 +27,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -41,6 +43,7 @@ import {
   MoreHorizontal,
   Pencil,
   Copy as CopyIcon,
+  Check,
   Paintbrush,
   RotateCcw,
   Sparkles,
@@ -72,6 +75,7 @@ import { ensureImageCaps } from '@/lib/rpg/imageCaps';
 import { useStoredImage } from '@/lib/rpg/imageStore';
 import { SHOT_CHIPS, type ShotChip } from '@/lib/rpg/imageDirection';
 import { paintScene, retouchSceneImage, type PaintedTake } from '@/lib/rpg/paintScene';
+import { PAINT_STAGE_LABEL, storyMarkers, type PaintStage, type StoryMarker } from '@/lib/rpg/storyMarkers';
 import { currentWeather, weatherPhrase } from '@/lib/rpg/weather';
 import { WeatherIcon } from '@/components/WeatherIcon';
 import { fightOptionInput, resolveTurnMode, timeSkipBlocked } from '@/lib/rpg/sceneMode';
@@ -246,12 +250,14 @@ function SceneImage({ value, onOpen, eager }: { value: string; onOpen: (uri: str
       style={styles.sceneImageWrap}
     >
       {uri ? (
-        <Image
-          accessibilityLabel="Generated story scene"
-          resizeMode="cover"
-          source={{ uri }}
-          style={styles.sceneImage}
-        />
+        <Animated.View entering={FadeIn.duration(500)} style={styles.sceneImage}>
+          <Image
+            accessibilityLabel="Generated story scene"
+            resizeMode="cover"
+            source={{ uri }}
+            style={styles.sceneImage}
+          />
+        </Animated.View>
       ) : (
         <ActivityIndicator color={colors.textDim} size="small" />
       )}
@@ -380,10 +386,68 @@ const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTim
   );
 });
 
+/** A chapter card, or a thin centred line for a new day or place (audit 11b). */
+function StoryMarkerView({ marker }: { marker: StoryMarker }) {
+  if (marker.chapter) {
+    return (
+      <View accessibilityRole="header" style={styles.chapterCard}>
+        <Text style={styles.chapterEyebrow}>Chapter {marker.chapter.number}</Text>
+        <Text style={styles.chapterCardTitle}>{marker.chapter.title}</Text>
+        {marker.chapter.line ? <Text style={styles.chapterLine}>{marker.chapter.line}</Text> : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.markers}>
+      {[marker.day, marker.place].filter(Boolean).map((text) => (
+        <View key={text} style={styles.markerRow}>
+          <View style={styles.markerRule} />
+          <Text numberOfLines={1} style={styles.markerText}>
+            {text}
+          </Text>
+          <View style={styles.markerRule} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** The three stages of a painting, instead of one spinner (audit 11b). */
+function PaintingStages({ stage }: { stage: PaintStage }) {
+  const order: PaintStage[] = ['framing', 'painting', 'checking'];
+  const at = order.indexOf(stage);
+
+  return (
+    <View accessibilityLabel={`${PAINT_STAGE_LABEL[stage]}…`} accessibilityLiveRegion="polite" style={styles.sceneImageWrap}>
+      <View style={styles.stages}>
+        {order.map((item, index) => (
+          <View key={item} style={styles.stageRow}>
+            {index < at ? (
+              <Check color={colors.success} size={14} strokeWidth={3} />
+            ) : index === at ? (
+              <ActivityIndicator color={colors.accent} size="small" />
+            ) : (
+              <View style={styles.stageDot} />
+            )}
+            <Text style={[styles.stageText, index === at && styles.stageTextNow]}>{PAINT_STAGE_LABEL[item]}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /** Kan's action and the reply as it streams. The only part of the screen that redraws while the narrator writes. */
 function LiveReply({ pendingAction, memory }: { pendingAction: string | null; memory: boolean }) {
   const streamingText = useStreamingText();
-  const paragraphs = useMemo(() => paragraphsOf(streamingPreview(streamingText)), [streamingText]);
+  // Only finished paragraphs are shown, each fading in as it completes, so
+  // the reply reads like it is being written (audit 11b).
+  const paragraphs = useMemo(() => {
+    const preview = streamingPreview(streamingText);
+    const all = paragraphsOf(preview);
+    return /\n\s*\n\s*$/.test(preview) ? all : all.slice(0, -1);
+  }, [streamingText]);
 
   return (
     <>
@@ -394,14 +458,14 @@ function LiveReply({ pendingAction, memory }: { pendingAction: string | null; me
       ) : null}
       <View style={[styles.narration, memory && styles.memoryNarration]}>
         {paragraphs.map((paragraph, index) => (
-          <NarrationParagraph key={index} memory={memory} text={paragraph} />
+          <Animated.View entering={FadeIn.duration(450)} key={index}>
+            <NarrationParagraph memory={memory} text={paragraph} />
+          </Animated.View>
         ))}
-        {paragraphs.length === 0 ? (
-          <View style={styles.typingRow}>
-            <ActivityIndicator color={colors.accent} size="small" />
-            <Text style={type.rowMeta}>The world is moving…</Text>
-          </View>
-        ) : null}
+        <View style={styles.typingRow}>
+          <ActivityIndicator color={colors.accent} size="small" />
+          {paragraphs.length === 0 ? <Text style={type.rowMeta}>The world is moving…</Text> : null}
+        </View>
       </View>
     </>
   );
@@ -692,6 +756,7 @@ export default function StoryScreen() {
   const { showToast } = useToast();
 
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [paintStage, setPaintStage] = useState<PaintStage | null>(null);
   const [viewer, setViewer] = useState<{ uri: string; logId?: string } | null>(null);
   const selectedImage = viewer?.uri ?? null;
   /** The shot menu (long-press Paint): a forced shot and how many takes. */
@@ -919,6 +984,7 @@ export default function StoryScreen() {
           chip,
           takes: twoTakes ? 2 : 1,
           onWarning: (message) => showToast(message, 'error'),
+          onStage: setPaintStage,
         });
 
         if (result.takes.length > 1) {
@@ -938,6 +1004,7 @@ export default function StoryScreen() {
         showToast(message, 'error');
       } finally {
         setIsGeneratingImage(false);
+        setPaintStage(null);
       }
     },
     [apiKey, attachImage, db, isGeneratingImage, showToast, updateSettings]
@@ -1108,6 +1175,7 @@ export default function StoryScreen() {
   const remember = !isNarrating ? rememberChip(db, [...messages].reverse().find((m) => m.role === 'assistant')?.id) : null;
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
   const lastUserId = [...messages].reverse().find((m) => m.role === 'user')?.id;
+  const markers = storyMarkers(db);
   const lastReply = messages.find((message) => message.id === lastAssistantId) ?? null;
   const night = ['night', 'evening'].includes(timeOfDayOf(state.inStoryDate));
   const weather = db ? currentWeather(playing ? flashbackView(db) ?? db : db) : { condition: 'clear' as const, seasonLabel: '', night, region: 'fire' as const };
@@ -1189,6 +1257,8 @@ export default function StoryScreen() {
           ) : null}
 
           {visibleMessages.map((message) => (
+            <Fragment key={message.id}>
+            {markers.get(message.id) ? <StoryMarkerView marker={markers.get(message.id)!} /> : null}
             <MessageRow
               eager={eagerImages.has(message.id)}
               footer={
@@ -1243,6 +1313,8 @@ export default function StoryScreen() {
               onOpenImage={openImage}
               onTimePress={openTimeSheet}
             />
+            {message.id === lastAssistantId && paintStage ? <PaintingStages stage={paintStage} /> : null}
+            </Fragment>
           ))}
 
           {isNarrating ? <LiveReply memory={liveMemory} pendingAction={pendingAction} /> : null}
@@ -2133,6 +2205,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  chapterCard: {
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: spacing.sm,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chapterEyebrow: {
+    ...type.sectionLabel,
+    color: colors.accentTint,
+  },
+  chapterCardTitle: {
+    fontFamily: fonts.extrabold,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.4,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  chapterLine: {
+    ...type.rowMeta,
+    textAlign: 'center',
+  },
+  markers: {
+    gap: 6,
+    marginVertical: spacing.xs,
+  },
+  markerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  markerRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  markerText: {
+    flexShrink: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    color: colors.textMeta,
+  },
+  stages: {
+    gap: 12,
+  },
+  stageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  stageDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  stageText: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.textMeta,
+  },
+  stageTextNow: {
+    color: colors.text,
   },
   composerShell: {
     paddingHorizontal: spacing.md,

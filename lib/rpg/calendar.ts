@@ -30,7 +30,7 @@ const MONTH_NAMES = [
   'December',
 ];
 
-function monthName(month: number) {
+export function monthName(month: number) {
   return MONTH_NAMES[Math.max(0, Math.min(MONTH_NAMES.length - 1, month - 1))];
 }
 

@@ -825,7 +825,7 @@ export default function SettingsScreen() {
               title="Models for the engine"
               trailing={
                 <View style={styles.trailingValue}>
-                  <Text style={styles.valueText}>Models, context</Text>
+                  <Text style={styles.valueText}>Summaries, director, memory</Text>
                   {advancedOpen ? (
                     <ChevronDown color={colors.textDim} size={16} strokeWidth={2} />
                   ) : (
