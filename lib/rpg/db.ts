@@ -970,39 +970,65 @@ function normalizeFactKnowers(db: AppDatabase): AppDatabase {
 
 export function buildIndices(db: AppDatabase): MemoryIndex {
   const index = emptyIndex();
+  // One set per index key, so "already listed" is a lookup, not a scan (audit 9).
+  const seen = new Map<Record<string, string[]>, Map<string, Set<string>>>();
+  const push = (record: Record<string, string[]>, key: string, value: string) => {
+    let keys = seen.get(record);
+    if (!keys) {
+      keys = new Map();
+      seen.set(record, keys);
+    }
+    let values = keys.get(key);
+    if (!values) {
+      values = new Set(record[key] ?? []);
+      keys.set(key, values);
+    }
+    if (values.has(value)) {
+      return;
+    }
+    values.add(value);
+    (record[key] ??= []).push(value);
+  };
+
+  // The links grouped by event once, instead of every link read for every event.
+  const entitiesByEvent = new Map<string, string[]>();
+  for (const link of db.eventEntities) {
+    const list = entitiesByEvent.get(link.eventId);
+    if (list) {
+      list.push(link.entityId);
+    } else {
+      entitiesByEvent.set(link.eventId, [link.entityId]);
+    }
+  }
 
   for (const event of db.events) {
     // Year-month-day, padded so keys sort ("13-10-01").
     const dateKey = `${String(event.inStoryDate.year).padStart(2, '0')}-${String(event.inStoryDate.month).padStart(2, '0')}-${String(event.inStoryDate.day).padStart(2, '0')}`;
 
-    pushIndex(index.eventsByDate, dateKey, event.id);
+    push(index.eventsByDate, dateKey, event.id);
 
     for (const tag of event.tags) {
-      pushIndex(index.eventsByTag, tag.toLowerCase(), event.id);
+      push(index.eventsByTag, tag.toLowerCase(), event.id);
     }
 
-    for (const link of db.eventEntities) {
-      if (link.eventId !== event.id) {
-        continue;
-      }
-
-      pushIndex(index.eventsByEntity, link.entityId, event.id);
+    for (const entityId of entitiesByEvent.get(event.id) ?? []) {
+      push(index.eventsByEntity, entityId, event.id);
     }
   }
 
   for (const fact of db.facts) {
     if (fact.subjectEntityId) {
-      pushIndex(index.factsBySubject, fact.subjectEntityId, fact.id);
+      push(index.factsBySubject, fact.subjectEntityId, fact.id);
     }
   }
 
   for (const thread of db.threads) {
-    pushIndex(index.threadsByStatus, thread.status, thread.id);
+    push(index.threadsByStatus, thread.status, thread.id);
   }
 
   for (const lore of db.loreEntries) {
     for (const keyword of lore.keywords) {
-      pushIndex(index.loreByKeyword, keyword.toLowerCase(), lore.id);
+      push(index.loreByKeyword, keyword.toLowerCase(), lore.id);
     }
   }
 
@@ -1135,12 +1161,3 @@ function normalizeWeather(value: unknown): WeatherLock | undefined {
   };
 }
 
-function pushIndex(record: Record<string, string[]>, key: string, value: string) {
-  if (!record[key]) {
-    record[key] = [];
-  }
-
-  if (!record[key].includes(value)) {
-    record[key].push(value);
-  }
-}

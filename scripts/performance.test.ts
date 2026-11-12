@@ -134,3 +134,61 @@ describe('9.1 snapshots hold what a turn can change, not the whole story', () =>
     expect(restoreLastSnapshot(turned)!.rawLog).toHaveLength(0);
   });
 });
+
+import { applyTurnDiff } from '../lib/rpg/services';
+import { buildIndices } from '../lib/rpg/db';
+import { emptyIndex } from '../lib/rpg/defaults';
+
+describe('9.3 a turn copies only what it can change', () => {
+  test('the story log and snapshots are shared, and the input save is left alone', () => {
+    const db = longStory(5);
+    const before = JSON.stringify(db);
+    const next = applyTurnDiff(db, { state: { mood: 'wary', location: 'The river' } } as any);
+    expect(next.rawLog).toBe(db.rawLog);
+    expect(next.snapshots).toBe(db.snapshots);
+    expect(next.state.location).toBe('The river');
+    expect(next.state).not.toBe(db.state);
+    expect(JSON.stringify(db)).toBe(before);
+  });
+});
+
+describe('9.4 indices in one pass', () => {
+  // The old version: every link read for every event, `includes` for duplicates.
+  function oldIndices(db: AppDatabase) {
+    const index = emptyIndex();
+    const push = (record: Record<string, string[]>, key: string, value: string) => {
+      if (!record[key]) record[key] = [];
+      if (!record[key].includes(value)) record[key].push(value);
+    };
+    for (const event of db.events) {
+      const d = event.inStoryDate;
+      push(index.eventsByDate, `${String(d.year).padStart(2, '0')}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`, event.id);
+      for (const tag of event.tags) push(index.eventsByTag, tag.toLowerCase(), event.id);
+      for (const link of db.eventEntities) if (link.eventId === event.id) push(index.eventsByEntity, link.entityId, event.id);
+    }
+    for (const fact of db.facts) if (fact.subjectEntityId) push(index.factsBySubject, fact.subjectEntityId, fact.id);
+    for (const thread of db.threads) push(index.threadsByStatus, thread.status, thread.id);
+    for (const lore of db.loreEntries) for (const keyword of lore.keywords) push(index.loreByKeyword, keyword.toLowerCase(), lore.id);
+    return index;
+  }
+
+  test('gives the same index as before, duplicates included', () => {
+    const db = seed();
+    const template = db.events[0];
+    const events = Array.from({ length: 300 }, (_, i) => ({
+      ...template,
+      id: `ev_${i}`,
+      tags: [`Tag${i % 7}`, `tag${i % 7}`, 'Rain'],
+      inStoryDate: { ...template.inStoryDate, day: 1 + (i % 28) },
+    }));
+    const entities = db.entities.slice(0, 20);
+    const eventEntities = events.flatMap((event, i) => [
+      { ...(db.eventEntities[0] ?? {}), eventId: event.id, entityId: entities[i % 20].id },
+      { ...(db.eventEntities[0] ?? {}), eventId: event.id, entityId: entities[(i * 3) % 20].id },
+      { ...(db.eventEntities[0] ?? {}), eventId: event.id, entityId: entities[i % 20].id },
+    ]);
+    const big = { ...db, events, eventEntities } as AppDatabase;
+    expect(buildIndices(big)).toEqual(oldIndices(big));
+    expect(buildIndices(db)).toEqual(oldIndices(db));
+  });
+});

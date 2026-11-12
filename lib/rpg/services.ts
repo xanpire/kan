@@ -46,7 +46,11 @@ export function applyTurnDiff(
     return db;
   }
 
-  let next = cloneDatabase(db);
+  // Everything a diff can change is copied; the story log and the undo
+  // snapshots are only ever replaced, never edited in place, so they are
+  // shared with the input instead of copied every turn (audit 9).
+  const { rawLog, snapshots, ...changeable } = db;
+  let next = { ...(cloneDatabase(changeable as AppDatabase) as AppDatabase), rawLog, snapshots };
   // The scene that was running when this turn began (a new scene_title
   // names what comes next, not the scene that just ended).
   const sceneBefore = db.state.scene;
