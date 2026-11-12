@@ -622,8 +622,6 @@ export default function StoryScreen() {
     pendingAction,
     stopNarration,
     returnedAction,
-    worldEventNotice,
-    dismissWorldEventNotice,
     sendTurn,
     regenerate,
     undoLastTurn,
@@ -1068,25 +1066,6 @@ export default function StoryScreen() {
           </Pressable>
         </View>
 
-        {worldEventNotice ? (
-          <View style={styles.newsStrip}>
-            <View style={styles.newsDot} />
-            <Text numberOfLines={2} style={styles.newsText}>
-              <Text style={styles.newsLead}>Word reaches you: </Text>
-              {worldEventNotice}
-            </Text>
-            <Pressable
-              accessibilityLabel="Dismiss news"
-              accessibilityRole="button"
-              hitSlop={6}
-              onPress={dismissWorldEventNotice}
-              style={({ pressed }) => [styles.newsClose, pressed && styles.pressed]}
-            >
-              <X color={colors.textDim} size={14} strokeWidth={2} />
-            </Pressable>
-          </View>
-        ) : null}
-
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
@@ -1099,7 +1078,7 @@ export default function StoryScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Text style={type.sectionLabel}>
-            Chapter {db.state.chapter} · {db.state.scene}
+            Chapter {db.state.chapter} · {db.state.scene || db.state.chapterTitle}
           </Text>
 
           {!storyStarted ? (
@@ -1163,7 +1142,7 @@ export default function StoryScreen() {
                           <ImageIcon color={colors.textMuted} size={15} strokeWidth={2} />
                         )
                       }
-                      label={message.imageWorthy && !message.image ? 'Paint this' : 'Paint'}
+                      label="Paint"
                       onLongPress={() => setShotMenuOpen(true)}
                       onPress={() => void generateSceneImage()}
                     />
@@ -1368,7 +1347,7 @@ export default function StoryScreen() {
                   title={companionsOf(db).map((entity) => displayName(db, entity)).join(', ')}
                 />
               ) : null}
-              <ListRow meta={`Chapter ${state.chapter}`} title={state.scene} />
+              <ListRow meta={`Chapter ${state.chapter}`} title={state.scene || state.chapterTitle || `Chapter ${state.chapter}`} />
             </ListCard>
             {skipBlocked ? (
               <>
@@ -1785,42 +1764,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     color: colors.textMuted,
-  },
-  newsStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginHorizontal: spacing.xl,
-    marginTop: spacing.md,
-    paddingLeft: 14,
-    paddingRight: 4,
-    paddingVertical: 6,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  newsDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.accentText,
-  },
-  newsText: {
-    ...type.rowBody,
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  newsLead: {
-    color: colors.text,
-    fontFamily: fonts.semibold,
-  },
-  newsClose: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     width: '100%',

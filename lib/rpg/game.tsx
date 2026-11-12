@@ -199,8 +199,6 @@ type GameContextValue = {
    */
   returnedAction: { text: string; id: number } | null;
   lastPromptTokens: number;
-  worldEventNotice: string | null;
-  dismissWorldEventNotice: () => void;
   setApiKey: (key: string) => Promise<void>;
   /** Sends Kan's input. `remember` follows the offered flashback into the memory (the "Remember" chip). */
   sendTurn: (input: string, options?: { remember?: string }) => Promise<void>;
@@ -269,8 +267,7 @@ type GameStateKey =
   | 'pendingMemoryCount'
   | 'pendingAction'
   | 'returnedAction'
-  | 'lastPromptTokens'
-  | 'worldEventNotice';
+  | 'lastPromptTokens';
 type GameStateValue = Pick<GameContextValue, GameStateKey>;
 /** The functions screens call. They rarely change, so reading them costs no re-renders. */
 type GameActionsValue = Omit<GameContextValue, GameStateKey>;
@@ -300,7 +297,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [returnedAction, setReturnedAction] = useState<{ text: string; id: number } | null>(null);
   const [lastPromptTokens, setLastPromptTokens] = useState(0);
-  const [worldEventNotice, setWorldEventNotice] = useState<string | null>(null);
 
   const dbRef = useRef<AppDatabase | null>(null);
   /** The current turn's state step. The next turn, undo and regenerate wait for it. */
@@ -599,12 +595,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setActiveJobCount(activeJobIdsRef.current.size);
   }, []);
 
-  const showNotice = useCallback((slotId: string, notice: string | null) => {
-    if (notice && dbRef.current?.meta.slotId === slotId) {
-      setWorldEventNotice(notice);
-    }
-  }, []);
-
   /**
    * Runs memory jobs one at a time. Each job reads the latest save, calls the
    * model, then applies its result to the save as it is at that moment. A
@@ -633,7 +623,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
           if (job.kind === 'state') {
             const extraction = await extractStateForJob(activeKey, base, job);
-            let notice: string | null = null;
 
             await updateLatest(slotId, (latest) => {
               const current = latest.memoryJobs?.find((entry) => entry.id === jobId);
@@ -662,11 +651,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 ...(result.events.length ? { events: result.events } : {}),
               });
               followUps.push(...result.followUpIds);
-              notice = result.notice;
               return result.db;
             });
 
-            showNotice(slotId, notice);
           } else {
             const output = await runSummaryJob(activeKey, base, job);
 
@@ -717,7 +704,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [readLatest, setJobActive, showNotice, updateLatest]
+    [readLatest, setJobActive, updateLatest]
   );
 
   const scheduleJobs = useCallback(
@@ -779,7 +766,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
 
         let followUps: string[] = [];
-        let notice: string | null = null;
 
         let applied = false;
 
@@ -798,7 +784,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
               ...(result.events.length ? { events: result.events } : {}),
             });
             followUps = result.followUpIds;
-            notice = result.notice;
             applied = Boolean(extraction);
             return result.db;
           } catch (caught) {
@@ -812,7 +797,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
           }
         });
 
-        showNotice(slotId, notice);
 
         // A good turn: summaries that failed earlier get another go (up to 3 attempts).
         const retry = applied ? retryableSummaryJobs(dbRef.current, activeJobIdsRef.current).map((job) => job.id) : [];
@@ -828,7 +812,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setStateStepRunning(false);
       }
     },
-    [readLatest, scheduleJobs, showNotice, updateLatest]
+    [readLatest, scheduleJobs, updateLatest]
   );
 
   /**
@@ -1859,10 +1843,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     await refreshSlots();
   }, [refreshSlots]);
 
-  const dismissWorldEventNotice = useCallback(() => {
-    setWorldEventNotice(null);
-  }, []);
-
   const stateValue = useMemo<GameStateValue>(
     () => ({
       db,
@@ -1879,7 +1859,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       pendingAction,
       returnedAction,
       lastPromptTokens,
-      worldEventNotice,
     }),
     [
       apiKey,
@@ -1896,7 +1875,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       pendingMemoryCount,
       returnedAction,
       slots,
-      worldEventNotice,
     ]
   );
 
@@ -1912,7 +1890,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       restoreDeletedStory,
       retryPendingMemory,
       stopNarration,
-      dismissWorldEventNotice,
       setApiKey,
       sendTurn,
       regenerate,
@@ -1952,7 +1929,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       deleteJutsu,
       deleteMemory,
       deleteSlotById,
-      dismissWorldEventNotice,
       downloadBrokenSave,
       duplicateSlotById,
       editMemory,

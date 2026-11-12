@@ -430,6 +430,15 @@ export function storyEntryCount(db: Pick<AppDatabase, 'rawLog'>) {
 }
 
 /** Story turns (replies) since the last export, for the quiet export reminder. */
+/** "1 turn is", "3 turns are" (S1 wording). */
+export function exportLine(exportedOn: string | null, turns: number) {
+  const count = `${turns} ${turns === 1 ? 'turn' : 'turns'}`;
+
+  return exportedOn
+    ? `Last exported ${exportedOn}, ${count} ago.`
+    : `Not exported yet. ${count} ${turns === 1 ? 'is' : 'are'} only on this device.`;
+}
+
 export function turnsSinceExport(db: AppDatabase) {
   return Math.max(0, Math.floor((storyEntryCount(db) - (db.meta.exportedAtTurn ?? 0)) / 2));
 }

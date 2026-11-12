@@ -533,7 +533,7 @@ describe('delayed consequences', () => {
       consequences: [{ kind: 'promise', character_id: 'itachi-uchiha', who: 'Itachi', what: 'You promised Itachi you would not go back to the Leaf', want: null, witnesses: [], faction: null, when: 'months' }],
     });
     expect(seedsOf(result.db).find((item) => item.id === offered!.id)?.status).toBe('returned');
-    expect(result.notice).toBeNull();
+    expect(result.events.some((event) => event.text.startsWith('Reached you'))).toBe(false);
     expect(seedsOf(result.db).some((item) => item.kind === 'promise' && item.status === 'waiting')).toBe(true);
   });
 });

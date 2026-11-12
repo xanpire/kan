@@ -46,7 +46,7 @@ import {
   TRASH_DAYS,
   backupInfo,
   listTrash,
-  turnsSinceExport,
+  turnsSinceExport, exportLine,
   type BackupInfo,
   type SlotSummary,
   type TrashedStory,
@@ -841,9 +841,7 @@ export default function SettingsScreen() {
             />
             <ListRow
               body={
-                db.meta.exportedAt
-                  ? `Last exported ${formatRealDate(db.meta.exportedAt)}, ${turnsSinceExport(db)} turns ago.`
-                  : `Not exported yet. ${turnsSinceExport(db)} turns are only on this device.`
+                exportLine(db.meta.exportedAt ? formatRealDate(db.meta.exportedAt) : null, turnsSinceExport(db))
               }
               title="Your last export"
               trailing={

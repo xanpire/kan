@@ -816,7 +816,7 @@ function formatState(db: AppDatabase) {
     formatPurseLine(db),
     `Canon point: ${truncate(state.canonPoint, 220)}`,
     `Chapter: ${state.chapter}${state.chapterTitle ? ` (${state.chapterTitle})` : ''}`,
-    `Scene: ${truncate(state.scene, 140)}`,
+    `Scene: ${state.scene ? truncate(state.scene, 140) : '(a new chapter has begun; no scene name yet)'}`,
     placesLine(db),
   ]
     .filter(Boolean)

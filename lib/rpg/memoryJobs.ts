@@ -255,8 +255,6 @@ export type StateStepResult = {
   db: AppDatabase;
   /** Follow-up summary jobs that were queued by this step. */
   followUpIds: string[];
-  /** Short "world news" line to show, if a canon event was relayed. */
-  notice: string | null;
   /** The diff that was applied, after the app settled the clock. */
   appliedDiff: TurnDiff | null;
   /** Names the narration used outside dialogue that Kan couldn't know (for the Debug panel). */
@@ -499,6 +497,8 @@ export function applyStateStep(
   // The big personal threads open and close as the story reaches them.
   next = applyStoryHooks(next);
 
+  // What reached Kan this turn, for Settings → Debug only: the story itself
+  // delivers news, letters and bingo books (no app notice, audit 10).
   let notice: string | null = null;
 
   if (relays.length > 0) {
@@ -535,6 +535,8 @@ export function applyStateStep(
       notice = `${listing.name} bingo book: ${listing.rank}-rank · ${formatRyo(listing.bounty)}`;
     }
   }
+
+  if (notice) events.push({ kind: 'mode', text: `Reached you: ${notice}.` });
 
   // The state step is done; any earlier state job for this turn is settled.
   next = withJobs(
@@ -624,7 +626,7 @@ export function applyStateStep(
     if (broken.length > 0) throw new Error(`Invariant broken: ${describeViolations(broken).join(' | ')}`);
   }
 
-  return { db: next, followUpIds, notice, appliedDiff: effectiveDiff, nameLeaks: leaks, events };
+  return { db: next, followUpIds, appliedDiff: effectiveDiff, nameLeaks: leaks, events };
 }
 
 /**
@@ -640,7 +642,7 @@ function applyMemoryStep(latest: AppDatabase, stateReply: TurnDiff | null, turn:
 
   // A memory turn whose flashback is no longer playing changes nothing.
   if (!playing || playing.active.id !== entry?.flashback?.id) {
-    return { db: settle(latest), followUpIds: [], notice: null, appliedDiff: null, events: [] };
+    return { db: settle(latest), followUpIds: [], appliedDiff: null, events: [] };
   }
 
   const result = applyFlashbackTurn(latest, stateReply, turn);
@@ -656,7 +658,7 @@ function applyMemoryStep(latest: AppDatabase, stateReply: TurnDiff | null, turn:
     followUpIds.push(job.id);
   }
 
-  return { db: next, followUpIds, notice: null, appliedDiff: stateReply, events: [] };
+  return { db: next, followUpIds, appliedDiff: stateReply, events: [] };
 }
 
 /** The save with its indices rebuilt (after records were removed). */
@@ -696,7 +698,10 @@ export function applyChapterBreak(
     return after;
   }
 
-  const title = reason.title?.trim() || after.state.scene || `Chapter ${chapter + 1}`;
+  // The old chapter's scene name never carries into the new chapter (S1): a
+  // scene named this turn stays, otherwise it waits for the tracker's next one.
+  const freshScene = after.state.scene && after.state.scene !== before.state.scene ? after.state.scene : '';
+  const title = reason.title?.trim() || freshScene || `Chapter ${chapter + 1}`;
   const index = after.rawLog.findIndex((entry) => entry.id === turnLogId);
   const userIndex = index > 0 && after.rawLog[index - 1].role === 'user' ? index - 1 : -1;
   const turnNumber = after.rawLog[userIndex !== -1 ? userIndex : index]?.turn ?? 0;
@@ -710,6 +715,7 @@ export function applyChapterBreak(
       ...after.state,
       chapter: chapter + 1,
       chapterTitle: title,
+      scene: freshScene,
       chapterStart: { turn: turnNumber, date: before.state.inStoryDate },
       chapters: [
         ...(after.state.chapters ?? []),
