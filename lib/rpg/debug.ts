@@ -15,6 +15,7 @@ import type { AppDatabase, OpenRouterMessage, TurnDiff } from './types';
 export type DebugCallKind =
   | 'narrator'
   | 'state'
+  | 'stateWorld'
   | 'timeSkip'
   | 'scene'
   | 'arc'
@@ -53,8 +54,11 @@ export type DebugChange = {
 
 export type DebugStateStep = {
   status: 'running' | 'applied' | 'fallback' | 'failed';
-  /** The memory model's reply, exactly as received. */
+  /** The memory model's reply, exactly as received (the Core call). */
   raw?: string;
+  /** The World call's reply and the areas it was asked for, when it ran (audit 7). */
+  worldRaw?: string;
+  worldAreas?: string[];
   /** What the app read from it, after clock resolution. */
   diff?: TurnDiff | null;
   changes?: DebugChange[];

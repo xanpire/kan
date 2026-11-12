@@ -45,7 +45,8 @@ import { factRef, knowerNames } from './facts';
 import { formatAbilities } from './abilities';
 import { formatVarietyBlock } from './variety';
 import { formatWeatherLine, formatWeatherTracking } from './weather';
-import { formatSafehouseLine, formatSafehouseTracking, letterAddress, placesLine } from './safehouses';
+import { currentSafehouse, formatSafehouseLine, formatSafehouseTracking, letterAddress, placesLine } from './safehouses';
+import { WORLD_AREAS, type WorldArea } from './stateSchema';
 import { PRICE_GUIDE, formatPurseLine } from './money';
 import { CONVERSATION_MODE_MINIMUM_SECONDS, formatSceneModeLine, formatSceneModeTracking, resolveTurnMode } from './sceneMode';
 import {
@@ -127,7 +128,7 @@ OUTPUT
 - Story prose only, starting straight in the scene: no JSON, code, lists, headings, labels, summaries, or out-of-character notes. Speech in quotation marks; *asterisks* only for NPC thoughts and the short action lines of a conversation.
 - The app tracks state from your prose, so make changes clear in it: where Kan goes, who is there, which jutsu are used and how they look, what is learned or promised, and when a scene ends.`;
 
-const STATE_SYSTEM = `You are the state tracker for an interactive Naruto novel; the player is Kan. Read the narrator's latest turn and return one JSON object matching the schema. Never write story text.
+const STATE_SYSTEM = `You are the state tracker for an interactive Naruto novel; the player is Kan. Read the narrator's latest turn and return one JSON object matching the schema. Never write story text. A second tracker records letters, safehouses, reputation, grudges, canon, news, weather, natures and abilities; leave those to it.
 
 TIME: time.elapsed + time.unit is the in-story time this turn covered, read from the prose. Blows take seconds, talks minutes, battles minutes to hours, a nap under an hour, a night's sleep 8-9 hours, travel minutes to days, and a time skip Kan asked for (weeks, months, years) exactly as long as the prose says passed; a new day must be covered. Count only what the narration shows happening: plans or times spoken in dialogue ("walk until nightfall", "we leave at dawn") have not happened and add nothing. time.clock_time stays null unless the narration itself names the hour ("at noon", "by dusk", "3 PM"); never guess it. TIME BEFORE THIS TURN is the clock the turn starts from, so a clock_time must fit it plus time.elapsed. scene_pace: combat (any fight or ambush, even a short one), chase, conversation, travel (only moving from place to place with no fight), or downtime (rest, sleep, waiting).
 
@@ -135,9 +136,9 @@ TIME: time.elapsed + time.unit is the in-story time this turn covered, read from
 - Report only what THIS turn shows changed: null when unchanged, [] when empty. Never invent anything or contradict the state below.
 - Every text you write calls Kan "you", never "Kan", "he" or "him" (facts, threads, world_description, canon_point, bond status and notes, jutsu effects and visuals, scene titles). Only ids and the jutsu "user" field use "kan".
 
-PLACE: location, with location_kind, when Kan moves. location_kind: settlement (a village, town, camp or market), structure (inside or on a building: a tower, a cell, a shrine, a hideout), road (a road, bridge or trail), wilderness (forest, ravine, mountains, river, open land). Never put Kan in characters_present. mood (1-3 words), world_description (one sentence), and canon_point (one line) only when changed. inventory_added / inventory_removed. money: every change to your own money on the page, in ryō: amount negative when you pay, lose, give away or are robbed of money, positive when you are paid, given, find, win or take it; reason in a few words ("a room at the inn", "Kakuzu's cut of the bounty"). Someone else paying for you changes nothing, and money only talked about has not moved. Use the amount the prose names; if it names none, estimate it from PRICES; a payment is never more than the Purse in CURRENT STATE. money_counted: your total, only when the prose states exactly how much you have now; otherwise null. Money is never an inventory item. ${PRICE_GUIDE} weather: a few words only when the prose shows the weather change from WEATHER NOW (rain starts or stops, snow begins, fog rolls in or lifts, a storm breaks, a jutsu brings rain); otherwise null.
+PLACE: location, with location_kind, when Kan moves. location_kind: settlement (a village, town, camp or market), structure (inside or on a building: a tower, a cell, a shrine, a hideout), road (a road, bridge or trail), wilderness (forest, ravine, mountains, river, open land). Never put Kan in characters_present. mood (1-3 words), world_description (one sentence), and canon_point (one line) only when changed. inventory_added / inventory_removed. money: every change to your own money on the page, in ryō: amount negative when you pay, lose, give away or are robbed of money, positive when you are paid, given, find, win or take it; reason in a few words ("a room at the inn", "Kakuzu's cut of the bounty"). Someone else paying for you changes nothing, and money only talked about has not moved. Use the amount the prose names; if it names none, estimate it from PRICES; a payment is never more than the Purse in CURRENT STATE. money_counted: your total, only when the prose states exactly how much you have now; otherwise null. Money is never an inventory item. ${PRICE_GUIDE}
 
-PEOPLE: refer to every person by their id from KNOWN CHARACTERS (Kan is "kan") in characters_present, bonds.character_id, character_updates.character_id, facts.entity, facts.who_knows, jutsu_used.user, news_relayed.from, letters_sent.to, letters_received, and grudges.character_id. Match every name, title, nickname, and alias against KNOWN CHARACTERS first ("Kisame", "Hoshigaki", and "the shark-faced swordsman" are all kisame-hoshigaki), including people Kan has not met yet. A description belongs to whoever the prose means by it ("the masked man" who is Kakuzu is kakuzu): never pick an id because its name looks like a description. new_characters is ONLY for a person missing from KNOWN CHARACTERS: is_new true, their fullest known name, age, role, personality, speech, appearance, gender, attracted_to (men, women, both, none, or unknown if the story hasn't shown it), minor (true for a one-scene character: a target, a guard, a shopkeeper), and name_known (false for a stranger the story gives no name yet: name is then a short description of how they look to you, like "the scarred ferryman"); elsewhere this turn, refer to them by that exact name. Never put a listed person in new_characters. characters_present lists only those physically in the scene at the end; [] if Kan is alone. character_updates: visible mood changes; whereabouts when the story says where someone is going or waiting ("waiting at the eastern border"); appearance is how they look RIGHT NOW (what they are wearing, wet, bloodied, Sharingan active), kept the same from turn to turn unless the prose changes it; lasting_appearance only for a real lasting change (aging, a scar, new clothes worn for good). personality_change / speech_style_change: almost always null; only when the story truly changes who an original (non-canon) person is, as a new one-line description. bonds have two sides. affinity_change (-10..10) and note: how THEY feel about you, moved only by what they could actually see or hear you do or say. your_change and your_note: how YOU feel about them; your inner thoughts and unspoken reactions move only this side. relationship is one fixed label: stranger, acquaintance, friendly, close, old friend, family, teammate, partner (an Akatsuki or mission partner, never romance), mentor, student, rival, enemy, romantic interest, lover (romance), rejected, ex; change it only when the relationship itself changes, never because feelings dipped. attraction and romance_note only if changed. Only important characters; minor people go in facts.
+PEOPLE: refer to every person by their id from KNOWN CHARACTERS (Kan is "kan") in characters_present, bonds.character_id, character_updates.character_id, facts.entity, facts.who_knows, and jutsu_used.user. Match every name, title, nickname, and alias against KNOWN CHARACTERS first ("Kisame", "Hoshigaki", and "the shark-faced swordsman" are all kisame-hoshigaki), including people Kan has not met yet. A description belongs to whoever the prose means by it ("the masked man" who is Kakuzu is kakuzu): never pick an id because its name looks like a description. new_characters is ONLY for a person missing from KNOWN CHARACTERS: is_new true, their fullest known name, age, role, personality, speech, appearance, gender, attracted_to (men, women, both, none, or unknown if the story hasn't shown it), minor (true for a one-scene character: a target, a guard, a shopkeeper), and name_known (false for a stranger the story gives no name yet: name is then a short description of how they look to you, like "the scarred ferryman"); elsewhere this turn, refer to them by that exact name. Never put a listed person in new_characters. characters_present lists only those physically in the scene at the end; [] if Kan is alone. character_updates: visible mood changes; whereabouts when the story says where someone is going or waiting ("waiting at the eastern border"); appearance is how they look RIGHT NOW (what they are wearing, wet, bloodied, Sharingan active), kept the same from turn to turn unless the prose changes it; lasting_appearance only for a real lasting change (aging, a scar, new clothes worn for good). personality_change / speech_style_change: almost always null; only when the story truly changes who an original (non-canon) person is, as a new one-line description. bonds have two sides. affinity_change (-10..10) and note: how THEY feel about you, moved only by what they could actually see or hear you do or say. your_change and your_note: how YOU feel about them; your inner thoughts and unspoken reactions move only this side. relationship is one fixed label: stranger, acquaintance, friendly, close, old friend, family, teammate, partner (an Akatsuki or mission partner, never romance), mentor, student, rival, enemy, romantic interest, lover (romance), rejected, ex; change it only when the relationship itself changes, never because feelings dipped. attraction and romance_note only if changed. Only important characters; minor people go in facts.
 
 NAMES: you see everyone's true identity and id; the notes say what name you (Kan) know each by. Every text you write (facts, notes, threads, letters, world_description) names people only as you knew them at that moment, or describes them ("the masked man"). names_learned: {character_id, name, part, how} only when a name is spoken, written or recognised within your hearing or reading this turn and you did not know it: part given, family, full, or identity (another name they go by: "Madara" for the masked man, "Obito" when his mask breaks); how introduced (they said it), told (someone else said it), written (a letter, a document, a poster), overheard, or recognised (the prose shows you could tell who someone famous is by their look). A name spoken out of your hearing never counts. names_told: {character_id, name, told_to} when someone present learns another name a person goes by, in front of you (you tell Deidara who Tobi really is). Otherwise [].
 
@@ -145,23 +146,36 @@ COMPANIONS: people marked [travelling with Kan] are with him in every scene; alw
 
 DEATHS: deaths lists, by id, anyone the prose makes certain is dead this turn: they die on screen, Kan sees the body, or someone tells Kan they died (also for someone already marked deceased whom Kan did not know about). Never for someone unconscious, missing, faking, or only rumored dead. The dead are never in characters_present or bonds, except the reanimated. revived lists ids only for a true return to life (like Chiyo's life-transfer jutsu, or the Rinnegan's revival). reanimated lists ids of the dead whom the prose shows brought back by Edo Tensei this turn (still dead, but here and able to act): while that holds they may be in characters_present, share memories and move a bond. released lists reanimated people whose jutsu ends this turn (released, sealed, passing on).
 
-ABILITIES: natures_gained when you learn one of your own chakra natures (source "innate") or take one with Thousand Souls (source "thousand-souls", from = whose chakra); abilities_changed when one of your abilities awakens or changes stage (name "Sharingan" stage "1 tomoe"/"2 tomoe"/"3 tomoe"; "Mangekyō Sharingan" "awakened"; "Susanoo" "ribcage"/"full body"...). Otherwise [].
-
 JUTSU: jutsu_used lists every named jutsu, by anyone, and every use of one of your recorded techniques, including your taijutsu when you fight, sneak or strike with it. chakra_nature is Fire, Water, Wind, Earth, Lightning, Wood, Ice, Lava, Boil, Storm, Yin, Yang, Yin-Yang, Physical, Genjutsu, Space-Time, or Unknown; for a blend pick the primary and describe the blend. Kan's own jutsu keep the exact name the player wrote ("Fire Style: Hell" stays "Fire Style: Hell", never a generic canon name like "Fire Release"); for a jutsu already on record, reuse its recorded name. "Style" and "Release" mean the same. Keep effect and visual short and consistent with earlier uses.
 
 MEMORY: facts are what actually happened or is now true, never what someone merely said. Every fact has entity (who it is about; "kan" for you), a type, and who_knows (ids of people who know it, or group names like "Hidden Leaf leadership"). Types: death (someone died), injury (a wound to someone's body), condition (a passing state: chakra drain, exhaustion, soaked, a headache, Sharingan active), secret, knowledge (someone learned something), membership (joined or left a group), possession (an item gained, lost or changed: tying or scratching a headband is possession, never injury), relationship, plan (an intention or travel plan), figure (a number stated in the story: a bounty, a price, a distance, a deadline, a travel time, word for word), event (anything else that happened; "the clan is dead" is an event, not a death fact about whoever did it). A boast, rumor or claim gets claimed_by (the speaker's id), or is left out. lasts: "until_rest" for a condition that a night's sleep ends, "days" (with days) for an injury or plan with an expected length, "lasting" otherwise. When a fact replaces an ACTIVE FACT (you learned what you did not know, a plan changed, a wound healed), list that fact's ref in supersedes; list refs that simply stopped being true in facts_ended. threads are promises, debts, grudges, mysteries, quests, or goals, with type (quest: a mission or task to carry out; goal: something you want to achieve; promise; debt; mystery: a question you want answered; grudge; other), importance (1 small to 5 life-defining), and participants (ids of who it involves besides you): "open" only for something no OPEN THREAD already covers (if one does, "update" it under its exact title, even when the wording differs); "update" or "resolved" reuse the exact title. scene_ended is true only when the scene clearly concluded. scene_title names the scene in 2-5 words (like "Ambush at the river ford"), only when this turn starts a new scene (Kan reaches a new place, a new day begins, a new encounter or conversation takes over) or the current Scene name no longer fits; otherwise null. chapter_title (3-6 words) only when this turn truly opens a new chapter of the story: a major milestone has just been reached, Kan arrives somewhere far from where the chapter began (a new country, the Akatsuki's hideout), or a long time skip; most turns, and most new scenes, are null. A chapter is long: many scenes, often days of story.
 
-CANON: canon_engaged / canon_completed / canon_passed / news_relayed use ids exactly as listed under CANON TRACKING, only when that id's rule is met; otherwise []. A catch-up report can relay several listed news ids in one turn.
-
-LETTERS: letters_sent and letters_received use character ids, by the rules under LETTERS; otherwise []. life_events: {character_id, event} for something that happened in a person's own life away from you that this turn reveals as true (a promotion, an injury, a move, a new team, a wedding; their letter, or they tell you); event in a few words, third person without their name ("was promoted to jonin"); otherwise []. birthdays_learned: ids of people whose birthday you learn on the page this turn (they say it, someone tells you); otherwise [].
-
-NAME & ENEMIES: reputation, bounty_seen, epithet, grudges, consequences, and consequences_returned follow the rules under REPUTATION & GRUDGES; otherwise [] (epithet null).
-
 BEAT: beat tags how this turn played, from Kan's input and the reply together: exchange (back-and-forth talk, including small moves in place or a silence the other person reacts to while still talking: a look, a touch, a gesture, sitting or standing, stepping closer, turning away, pouring tea, a flash of the Sharingan), instruction (someone tells Kan to do something that leads into action: "follow me", "wait here"), remark (a one-off line in passing), action (a move that changes the scene: leaving, going somewhere, a jutsu that changes the situation, someone new taking over), travel, or combat (any fight, even a short one). beat_with: ids of the people Kan is talking with (exchange, instruction, remark); otherwise []. fight_options: only when the fight goes on and the reply ends on an opponent's move: 3-4 short moves Kan could make next (under 10 words, starting with a verb, no "I" or "you": "Duck under the threads and close in"), fitting the moment and what he can really do (dodge, block, counter, and at least one jutsu he knows); otherwise [].
 
-IMAGE: image_worthy is true only for visually striking moments, never pure dialogue.
+IMAGE: image_worthy is true only for visually striking moments, never pure dialogue.`;
 
-FLASHBACK: flashback is null unless a FLASHBACK, MEMORY or THIS TURN IS A MEMORY line below says how to set it.`;
+/**
+ * The World call (audit 7): asked only when this turn touched one of its
+ * areas, with only those areas' rules. The header and the roster sit in the
+ * cached front; the area rules go with the turn.
+ */
+const WORLD_STATE_SYSTEM = `You are the second state tracker for an interactive Naruto novel; the player is Kan. Read the narrator's latest turn and return one JSON object matching the schema: only the areas listed under THIS CALL. Another tracker records time, place, who is present, bonds, facts, threads and jutsu; leave those alone. Never write story text.
+
+- Prefer null to a guess. A wrong value does more harm than a missing one.
+- Report only what THIS turn shows changed: null when unchanged, [] when empty. Never invent anything or contradict the state below.
+- Every text you write calls Kan "you", never "Kan", "he" or "him". Only ids use "kan".
+- Refer to every person by their id from KNOWN CHARACTERS (Kan is "kan"). Match every name, title, nickname and description against KNOWN CHARACTERS first; someone missing from it goes by the fullest name the prose gives. Every text you write names people only as you (Kan) knew them at that moment, or describes them ("the masked man").`;
+
+const WORLD_AREA_RULES: Record<WorldArea, string> = {
+  letters: `LETTERS: letters_sent and letters_received use character ids, by the rules under LETTERS; otherwise [].`,
+  safehouse: 'SAFEHOUSE: safehouse follows the rules under SAFEHOUSES.',
+  enemies: `NAME & ENEMIES: reputation, bounty_seen, epithet, grudges, consequences, and consequences_returned follow the rules under REPUTATION & GRUDGES; otherwise [] (epithet null).`,
+  lives: `LIVES: life_events: {character_id, event} for something that happened in a person's own life away from you that this turn reveals as true (a promotion, an injury, a move, a new team, a wedding; their letter, or they tell you); event in a few words, third person without their name ("was promoted to jonin"); otherwise []. birthdays_learned: ids of people whose birthday you learn on the page this turn (they say it, someone tells you); otherwise [].`,
+  abilities: `ABILITIES: natures_gained when you learn one of your own chakra natures (source "innate") or take one with Thousand Souls (source "thousand-souls", from = whose chakra); abilities_changed when one of your abilities awakens or changes stage (name "Sharingan" stage "1 tomoe"/"2 tomoe"/"3 tomoe"; "Mangekyō Sharingan" "awakened"; "Susanoo" "ribcage"/"full body"...). Otherwise [].`,
+  canon: `CANON: canon_engaged / canon_completed / canon_passed / news_relayed use ids exactly as listed under CANON TRACKING, only when that id's rule is met; otherwise []. A catch-up report can relay several listed news ids in one turn.`,
+  weather: `WEATHER: weather: a few words only when the prose shows the weather change from WEATHER NOW (rain starts or stops, snow begins, fog rolls in or lifts, a storm breaks, a jutsu brings rain); otherwise null.`,
+  flashback: `FLASHBACK: flashback is null unless a FLASHBACK, MEMORY or THIS TURN IS A MEMORY line below says how to set it.`,
+};
 
 const SUMMARY_SYSTEM = `You are a story summarizer for a long-running interactive novel.
 
@@ -413,6 +427,56 @@ export function buildNarrationPrompt(
  * Call 2 of a turn: a cheap model reads the narrator's prose and returns the
  * state change as structured JSON (see stateSchema.ts).
  */
+/**
+ * Keywords that mean this turn may have touched a World area (audit 7). They
+ * only decide whether the World call is asked; a false alarm costs one small
+ * call, a miss loses that area for the turn, so they are generous.
+ */
+const WORLD_AREA_WORDS: Partial<Record<WorldArea, RegExp>> = {
+  letters: /\b(letters?|scrolls?|messages?|notes?|birds?|hawks?|crows?|ravens?|falcons?|couriers?|messengers?|ninken|summon(ed|s)?|dead[- ]drop|writes?|wrote|written|writing|envelopes?|seals? (it|the)|sends? word|post)\b/i,
+  safehouse: /\b(inns?|rooms?|rent(s|ed)?|camps?|hideouts?|bases?|lairs?|caves?|shelters?|sleep(s|ing)?|slept|asleep|beds?|bedrolls?|lodg\w*|teahouses?|ruins?|houses?|homes?|huts?|cabins?|stash(es|ed)?|settles? in|move[sd]? in|stay(s|ed)? the night|for the night|barriers?|traps?|upstairs|key)\b/i,
+  enemies: /\b(bount(y|ies)|bingo|wanted|rewards?|hunters?|hunter-nin|grudges?|revenge|avenge\w*|spar(e|es|ed)|mercy|li(e|es|ed)|lying|betray\w*|witness\w*|promis\w*|swear|swore|sworn|owe[sd]?|debts?|kill(s|ed)?|fight|fought|attack\w*|struck|strikes?|humiliat\w*|forgiv\w*|they call you|known as|called you|your name|reputation|rumou?rs?|feared|legend)\b/i,
+  lives: /\b(birthdays?|born|promot\w*|j[oō]nin|ch[uū]nin|married|marry|wedding|engaged|pregnan\w*|baby|moved|new team|retired|appointed|became|kage|hokage|hospital|graduat\w*|apprentic\w*|since you left|these days|nowadays)\b/i,
+  abilities: /\b(natures?|affinit(y|ies)|elements?|sharingan|tomoe|mangeky[oō]|susan[oō]o|rinnegan|thousand souls|awaken\w*|kekkei|chakra paper|your eyes?)\b/i,
+  weather: /\b(rain\w*|drizzle|downpour|snow\w*|sleet|hail|fog\w*|mist\w*|storm\w*|thunder\w*|sun(light|shine)?|clouds?|cloudy|overcast|clear sky|winds?|gale|blizzard|frost|heat|humid|weather)\b/i,
+};
+
+/**
+ * Which World areas this turn calls for: an offer the narrator prompt made in
+ * that area this turn, or the turn's words reaching it. Inside a flashback only
+ * the memory's own marks (and its weather) are asked.
+ */
+export function worldAreasForTurn(db: AppDatabase, userMessage: string, assistantMessage: string): WorldArea[] {
+  const text = `${userMessage}\n${assistantMessage}`;
+  const reply = [...db.rawLog].reverse().find((entry) => entry.role === 'assistant' && entry.content === assistantMessage);
+  const words = (area: WorldArea) => WORLD_AREA_WORDS[area]?.test(text) ?? false;
+  const areas = new Set<WorldArea>();
+
+  if (flashbackTrackingLines(db, reply?.flashbackOffer).length > 0) areas.add('flashback');
+  if (words('weather')) areas.add('weather');
+
+  if (activeFlashback(db)) {
+    return WORLD_AREAS.filter((area) => areas.has(area));
+  }
+
+  if (turnLetterOffer(db) || words('letters')) areas.add('letters');
+  if (currentSafehouse(db) || words('safehouse')) areas.add('safehouse');
+  if (
+    grudgeOffer(db) ||
+    turnConsequenceOffer(db) ||
+    hunterOffer(db) ||
+    reply?.sceneMode === 'fight' ||
+    words('enemies')
+  ) {
+    areas.add('enemies');
+  }
+  if (yearlyOffer(db) || words('lives') || words('letters')) areas.add('lives');
+  if (words('abilities')) areas.add('abilities');
+  if (formatCanonTracking(db)) areas.add('canon');
+
+  return WORLD_AREAS.filter((area) => areas.has(area));
+}
+
 export function buildExtractionPrompt(
   db: AppDatabase,
   userMessage: string,
@@ -422,6 +486,7 @@ export function buildExtractionPrompt(
     .reverse()
     .find((message) => message.role === 'assistant' && message.content !== assistantMessage);
 
+  // The roster both calls share, in the cached front.
   const stable = [
     formatCharacterRoster(db),
     formatJutsu(db),
@@ -433,31 +498,35 @@ export function buildExtractionPrompt(
   // A turn inside a flashback: the memory's clock and place, and none of the
   // present's canon, letters or enemies to mark.
   const memoryView = activeFlashback(db) ? flashbackView(db) : null;
-  const dynamic = [
-    // Facts move every turn, so they sit outside the cached part, with refs
-    // the tracker can end or replace.
-    memoryView ? '' : formatFacts(db, stateFacts(db, `${userMessage}\n${assistantMessage}`), { refs: true }),
-    memoryView
-      ? `CURRENT STATE (inside the memory)\nDate: ${formatDate(memoryView.state.inStoryDate)}\nLocation: ${truncate(memoryView.state.location, 100)}`
-      : formatState(db),
-    memoryView ? '' : formatCompanionIds(db),
-    memoryView ? '' : `YOUR ABILITIES\n${formatAbilities(db)}`,
-    formatCharacterDetails(db, `${userMessage}\n${assistantMessage}`),
-    formatTimeLine(memoryView ?? db, 'state'),
-    formatWeatherTracking(memoryView ?? db),
-    formatSceneModeTracking(null, reply?.sceneMode),
-    ...flashbackTrackingLines(db, reply?.flashbackOffer),
-    memoryView ? '' : formatCanonTracking(db),
-    memoryView ? '' : formatLetterTracking(db),
-    memoryView ? '' : formatSafehouseTracking(db),
-    memoryView ? '' : formatYearlyTracking(db),
-    memoryView ? '' : formatEnemyTracking(db),
+  const flashbackLines = flashbackTrackingLines(db, reply?.flashbackOffer);
+  const stateLine = memoryView
+    ? `CURRENT STATE (inside the memory)\nDate: ${formatDate(memoryView.state.inStoryDate)}\nLocation: ${truncate(memoryView.state.location, 100)}`
+    : formatState(db);
+  const characterDetails = formatCharacterDetails(db, `${userMessage}\n${assistantMessage}`);
+  const theDay = memoryView ? '' : formatYearlyTracking(db);
+  const thisTurn = [
     previousBeat
       ? `PREVIOUS BEAT (context only — already recorded)\n${tail(stripNarrationJson(previousBeat.content), 500)}`
       : '',
     'THIS TURN',
     `You (Kan): ${userMessage}`,
     `Narrator: ${assistantMessage}`,
+  ];
+
+  const dynamic = [
+    // Facts move every turn, so they sit outside the cached part, with refs
+    // the tracker can end or replace.
+    memoryView ? '' : formatFacts(db, stateFacts(db, `${userMessage}\n${assistantMessage}`), { refs: true }),
+    stateLine,
+    memoryView ? '' : formatCompanionIds(db),
+    characterDetails,
+    formatTimeLine(memoryView ?? db, 'state'),
+    formatSceneModeTracking(null, reply?.sceneMode),
+    // Inside a memory its line tells both trackers what to leave empty.
+    ...(memoryView ? flashbackLines : []),
+    // Today's birthday also moves bonds, which are Core's.
+    theDay,
+    ...thisTurn,
     'Report the state change for THIS TURN now.',
   ]
     .filter(Boolean)
@@ -472,9 +541,46 @@ export function buildExtractionPrompt(
     { role: 'user', content: dynamic },
   ];
 
+  const areas = worldAreasForTurn(db, userMessage, assistantMessage);
+  const has = (area: WorldArea) => areas.includes(area);
+  const worldDynamic = [
+    `THIS CALL: ${areas.join(', ')}`,
+    ...areas.map((area) => WORLD_AREA_RULES[area]),
+    stateLine,
+    characterDetails,
+    has('abilities') ? `YOUR ABILITIES\n${formatAbilities(db)}` : '',
+    has('weather') ? formatWeatherTracking(memoryView ?? db) : '',
+    has('flashback') ? flashbackLines.join('\n') : '',
+    has('canon') ? formatCanonTracking(db) : '',
+    has('letters') ? formatLetterTracking(db) : '',
+    has('safehouse') ? formatSafehouseTracking(db) : '',
+    has('lives') ? theDay : '',
+    has('enemies') ? formatEnemyTracking(db) : '',
+    ...thisTurn,
+    'Report these areas for THIS TURN now.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  const world =
+    areas.length > 0
+      ? {
+          areas,
+          messages: [
+            {
+              role: 'system',
+              content: `${WORLD_STATE_SYSTEM}\n\n${stable}`,
+              parts: [{ text: `${WORLD_STATE_SYSTEM}\n\n`, cache: true }, { text: stable }],
+            },
+            { role: 'user', content: worldDynamic },
+          ] as OpenRouterMessage[],
+        }
+      : null;
+
   return {
     messages,
-    estimatedTokens: estimateTokens(messages),
+    world,
+    estimatedTokens: estimateTokens(messages) + (world ? estimateTokens(world.messages) : 0),
   };
 }
 
@@ -1710,4 +1816,9 @@ function parseJsonBlock(text: string): Record<string, unknown> | null {
   }
 
   return null;
+}
+
+/** Every message of a state step's prompt, Core then World, as one text (Debug, tests). */
+export function trackerPromptText(prompt: ReturnType<typeof buildExtractionPrompt>): string {
+  return [...prompt.messages, ...(prompt.world?.messages ?? [])].map((message) => message.content).join('\n\n');
 }

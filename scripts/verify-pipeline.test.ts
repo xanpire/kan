@@ -20,7 +20,7 @@ import { learnFromCanon } from '../lib/rpg/names';
 import { appendStoryMessage, cloneDatabase, storyMessagesSinceLastSummary } from '../lib/rpg/log';
 import { trimToSentence } from '../lib/rpg/util';
 import { convertStateBlock } from '../lib/rpg/stateBlock';
-import { buildExtractionPrompt, buildNarrationPrompt, splitNarrationAndDiff, streamingPreview, stripNarrationJson } from '../lib/rpg/prompt';
+import { buildExtractionPrompt, buildNarrationPrompt, splitNarrationAndDiff, streamingPreview, stripNarrationJson, trackerPromptText } from '../lib/rpg/prompt';
 import { TURN_STATE_SCHEMA } from '../lib/rpg/stateSchema';
 import { mentionsName } from '../lib/rpg/characterRefs';
 import { NARRATION_SYSTEM } from '../lib/rpg/prompt';
@@ -3098,7 +3098,7 @@ describe('news delivery: bearers, styles, escalation, catch-up', () => {
     // Once news has reached Kan today, it is back to one item at a time.
     expect(newsOffer(relayed)?.mode ?? 'single').toBe('single');
 
-    const tracking = buildExtractionPrompt(db, '*Kan rests.*', 'Itachi tells you everything.').messages[1].content;
+    const tracking = trackerPromptText(buildExtractionPrompt(db, '*Kan rests.*', 'Itachi tells you everything.'));
     for (const item of offer.items) expect(tracking).toContain(item.milestoneId);
   });
 });
@@ -3139,7 +3139,7 @@ describe('personal letters', () => {
     const prompt = buildNarrationPrompt(db, '*Kan waits.*').messages.map((m) => m.content).join('\n');
     expect(prompt).toContain('A LETTER FOR YOU');
     expect(prompt).toContain('answering the letter you sent (you are alive and sorry you left)');
-    expect(buildExtractionPrompt(db, '*Kan reads.*', 'A ninken finds you.').messages[1].content).toContain('letters_received');
+    expect(trackerPromptText(buildExtractionPrompt(db, '*Kan reads.*', 'A ninken finds you.'))).toContain('letters_received');
 
     db = receiveLetters(db, [{ entityId: hana.id, name: hana.name }]);
     expect(db.state.post!.letters.find((letter) => letter.id === reply.id)!.status).toBe('delivered');

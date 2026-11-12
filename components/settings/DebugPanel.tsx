@@ -31,6 +31,7 @@ const mono = Platform.select({
 const KIND_LABEL: Record<DebugCallKind, string> = {
   narrator: 'Narrator',
   state: 'State',
+  stateWorld: 'State (world)',
   timeSkip: 'Time skip',
   scene: 'Scene summary',
   arc: 'Arc summary',
@@ -370,6 +371,7 @@ const RESPONSE_MODE_LABEL = {
 function StateBlock({ turn }: { turn: DebugTurn }) {
   const [showRaw, setShowRaw] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  const [showWorld, setShowWorld] = useState(false);
   const state = turn.state;
 
   return (
@@ -444,9 +446,18 @@ function StateBlock({ turn }: { turn: DebugTurn }) {
             {state.raw !== undefined ? (
               <Toggle label="Raw reply" onPress={() => setShowRaw((value) => !value)} open={showRaw} />
             ) : null}
+            {state.worldRaw !== undefined ? (
+              <Toggle label="World reply" onPress={() => setShowWorld((value) => !value)} open={showWorld} />
+            ) : null}
           </View>
+          {state.worldAreas?.length ? (
+            <Text style={type.rowMeta}>{`World call asked: ${state.worldAreas.join(', ')}`}</Text>
+          ) : (
+            <Text style={type.rowMeta}>No World call this turn.</Text>
+          )}
           {showDiff ? <CodeBox text={JSON.stringify(state.diff, null, 2)} /> : null}
           {showRaw ? <CodeBox text={prettyJson(state.raw ?? '')} /> : null}
+          {showWorld ? <CodeBox text={prettyJson(state.worldRaw ?? '')} /> : null}
         </>
       )}
     </View>

@@ -339,3 +339,57 @@ export const TURN_STATE_SCHEMA = object({
 });
 
 export const TURN_STATE_SCHEMA_NAME = 'kan_turn_state';
+
+// ---------------------------------------------------------------------------
+// The split (audit 7): a Core call every turn, and a World call only for the
+// areas this turn touched. Both are cut from TURN_STATE_SCHEMA, so the reply
+// they make together reads exactly like one full reply.
+
+export const WORLD_AREAS = ['letters', 'safehouse', 'enemies', 'lives', 'abilities', 'canon', 'weather', 'flashback'] as const;
+export type WorldArea = (typeof WORLD_AREAS)[number];
+
+export const WORLD_AREA_FIELDS: Record<WorldArea, readonly string[]> = {
+  letters: ['letters_sent', 'letters_received'],
+  safehouse: ['safehouse'],
+  enemies: ['reputation', 'bounty_seen', 'epithet', 'consequences', 'consequences_returned', 'grudges'],
+  lives: ['life_events', 'birthdays_learned'],
+  abilities: ['natures_gained', 'abilities_changed'],
+  canon: ['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed'],
+  weather: ['weather'],
+  flashback: ['flashback'],
+};
+
+/** Plain words for each area, for the Debug panel. */
+export const WORLD_AREA_LABEL: Record<WorldArea, string> = {
+  letters: 'letters',
+  safehouse: 'safehouse',
+  enemies: 'reputation and grudges',
+  lives: 'lives and birthdays',
+  abilities: 'natures and abilities',
+  canon: 'canon and news',
+  weather: 'weather',
+  flashback: 'flashback',
+};
+
+const WORLD_FIELD_SET = new Set(Object.values(WORLD_AREA_FIELDS).flat());
+
+export const CORE_FIELDS = Object.keys(TURN_STATE_SCHEMA.properties).filter((field) => !WORLD_FIELD_SET.has(field));
+
+function pickSchema(fields: readonly string[]) {
+  const all = TURN_STATE_SCHEMA.properties as Record<string, unknown>;
+  return object(Object.fromEntries(fields.map((field) => [field, all[field]])));
+}
+
+export const CORE_STATE_SCHEMA = pickSchema(CORE_FIELDS);
+export const CORE_STATE_SCHEMA_NAME = 'kan_turn_core';
+export const WORLD_STATE_SCHEMA_NAME = 'kan_turn_world';
+
+/** The World call's schema: only the fields of the areas that triggered. */
+export function worldStateSchema(areas: readonly WorldArea[]) {
+  return pickSchema(WORLD_AREAS.filter((area) => areas.includes(area)).flatMap((area) => WORLD_AREA_FIELDS[area]));
+}
+
+/** The fields one reply may set: Core's, or the World fields of the areas asked for. */
+export function fieldsOf(call: 'core' | readonly WorldArea[]): string[] {
+  return call === 'core' ? CORE_FIELDS : WORLD_AREAS.filter((area) => call.includes(area)).flatMap((area) => [...WORLD_AREA_FIELDS[area]]);
+}

@@ -17,7 +17,7 @@ import { normalizeDatabase } from '../lib/rpg/db';
 import { resolveCharacterRefs } from '../lib/rpg/entities';
 import { appendStoryMessage, storyMessagesSinceLastSummary } from '../lib/rpg/log';
 import { applyStateStep, applySummaryJob, isJobValid, unsummarizedStory } from '../lib/rpg/memoryJobs';
-import { buildExtractionPrompt, buildNarrationPrompt, getRecentMessages } from '../lib/rpg/prompt';
+import { buildExtractionPrompt, buildNarrationPrompt, getRecentMessages, trackerPromptText } from '../lib/rpg/prompt';
 import { seedDatabase } from '../lib/rpg/seed';
 import { convertStateBlock } from '../lib/rpg/stateBlock';
 import { TURN_STATE_SCHEMA } from '../lib/rpg/stateSchema';
@@ -236,7 +236,7 @@ describe('offers', () => {
   test('the tracker is told about an offer and a waiting memory; the schema has the field', () => {
     const db = quietSave({ sceneCast: ['Suzume'] });
     const shown = playPresent(db, '"Sensei."', 'Suzume turns your old forehead protector over.', { flashback: 'offered' }).db;
-    const tracker = buildExtractionPrompt(shown, '*You stare at it.*', 'The cloth is faded.').messages.map((m) => m.content).join('\n');
+    const tracker = trackerPromptText(buildExtractionPrompt(shown, '*You stare at it.*', 'The cloth is faded.'));
     expect(tracker).toContain('A MEMORY IS WAITING: "Team 3"');
     expect((TURN_STATE_SCHEMA as { properties: Record<string, unknown> }).properties.flashback).toBeDefined();
     expect(convertStateBlock({ flashback: 'started' }).diff?.flashback).toBe('started');

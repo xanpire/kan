@@ -20,7 +20,7 @@ import { resolveCharacterRefs } from '../lib/rpg/entities';
 import { formatLetterOffer } from '../lib/rpg/letters';
 import { appendStoryMessage } from '../lib/rpg/log';
 import { applyStateStep } from '../lib/rpg/memoryJobs';
-import { buildExtractionPrompt, buildNarrationPrompt } from '../lib/rpg/prompt';
+import { buildExtractionPrompt, buildNarrationPrompt, trackerPromptText } from '../lib/rpg/prompt';
 import {
   activeSafehouses,
   currentSafehouse,
@@ -127,7 +127,7 @@ describe('becoming a safehouse', () => {
     expect(Object.keys(props.safehouse.properties ?? {})).toContain('shown_to');
 
     const db = settled();
-    const tracker = buildExtractionPrompt(db, '*You wake.*', 'Morning light in the falls.').messages.map((m) => m.content).join('\n');
+    const tracker = trackerPromptText(buildExtractionPrompt(db, '*You wake.*', 'Morning light in the falls.'));
     expect(tracker).toContain('SAFEHOUSES');
     expect(tracker).toContain('the cave above the falls (own;');
     expect(tracker).toContain('[Kan is here]');

@@ -194,8 +194,12 @@ describe('weather', () => {
 
   test('the state tracker sees the weather and can change it', () => {
     const db = seed();
-    expect(buildExtractionPrompt(db, 'x', 'y').messages[1].content).toContain('WEATHER NOW');
-    expect(buildExtractionPrompt(db, 'x', 'y').messages[0].content).toContain('weather: a few words');
+    // Weather is a World area (audit 7): asked when the turn's words reach it.
+    const rainy = buildExtractionPrompt(db, 'x', 'Rain falls on the road.');
+    expect(rainy.world?.areas).toContain('weather');
+    expect(rainy.world?.messages[1].content).toContain('WEATHER NOW');
+    expect(rainy.world?.messages[1].content).toContain('weather: a few words');
+    expect(buildExtractionPrompt(db, 'x', 'y').world?.areas ?? []).not.toContain('weather');
     expect((TURN_STATE_SCHEMA as { properties: Record<string, unknown> }).properties.weather).toBeTruthy();
     expect(convertStateBlock({ weather: 'Snow starts falling' }).diff.weather).toBe('Snow starts falling');
     expect(convertStateBlock({ weather: null, mood: 'calm' }).diff?.weather).toBeUndefined();

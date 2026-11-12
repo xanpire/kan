@@ -27,7 +27,15 @@ import { settleNewlyMet } from './met';
 import { cloneDatabase } from './log';
 import { buildArcSummaryPrompt, buildSagaPrompt, buildExtractionPrompt, buildSceneSummaryPrompt, buildTimeSkipPrompt } from './prompt';
 import { convertStateBlock, parseJsonObject, repairTruncatedJson } from './stateBlock';
-import { TURN_STATE_SCHEMA, TURN_STATE_SCHEMA_NAME } from './stateSchema';
+import {
+  CORE_STATE_SCHEMA,
+  CORE_STATE_SCHEMA_NAME,
+  WORLD_AREA_LABEL,
+  WORLD_STATE_SCHEMA_NAME,
+  fieldsOf,
+  worldStateSchema,
+  type WorldArea,
+} from './stateSchema';
 import { type TitledSummary, parseTitledSummary, uniqueList } from './util';
 import type { AppDatabase, CalendarDate, RawLogEntry, TurnDiff } from './types';
 import { SCENE_CAST_LIMIT } from './sceneLimits';
@@ -36,6 +44,48 @@ import { SCENE_CAST_LIMIT } from './sceneLimits';
 const STATE_MAX_TOKENS = 3000;
 /** A retry after the first reply hit the cap. */
 const STATE_RETRY_MAX_TOKENS = 4500;
+/** The World call asks for a handful of fields (audit 7). */
+const WORLD_MAX_TOKENS = 1500;
+const WORLD_RETRY_MAX_TOKENS = 2400;
+
+/** Only the given fields of a reply. */
+function pickFields(reply: Record<string, unknown>, fields: string[]) {
+  return Object.fromEntries(fields.filter((field) => field in reply).map((field) => [field, reply[field]]));
+}
+
+type WorldRead = { areas: WorldArea[]; raw: string; parsed: Record<string, unknown> | null; error?: string };
+
+/**
+ * The World call: never throws. A failure or an unreadable reply only loses
+ * those areas for this turn; Core still applies.
+ */
+async function readWorldState(
+  request: ChatRequest,
+  areas: WorldArea[],
+  debugTurnId: string | undefined,
+  signal?: AbortSignal
+): Promise<WorldRead> {
+  try {
+    const first = await withTransientRetry(() => tracedChat('stateWorld', debugTurnId, request), signal);
+    let parsed = parseJsonObject(first.text);
+    let raw = first.text;
+
+    if (!parsed && !signal?.aborted && first.finishReason === 'length') {
+      try {
+        const second = await tracedChat('stateWorld', debugTurnId, { ...request, maxTokens: WORLD_RETRY_MAX_TOKENS });
+        raw = `${first.text}\n\n--- retry ---\n\n${second.text}`;
+        parsed = parseJsonObject(second.text) ?? repairTruncatedJson(second.text);
+      } catch {
+        // Fall through to repairing the first reply.
+      }
+    }
+
+    parsed = parsed ?? repairTruncatedJson(first.text);
+    return { areas, raw, parsed, ...(parsed ? {} : { error: 'unreadable reply' }) };
+  } catch (caught) {
+    return { areas, raw: '', parsed: null, error: caught instanceof Error ? caught.message : String(caught) };
+  }
+}
 
 export function applyTurnDiff(
   db: AppDatabase,
@@ -430,18 +480,42 @@ export async function extractTurnDiff(options: {
     model: db.settings.extractionModel,
     messages: prompt.messages,
     temperature: 0,
-    // The schema asks for every field every turn, and any thinking the model
-    // does counts against this cap too. Too low and the JSON is cut off.
+    // Every Core field is asked every turn, and any thinking the model does
+    // counts against this cap too. Too low and the JSON is cut off.
     maxTokens: STATE_MAX_TOKENS,
     signal,
     reasoning: { effort: 'low', exclude: true },
-    jsonSchema: { name: TURN_STATE_SCHEMA_NAME, schema: TURN_STATE_SCHEMA },
+    jsonSchema: { name: CORE_STATE_SCHEMA_NAME, schema: CORE_STATE_SCHEMA },
   };
 
-  const first = await withTransientRetry(() => tracedChat('state', debugTurnId, request), signal);
+  // The World call runs beside Core, only for the areas this turn touched (audit 7).
+  const worldPromise: Promise<WorldRead | null> = prompt.world
+    ? readWorldState(
+        {
+          ...request,
+          messages: prompt.world.messages,
+          maxTokens: WORLD_MAX_TOKENS,
+          jsonSchema: { name: WORLD_STATE_SCHEMA_NAME, schema: worldStateSchema(prompt.world.areas) },
+        },
+        prompt.world.areas,
+        debugTurnId,
+        signal
+      )
+    : Promise.resolve(null);
+
+  let first: Awaited<ReturnType<typeof tracedChat>>;
+
+  try {
+    first = await withTransientRetry(() => tracedChat('state', debugTurnId, request), signal);
+  } catch (caught) {
+    // Core failed: the whole step is retried later, World with it.
+    await worldPromise;
+    throw caught;
+  }
+
   let raw = first.text;
   let parsed = parseJsonObject(first.text);
-  let note: string | undefined;
+  const notes: string[] = [];
 
   // Unreadable reply: ask once more (with more room if it ran out), and if
   // that fails too, salvage whatever complete part of either reply exists.
@@ -464,19 +538,33 @@ export async function extractTurnDiff(options: {
     }
 
     if (parsed) {
-      note = `First reply unreadable${cutOff ? ' (cut off at the token cap)' : ''}; the retry was read.`;
+      notes.push(`First reply unreadable${cutOff ? ' (cut off at the token cap)' : ''}; the retry was read.`);
     } else {
       const repaired =
         (second ? repairTruncatedJson(second.text) : null) ?? repairTruncatedJson(first.text);
 
       if (repaired) {
         parsed = repaired;
-        note = 'Reply was cut off; the complete part of it was applied.';
+        notes.push('Reply was cut off; the complete part of it was applied.');
       }
     }
   }
 
-  recordDebugState(debugTurnId, { status: 'running', raw, note });
+  const world = await worldPromise;
+  const worldNames = world ? world.areas.map((area) => WORLD_AREA_LABEL[area]).join(', ') : '';
+
+  if (world?.parsed && !parsed) {
+    notes.push(`World (${worldNames}) was read, but is dropped with the unreadable Core reply.`);
+  } else if (world && !world.parsed) {
+    notes.push(`World (${worldNames}) was not read (${world.error ?? 'no reply'}); Core applied without it.`);
+  }
+
+  recordDebugState(debugTurnId, {
+    status: 'running',
+    raw,
+    note: notes.length > 0 ? notes.join(' ') : undefined,
+    ...(world ? { worldRaw: world.raw, worldAreas: world.areas } : {}),
+  });
 
   // Still unreadable: the caller falls back to what the app can read from
   // the prose itself (clock, pace, who is named, jutsu Kan called).
@@ -484,7 +572,12 @@ export async function extractTurnDiff(options: {
     return null;
   }
 
-  const diff = convertStateBlock(parsed).diff;
+  // Core's fields from Core, and only the asked-for areas from World.
+  const merged = {
+    ...pickFields(parsed, fieldsOf('core')),
+    ...(world?.parsed ? pickFields(world.parsed, fieldsOf(world.areas)) : {}),
+  };
+  const diff = convertStateBlock(merged).diff;
 
   return diff ? resolveCharacterRefs(db, diff) : null;
 }

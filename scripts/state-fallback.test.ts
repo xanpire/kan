@@ -111,7 +111,10 @@ describe('state call retry', () => {
     const bodies: Array<Record<string, unknown>> = [];
     const original = globalThis.fetch;
     globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
-      if (init?.body) bodies.push(JSON.parse(String(init.body)));
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+      // The World call (audit 7) runs beside it; this test is about Core.
+      if (body?.response_format?.json_schema?.name === 'kan_turn_world') return reply('{}', 'stop');
+      if (body) bodies.push(body);
       return bodies.length === 1 ? reply('{"scene_pace": "comb', 'length') : reply('{}', 'stop');
     }) as typeof fetch;
 

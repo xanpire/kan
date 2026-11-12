@@ -18,7 +18,7 @@ import { shiftDate } from '../lib/rpg/calendar';
 import { convertStateBlock } from '../lib/rpg/stateBlock';
 import { resolveCharacterRefs } from '../lib/rpg/entities';
 import { applyTurnDiff } from '../lib/rpg/services';
-import { buildExtractionPrompt, buildNarrationPrompt, NARRATION_SYSTEM } from '../lib/rpg/prompt';
+import { buildExtractionPrompt, buildNarrationPrompt, NARRATION_SYSTEM, trackerPromptText } from '../lib/rpg/prompt';
 import { TURN_STATE_SCHEMA } from '../lib/rpg/stateSchema';
 import {
   COOL_AFTER_DAYS,
@@ -228,7 +228,7 @@ describe('grudges: the dark mirror of romance', () => {
     expect(prompt).toContain('SOMEONE WANTS YOU TO PAY');
     expect(prompt).toContain('[grudge: hunting');
     expect(prompt).not.toContain('A FAMILIAR FACE');
-    const statePrompt = buildExtractionPrompt(overdue, '*Kan makes camp.*', 'Goro steps out of the dark.').messages[1].content;
+    const statePrompt = trackerPromptText(buildExtractionPrompt(overdue, '*Kan makes camp.*', 'Goro steps out of the dark.'));
     expect(statePrompt).toContain('REPUTATION & GRUDGES');
     expect(statePrompt).toContain("This turn's offered grudge is");
 

@@ -51,8 +51,10 @@ export function isFilled(value: unknown): boolean {
   return true;
 }
 
+/** A reply as the step read it: after a retry, the retry's half. */
 function readReply(raw: string): Record<string, unknown> | null {
-  return parseJsonObject(raw) ?? repairTruncatedJson(raw);
+  const last = raw.split('--- retry ---').at(-1) ?? raw;
+  return parseJsonObject(last) ?? repairTruncatedJson(last);
 }
 
 export function trackerFieldStats(turns: DebugTurn[]): TrackerStats {
@@ -65,7 +67,10 @@ export function trackerFieldStats(turns: DebugTurn[]): TrackerStats {
     const raw = turn.state?.raw;
 
     if (typeof raw === 'string') {
-      const reply = readReply(raw);
+      const core = readReply(raw);
+      // The World call's reply, when it ran, adds its own fields (audit 7).
+      const world = typeof turn.state?.worldRaw === 'string' ? readReply(turn.state.worldRaw) : null;
+      const reply = core ? { ...core, ...(world ?? {}) } : null;
 
       if (reply) {
         read += 1;

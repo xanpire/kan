@@ -46,7 +46,7 @@ import {
 import { appendStoryMessage } from '../lib/rpg/log';
 import { applyStateStep } from '../lib/rpg/memoryJobs';
 import { latestPov, parsePovLines, povCandidates, povInstruction, resolvePovs } from '../lib/rpg/povMemories';
-import { buildExtractionPrompt, buildNarrationPrompt, buildSceneSummaryPrompt } from '../lib/rpg/prompt';
+import { buildExtractionPrompt, buildNarrationPrompt, buildSceneSummaryPrompt, trackerPromptText } from '../lib/rpg/prompt';
 import { bingoListings, ensureLeafListing } from '../lib/rpg/reputation';
 import {
   applyEpithet,
@@ -79,7 +79,7 @@ const update = (db: AppDatabase, name: string, change: Partial<EntityRecord>): A
 const affinity = (db: AppDatabase, id: string) => db.bonds.find((bond) => bond.entityId === id)?.affinity ?? 0;
 const narratorText = (db: AppDatabase, input = '*You wait.*') =>
   buildNarrationPrompt(db, input).messages.map((message) => message.content).join('\n');
-const trackerText = (db: AppDatabase) => buildExtractionPrompt(db, '*You wait.*', 'Nothing happens.').messages[1].content;
+const trackerText = (db: AppDatabase, narration = 'Nothing happens.') => trackerPromptText(buildExtractionPrompt(db, '*You wait.*', narration));
 
 function play(db: AppDatabase, input: string, narration: string, block: Record<string, unknown>) {
   let next = appendStoryMessage(db, 'user', input, null, 0, 0);
@@ -275,7 +275,7 @@ describe('better letters', () => {
     expect(resolved.lettersReceived?.[0]).toMatchObject({ name: 'Suzume', text: 'Eat something.' });
     // Older replies (a list of ids) still read.
     expect(convertStateBlock({ letters_received: ['suzume'] }).diff?.lettersReceived?.[0].name).toBe('suzume');
-    expect(trackerText(db)).toContain('ONLY spelling, commas and punctuation corrected');
+    expect(trackerText(db, 'A hawk lands with a letter.')).toContain('ONLY spelling, commas and punctuation corrected');
   });
 });
 
