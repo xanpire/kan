@@ -457,3 +457,6 @@ const styles = StyleSheet.create({
     color: colors.textSoft,
   },
 });
+
+// A crash while drawing shows Reload and Export instead of a white screen (audit 9).
+export { TabErrorBoundary as ErrorBoundary } from '@/components/TabErrorBoundary';

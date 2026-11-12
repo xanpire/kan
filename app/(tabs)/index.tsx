@@ -2212,3 +2212,6 @@ const styles = StyleSheet.create({
 function capitalize(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+// A crash while drawing shows Reload and Export instead of a white screen (audit 9).
+export { TabErrorBoundary as ErrorBoundary } from '@/components/TabErrorBoundary';
