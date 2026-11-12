@@ -1104,7 +1104,12 @@ export type PortraitRecord = {
 export type TurnSnapshot = {
   id: string;
   turn: number;
-  database: AppDatabase;
+  /** The save before the turn, without its story log, snapshots or images. */
+  database: Omit<AppDatabase, 'rawLog' | 'snapshots' | 'portraits' | 'characterPortraits' | 'characterFaces'>;
+  /** How long the story log was before the turn. Undo cuts the live log back to this. */
+  rawLogLength: number;
+  /** Copies of the last log entries before the turn (`SNAPSHOT_TAIL`), restored as they were. */
+  rawLogTail: RawLogEntry[];
   createdAt: number;
 };
 

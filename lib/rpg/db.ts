@@ -10,6 +10,7 @@ import { classifyThread, knowersOf } from './facts';
 
 import { DEFAULT_SETTINGS, emptyIndex, normalizePromptBudget } from './defaults';
 import { makeId } from './id';
+import { isCurrentSnapshot } from './log';
 import { stripNarrationJson } from './prompt';
 import { CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from './canonData';
 import { dropBareNatureJutsu, normalizeJutsuNature } from './jutsu';
@@ -910,7 +911,8 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       : [],
     state: normalizeState(db.state),
     indices: db.indices ?? emptyIndex(),
-    snapshots: Array.isArray(db.snapshots) ? db.snapshots : [],
+    // Snapshots from before v1.24.37 held the whole story log: dropped (audit 9).
+    snapshots: Array.isArray(db.snapshots) ? db.snapshots.filter(isCurrentSnapshot) : [],
     portraits: Array.isArray(db.portraits)
       ? db.portraits.filter((portrait) => portrait && typeof portrait.image === 'string')
       : [],

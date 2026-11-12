@@ -66,9 +66,10 @@ describe('22. indices and undo snapshots', () => {
     db = pushSnapshot(db);
 
     expect(db.snapshots).toHaveLength(SNAPSHOT_LIMIT);
-    const latest = db.snapshots.at(-1)!.database;
-    expect(latest.characterPortraits).toBeUndefined();
-    expect(latest.rawLog[0].image).toBeNull();
+    const latest = db.snapshots.at(-1)!;
+    expect((latest.database as any).characterPortraits).toBeUndefined();
+    expect((latest.database as any).rawLog).toBeUndefined();
+    expect(latest.rawLogLength).toBe(db.rawLog.length);
 
     const restored = restoreLastSnapshot(db)!;
     expect(restored.characterPortraits?.[0].image).toBe('img:portrait');

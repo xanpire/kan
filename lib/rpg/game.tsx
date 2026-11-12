@@ -896,9 +896,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       try {
         // Following an offered memory: the flashback plays from this turn.
         const start = (db: AppDatabase) => (remember ? beginFlashback(db, remember) : db);
-        const snapshotDb = start(pushSnapshot(current));
+        // The prompt is built without a snapshot: the one undo uses is taken
+        // when the turn is saved (below), on the latest copy of the slot.
         const withUser = appendStoryMessage(
-          snapshotDb,
+          start(current),
           'user',
           action,
           null,

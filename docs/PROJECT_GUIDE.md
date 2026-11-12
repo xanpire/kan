@@ -81,7 +81,7 @@ Tech: Expo SDK 54, Expo Router, React Native Web, TypeScript, `bun` as package m
 | `kan.slot.<slotId>.v1` | IndexedDB `kan-saves` / `slots` (`slotStore.ts`) | One `AppDatabase` JSON per save slot |
 | `kan.apiKey.v1` | AsyncStorage (localStorage) | OpenRouter API key (never stored in slots or exports) |
 
-Slots live in IndexedDB because localStorage is ~5 MB for the whole app, shared by every slot, and a long story with its undo snapshots (each a full copy) outgrows that after a few hundred turns. `slotStore.ts` picks the backend once per session (IndexedDB, or AsyncStorage on native / when IndexedDB was never used and can't open), moves an old localStorage copy into IndexedDB on first read and then removes it, and asks for `navigator.storage.persist()` so the browser doesn't evict the data under storage pressure. Images are in a separate IndexedDB (`kan-images`, `imageStore.ts`).
+Slots live in IndexedDB because localStorage is ~5 MB for the whole app, shared by every slot, and a long story outgrows that after a few hundred turns. `slotStore.ts` picks the backend once per session (IndexedDB, or AsyncStorage on native / when IndexedDB was never used and can't open), moves an old localStorage copy into IndexedDB on first read and then removes it, and asks for `navigator.storage.persist()` so the browser doesn't evict the data under storage pressure. Images are in a separate IndexedDB (`kan-images`, `imageStore.ts`).
 
 **A save is never silently replaced.**
 
@@ -341,6 +341,7 @@ Main file: `lib/rpg/game.tsx` (`GameProvider`).
 
 ### `undoLastTurn` / `regenerate`
 
+- **Snapshots are slim** (`createSnapshot`, v1.24.37): everything but the story log, the images and the other snapshots, plus the log's length before the turn and copies of its last `SNAPSHOT_TAIL` (2) entries. A turn only appends to the log and may stamp its newest entries, so undo rebuilds the log as the live log cut back to that length with the tail copies put back; if the live log no longer lines up with the snapshot (shorter, or a tail id differs), there is nothing to undo. Snapshots from before v1.24.37 held the whole log and are dropped on load. The prompt for a turn is built without a snapshot; the only one is taken when the turn is saved.
 - Undo restores the most recent snapshot (taken just before the turn was saved), then `carryOverMemory` keeps summaries that finished later if everything they were written from still exists (`sourceLogIds` / `sourceSummaryIds`), plus pending jobs that still apply.
 - `carryOverMemory` also keeps the live `settings` and `meta`: undo takes back story, not the model you just picked, the story's name or when you last exported.
 - Undo keeps the last 5 turns (`SNAPSHOT_LIMIT`). After an undo a toast offers **Redo** for 8 s (`REDO_WINDOW_MS`, `redoLastUndo`): the save as it was before the undo is held in memory and put back only if no new turn happened since and the same story is open.

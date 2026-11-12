@@ -11,32 +11,59 @@ export function currentTurn(db: AppDatabase) {
   return db.rawLog.filter((message) => message.kind === 'story').length + 1;
 }
 
-/** Undo keeps this many turns. Snapshots hold no images, so they stay small. */
+/** Undo keeps this many turns. Snapshots hold no images and no story log, so they stay small. */
 export const SNAPSHOT_LIMIT = 5;
+
+/**
+ * How many log entries before the turn a snapshot keeps a copy of. A turn
+ * only appends to the log (and may stamp the newest entries), so the rest
+ * is the live log cut back to the snapshot's length.
+ */
+export const SNAPSHOT_TAIL = 2;
 
 const isInline = (value: string | null | undefined) => typeof value === 'string' && value.startsWith('data:');
 
 /**
- * A lightweight copy of the state before a turn: everything but images.
- * Image references (img:…) are kept; inline images and the portrait and
- * face collections are left out, and come back from the live save on undo.
+ * A lightweight copy of the state before a turn: everything but images and
+ * the story log. Image references (img:…) are kept; inline images and the
+ * portrait and face collections are left out, and come back from the live
+ * save on undo. The log is kept as its length plus its last entries.
  */
 export function createSnapshot(db: AppDatabase): TurnSnapshot {
-  const { snapshots: _snapshots, portraits: _portraits, characterPortraits: _cp, characterFaces: _cf, ...rest } = db;
-  const snapshotDatabase = cloneDatabase({
-    ...rest,
-    snapshots: [],
-    rawLog: db.rawLog.map((entry) => (isInline(entry.image) ? { ...entry, image: null } : entry)),
-  } as AppDatabase);
+  const {
+    snapshots: _snapshots,
+    rawLog,
+    portraits: _portraits,
+    characterPortraits: _cp,
+    characterFaces: _cf,
+    ...rest
+  } = db;
+  const database = JSON.parse(JSON.stringify(rest)) as TurnSnapshot['database'];
+  const tail = rawLog
+    .slice(-SNAPSHOT_TAIL)
+    .map((entry) => (isInline(entry.image) ? { ...entry, image: null } : entry));
 
-  const snapshot: TurnSnapshot = {
+  return {
     id: makeId('snapshot'),
     turn: currentTurn(db),
-    database: snapshotDatabase,
+    database,
+    rawLogLength: rawLog.length,
+    rawLogTail: JSON.parse(JSON.stringify(tail)) as RawLogEntry[],
     createdAt: Date.now(),
   };
+}
 
-  return snapshot;
+/** A snapshot in the current shape (log length and tail, no full log). Older ones are dropped. */
+export function isCurrentSnapshot(snapshot: unknown): snapshot is TurnSnapshot {
+  const value = snapshot as Partial<TurnSnapshot> | null;
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      value.database &&
+      typeof value.rawLogLength === 'number' &&
+      Array.isArray(value.rawLogTail) &&
+      !('rawLog' in (value.database as object))
+  );
 }
 
 export function pushSnapshot(db: AppDatabase, limit = SNAPSHOT_LIMIT): AppDatabase {
@@ -52,17 +79,36 @@ export function pushSnapshot(db: AppDatabase, limit = SNAPSHOT_LIMIT): AppDataba
 export function restoreLastSnapshot(db: AppDatabase): AppDatabase | null {
   const snapshot = db.snapshots[db.snapshots.length - 1];
 
-  if (!snapshot) {
+  if (!snapshot || !isCurrentSnapshot(snapshot)) {
     return null;
   }
 
-  const restored = cloneDatabase(snapshot.database);
+  const { rawLogLength, rawLogTail } = snapshot;
+  const keep = rawLogLength - rawLogTail.length;
+
+  // The live log must still hold everything the snapshot cut off, ending
+  // where the snapshot's tail begins; otherwise there is nothing safe to undo to.
+  if (keep < 0 || db.rawLog.length < rawLogLength) {
+    return null;
+  }
+
+  for (let index = 0; index < rawLogTail.length; index += 1) {
+    if (db.rawLog[keep + index]?.id !== rawLogTail[index].id) {
+      return null;
+    }
+  }
+
+  const restored = cloneDatabase({ ...snapshot.database, rawLog: [], snapshots: [] } as AppDatabase);
   restored.snapshots = db.snapshots.slice(0, -1);
   // Images are not in snapshots: they come from the live save.
-  const liveImages = new Map(db.rawLog.filter((entry) => entry.image).map((entry) => [entry.id, entry.image]));
-  restored.rawLog = restored.rawLog.map((entry) =>
+  const liveImages = new Map(
+    db.rawLog.slice(keep, rawLogLength).filter((entry) => entry.image).map((entry) => [entry.id, entry.image])
+  );
+  const tail = (JSON.parse(JSON.stringify(rawLogTail)) as RawLogEntry[]).map((entry) =>
     !entry.image && liveImages.has(entry.id) ? { ...entry, image: liveImages.get(entry.id) } : entry
   );
+  // Entries before the tail are shared with the live log: a turn never changes them.
+  restored.rawLog = [...db.rawLog.slice(0, keep), ...tail];
   restored.portraits = db.portraits;
   restored.characterPortraits = db.characterPortraits;
   restored.characterFaces = db.characterFaces;

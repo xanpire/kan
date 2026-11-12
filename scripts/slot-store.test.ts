@@ -96,12 +96,13 @@ describe('slot storage', () => {
 
   test('a long story with undo snapshots that would overflow localStorage saves whole', async () => {
     localCap = 5_000_000;
-    const db = bigStory(1200);
+    // Snapshots no longer copy the log (audit 9), so the log alone has to be big.
+    const db = bigStory(2000);
     const size = JSON.stringify(db).length;
     expect(size).toBeGreaterThan(localCap);
     await saveSlot(db);
     const back = await loadSlot('slot_test');
-    expect(back.rawLog.length).toBe(1200);
+    expect(back.rawLog.length).toBe(2000);
     expect(back.snapshots.length).toBe(3);
   });
 

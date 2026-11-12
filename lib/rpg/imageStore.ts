@@ -526,13 +526,7 @@ export async function externalizeImages(db: AppDatabase): Promise<AppDatabase | 
   // Snapshots are kept (undo needs them); they never hold inline images.
   const snapshots = db.snapshots.map((snapshot) => ({
     ...snapshot,
-    database: {
-      ...snapshot.database,
-      rawLog: snapshot.database.rawLog.map((entry) => (isDataUri(entry.image) ? { ...entry, image: null } : entry)),
-      portraits: undefined,
-      characterPortraits: undefined,
-      characterFaces: undefined,
-    },
+    rawLogTail: (snapshot.rawLogTail ?? []).map((entry) => (isDataUri(entry.image) ? { ...entry, image: null } : entry)),
   }));
 
   return { ...db, rawLog, portraits, characterPortraits, characterFaces, snapshots };
