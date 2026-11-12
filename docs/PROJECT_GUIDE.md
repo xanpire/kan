@@ -1068,6 +1068,7 @@ Add a `formatX` function and insert it into the `buildDynamic` array. Keep it sh
 | Save quota error | Slots should be in IndexedDB — check `slotBackend()`. On the AsyncStorage fallback `saveSlot` trims images/snapshots; clearing old slots helps. |
 | Need to see what really happened | Settings → Debug: prompt, state diff, tokens and cost per turn. |
 | PWA stale | Bump version so `generate-sw.js` changes the cache name; rebuild. |
+| 404 on a refresh or a deep link (Vercel) | `vercel.json`: `cleanUrls` serves the static export's `settings.html` / `kan.html` for `/settings` / `/kan`, and `/bond/:id` is rewritten to `bond/[id].html`. A new dynamic route needs its own rewrite. The service worker keeps each route's page under its own path (only OK responses) and falls back to `/` offline. |
 
 ---
 

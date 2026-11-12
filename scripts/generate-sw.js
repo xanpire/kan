@@ -56,15 +56,20 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.mode === 'navigate') {
+    // Each route's page is kept under its own path (/settings, /kan), so a
+    // sub-route opens offline too; anything not seen yet falls back to '/'.
+    const key = url.pathname;
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(key, copy));
+          }
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match('/');
+          const cached = (await caches.match(key)) || (await caches.match('/'));
           return cached || new Response('Offline', { status: 503 });
         })
     );

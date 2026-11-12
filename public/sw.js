@@ -1,5 +1,5 @@
-const CACHE_NAME = 'kan-shell-1-21-0';
-const APP_SHELL = ["/","/manifest.webmanifest?v=1.21.0","/icon-192.png?v=1.21.0","/icon-512.png?v=1.21.0","/icon-maskable-512.png?v=1.21.0","/apple-touch-icon.png?v=1.21.0"];
+const CACHE_NAME = 'kan-shell-1-24-47';
+const APP_SHELL = ["/","/manifest.webmanifest?v=1.24.47","/icon-192.png?v=1.24.47","/icon-512.png?v=1.24.47","/icon-maskable-512.png?v=1.24.47","/apple-touch-icon.png?v=1.24.47"];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -36,15 +36,20 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.mode === 'navigate') {
+    // Each route's page is kept under its own path (/settings, /kan), so a
+    // sub-route opens offline too; anything not seen yet falls back to '/'.
+    const key = url.pathname;
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(key, copy));
+          }
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match('/');
+          const cached = (await caches.match(key)) || (await caches.match('/'));
           return cached || new Response('Offline', { status: 503 });
         })
     );
