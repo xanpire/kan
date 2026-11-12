@@ -164,8 +164,8 @@ describe('the scene prompt', () => {
     expect(noon).toContain('harsh noon sun');
     expect(noon).not.toMatch(/\brain\b/);
 
-    expect(lightLine(at(seed(), 5, 'snow'), 'Kan waits.')).toContain('dawn');
-    expect(lightLine(at(seed(), 5, 'snow'), 'Kan waits.')).toContain('snow');
+    expect(lightLine(at(seed(), 6, 'snow'), 'Kan waits.')).toContain('dawn');
+    expect(lightLine(at(seed(), 6, 'snow'), 'Kan waits.')).toContain('snow');
     expect(lightLine(at(seed(), 18), 'Kan waits.')).toContain('golden hour');
     expect(colourAccent('Kan lights the black flames of Amaterasu')).toContain('violet');
     expect(colourAccent('A Chidori screams in his hand')).toContain('white-blue');

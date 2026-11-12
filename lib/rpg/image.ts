@@ -16,6 +16,7 @@ import {
   jutsuLines,
   jutsuOnScreen,
   lightLine,
+  lightNow,
   lookTags,
   recentShots,
   sceneMoment,
@@ -210,7 +211,7 @@ SHOT: frame that instant like an anime key frame in a wide 16:9 frame. One line,
 - composition: where the subject sits (lower third, off-center, tiny in frame, filling the frame), and what fills the rest of the wide frame (open sky, smoke, flames, the jutsu, the landscape)
 - focus: the ONE person who gets the sharpest light and the most space in the frame (usually Kan)
 - emotion at its peak, shown physically (screaming with veins on the neck, tears streaking a bloodied face, eyes wide with Sharingan spinning)
-- light and effects: light source and colour, motion (wind-whipped hair and cloak, speed lines, debris, embers, dust, chakra glow)
+- light and effects: the light given under "Light now" (never a sunset or a bright sky after dark, never sun under thick cloud), its colour, motion (wind-whipped hair and cloak, speed lines, debris, embers, dust, chakra glow)
 Pick the shot that sells the moment:
 - emotional peak: close-up or extreme close-up on a face
 - jutsu or power: low angle or worm's-eye, the effect filling most of the frame
@@ -328,6 +329,7 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
         }).join(', ')}.` : 'Known people in the scene: none besides Kan.',
     notes.length > 0 ? `How they are: ${notes.join('; ')}.` : '',
     `Time and weather: ${timeOfDayOf(moment.date)}, ${String(moment.date.hour ?? 12).padStart(2, '0')}:${String(moment.date.minute ?? 0).padStart(2, '0')}; ${moment.weatherText ?? CONDITION_INFO[moment.condition].label}${moment.indoors ? ' (indoors)' : ''}.`,
+    `Light now: ${lightNow(db, Boolean(reply.flashback))}.`,
     ...jutsu.map((record) => `Jutsu in this turn: ${record.name} looks like this: ${record.visual.trim()}`),
     art ? `ART DIRECTION for this moment in canon (a hint; still frame it around Kan and what he does): ${art}.` : '',
     reply.imageWorthy && !forced ? 'This is a key moment: go big.' : '',
@@ -511,6 +513,13 @@ export function buildSceneImagePrompt(
     lines.push(`SHOT: ${options.shot}`);
   }
 
+  // The light right after the camera: the clock and the weather decide it, and
+  // the model weights early lines most (Session 1: a sunset painted after dark).
+  // Not for impact frames: flat colour.
+  if (!impact) {
+    lines.push(lightLine(db, sceneText, Boolean(memoryReply)));
+  }
+
   lines.push(`ACTION (depict this exactly): ${action}`);
 
   if (art) {
@@ -518,11 +527,6 @@ export function buildSceneImagePrompt(
   }
 
   lines.push(...jutsuLines(jutsu));
-
-  // 4. Light and atmosphere from the real weather and clock (not for impact frames: flat colour).
-  if (!impact) {
-    lines.push(lightLine(db, sceneText, Boolean(memoryReply)));
-  }
 
   if (memoryNote) {
     lines.push(memoryNote);

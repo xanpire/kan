@@ -8,6 +8,7 @@ import { CANON_MILESTONES } from './canonData';
 import { mentionsEntity } from './characterRefs';
 import { secondsBetween } from './calendar';
 import { currentWeather } from './weather';
+import { sunsetHour } from './ambience';
 import type { AppDatabase, CalendarDate, JutsuRecord, RawLogEntry, WeatherCondition } from './types';
 
 // ---------------------------------------------------------------------------
@@ -140,20 +141,89 @@ const WEATHER_VISUAL: Record<WeatherCondition, { day: string; night?: string }> 
   humid: { day: 'hazy, humid air with a soft glow' },
 };
 
-function lightOfHour(hour: number, indoors: boolean) {
+/** Weather that hides the sun and the moon: no burning sky, no moonlight. */
+const SKY_HIDDEN = new Set<WeatherCondition>([
+  'cloudy', 'drizzle', 'rain', 'downpour', 'storm', 'fog', 'snow', 'blizzard', 'sleet', 'sandstorm',
+]);
+
+export type SkyPhase = 'night' | 'before-dawn' | 'sunrise' | 'morning' | 'noon' | 'afternoon' | 'golden' | 'sunset' | 'blue-hour';
+
+/** Roughly when the sun rises: mirrored around a solar noon of about 12:15. */
+export function sunriseHour(month: number | undefined): number {
+  return 24.5 - sunsetHour(month);
+}
+
+/**
+ * Where the sun is at this moment, from the clock and the month's real
+ * sunrise and sunset (Session 1: 7:12 PM in autumn was painted as a bright
+ * sunset; the sun had set more than an hour before).
+ */
+export function skyPhase(date: CalendarDate): SkyPhase {
+  const h = Math.max(0, Math.min(23, date.hour ?? 12)) + Math.max(0, Math.min(59, date.minute ?? 0)) / 60;
+  const set = sunsetHour(date.month);
+  const rise = sunriseHour(date.month);
+
+  if (h < rise - 1 || h >= set + 1.25) return 'night';
+  if (h < rise) return 'before-dawn';
+  if (h < rise + 1) return 'sunrise';
+  if (h < 10.5) return 'morning';
+  if (h < 14.5) return 'noon';
+  if (h < set - 1.5) return 'afternoon';
+  if (h < set) return 'golden';
+  if (h < set + 0.5) return 'sunset';
+  return 'blue-hour';
+}
+
+/** After the sun is down: the image must not show a sunset or a daylight sky. */
+export function isDark(phase: SkyPhase) {
+  return phase === 'night' || phase === 'before-dawn' || phase === 'blue-hour';
+}
+
+const OPEN_SKY: Record<SkyPhase, string> = {
+  night: 'night: moonlight and deep blue shadows, the sky black',
+  'before-dawn': 'the grey-blue first light before dawn, the sun not yet up, no colour in the sky',
+  sunrise: 'dawn: a cold blue sky warming to a pink and gold horizon',
+  morning: 'clean morning light, long soft shadows',
+  noon: 'harsh noon sun, short hard shadows',
+  afternoon: 'warm afternoon light',
+  golden: 'golden hour: the sun low, warm orange light and long shadows',
+  sunset: 'just after sunset: the sun gone below the horizon, a fading orange band low in the sky, the land falling into shadow',
+  'blue-hour': 'deep dusk after sunset: a dark blue sky, the last faint light on the horizon, the land almost black',
+};
+
+const HIDDEN_SKY: Record<SkyPhase, string> = {
+  night: 'a dark night under thick cloud: no moon, no stars, the land nearly black',
+  'before-dawn': 'grey pre-dawn gloom under low cloud',
+  sunrise: 'a grey dawn, the sun hidden behind cloud',
+  morning: 'flat grey morning light, the sun hidden',
+  noon: 'flat grey daylight, no sun and no hard shadows',
+  afternoon: 'dull grey afternoon light, the sun hidden',
+  golden: 'a dim late afternoon, the sun hidden, the light fading grey',
+  sunset: 'a dim grey dusk, no sun and no sunset colours',
+  'blue-hour': 'a dark grey-blue dusk under cloud, light almost gone',
+};
+
+function lightOfMoment(date: CalendarDate, condition: WeatherCondition, indoors: boolean) {
+  const phase = skyPhase(date);
+
   if (indoors) {
-    return hour >= 7 && hour <= 18
-      ? 'daylight falling through openings, deep shadows inside'
-      : 'warm lamplight and torchlight, deep shadows';
+    return isDark(phase)
+      ? 'warm lamplight and torchlight, deep shadows; dark outside'
+      : 'daylight falling through openings, deep shadows inside';
   }
 
-  if (hour >= 4 && hour <= 6) return 'dawn: a cold blue sky warming to a pink and gold horizon';
-  if (hour >= 7 && hour <= 10) return 'clean morning light, long soft shadows';
-  if (hour >= 11 && hour <= 14) return 'harsh noon sun, short hard shadows';
-  if (hour >= 15 && hour <= 16) return 'warm afternoon light';
-  if (hour >= 17 && hour <= 19) return 'golden hour sliding into dusk: a burning orange sky, long shadows';
-  if (hour >= 20 && hour <= 21) return 'blue hour dusk, the last light on the horizon';
-  return 'night: moonlight and deep blue shadows';
+  return (SKY_HIDDEN.has(condition) ? HIDDEN_SKY : OPEN_SKY)[phase];
+}
+
+/** One short line for the director: what the light is right now. */
+export function lightNow(db: AppDatabase, inMemory = false): string {
+  const moment = sceneMoment(db, inMemory);
+  const phase = skyPhase(moment.date);
+  const text = lightOfMoment(moment.date, moment.condition, moment.indoors);
+
+  return isDark(phase) && !moment.indoors
+    ? `${text}. It is dark: never a sunset or a daylight sky`
+    : text;
 }
 
 /** Colour accents a scene's effects give it, from its words. */
@@ -205,17 +275,17 @@ export function sceneMoment(db: AppDatabase, inMemory: boolean): {
 /** One line of light and atmosphere from the real weather and time of day. */
 export function lightLine(db: AppDatabase, sceneText: string, inMemory = false): string {
   const moment = sceneMoment(db, inMemory);
-  const hour = Math.max(0, Math.min(23, moment.date.hour ?? 12));
-  const night = hour >= 22 || hour <= 3;
+  const night = isDark(skyPhase(moment.date));
   const visual = WEATHER_VISUAL[moment.condition];
   const weather = moment.weatherText?.trim() || (night && visual.night ? visual.night : visual.day);
   const accent = colourAccent(sceneText);
 
   return [
-    `Light and atmosphere: ${lightOfHour(hour, moment.indoors)}`,
+    `Light and atmosphere: ${lightOfMoment(moment.date, moment.condition, moment.indoors)}`,
     moment.indoors ? `; outside, ${weather}` : `; ${weather}`,
     accent ? `; colour accent: ${accent}` : '',
     '.',
+    night && !moment.indoors ? ' It is dark: no sunset, no sun, no daylight sky.' : '',
   ].join('');
 }
 
