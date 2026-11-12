@@ -520,7 +520,7 @@ Before they are applied, `filterCanonMarks` (`newsDelivery.ts`) keeps only ids t
 
 Decided by Xan. A turn may cover a long stretch only when the player asks for it: `requestedSkip` reads "time skip", "skip ahead", "let time pass", "N weeks/months/years later / pass", "train/wait/travel/rest/stay/… for N units", "until spring" (2 days at least). The Story status sheet's **Let time pass** asks how long (a week to 3 years) and what Kan does meanwhile, and sends `*Time passes: 3 months. …*`.
 
-- **Limit** (`skipLimit`): at most 3 years (`MAX_SKIP_SECONDS`), and never past the day before the next personal canon beat opens (`nextPersonalBeat`), so nothing personal is lost by accident. Never in a fight or a chase.
+- **Limit** (`skipLimit`): at most 3 years (`MAX_SKIP_SECONDS`), and never past the day before the next personal canon beat opens (`nextPersonalBeat`), so nothing personal is lost by accident. Never in a fight or a chase: the status sheet's Let time pass is disabled in a fight and says why (`timeSkipBlocked` in `sceneMode.ts`, audit 4.9), and a typed request in a fight (or one the tracker doesn't agree with) is refused with a `refused` event in Debug.
 - **Narrator**: a `TIME SKIP` line in the dynamic block (compress the stretch into one reply, say plainly how long passed, end at the first moment that needs Kan; if it stops early, say how long actually passed; the world's news still comes only through people). NARRATION_SYSTEM carries the same rule.
 - **Clock** (`allowedSkip` in `applyStateStep`): the skip stands only when the tracker's `time.elapsed` agrees within 25% with what was asked or what was allowed; then `resolveTurnClock({ skipSeconds })` replaces the pace cap. A `mode` event in Debug says how long. The tracker's units now include weeks, months and years (`TIME_UNITS`), read up to 3 years.
 - **Catching up**: the rest is the ordinary state step on the new date: `advanceCanon` fires every world milestone in the stretch, lives, letters, rent, weather and ages follow the date, a stretch of 180 days or more queues the `timeSkip` summary, and the news comes as a catch-up report on the following turns.
@@ -600,14 +600,16 @@ Edo Tensei brings the dead back without making them alive. `EntityRecord.reanima
 
 ### `lib/rpg/timeparse.ts`
 
-`detectNarrationTime(text, current)` returns `{ elapsedSeconds, clock?, periodHint?, sleptNight? }`:
+`detectNarrationTime(text, current)` returns `{ elapsedSeconds, clock?, arrival?, periodHint?, landing?, sleptNight? }`:
 
 - Fixed phrases: heartbeat/instant (2 s), few seconds (5 s), short rest/nap (30 min), seconds of fighting (15 s).
 - A (good/full/long) night’s sleep or “slept through the night / until dawn” sets `sleptNight` instead of fixed hours.
 - Number + unit (seconds … `years`) only with an elapsed marker, matched as whole words: after the duration (`later`, `pass/passes/passed`, `go by`, `of travel`, `in training`…) or a spending verb before it in the same sentence, past or present tense (`spend/spent`, `walk/walks/walked`, `wait`, `rest`, `sleep`, `march`, `run`, `ride`, `train`, `search`, `take`, `for`). Not when it is a plan, a need, the past or a frequency (`will`, `would`, `need`, `had been`, `in two days`, `every`, `ago`, `of stubble`…). “Hours pass” alone counts as 2 h.
 - **No calendar dates are read from prose** (the narrator may not write them; “the first may be a decoy” used to jump to May).
 - Named hours are strict: digits (`at 7:30`, `by 3:40 PM`) count alone; a number word needs a suffix (`o'clock`, am/pm, `in the evening`, `at night`), so “at one point” and “watched by two guards” are never times. With no am/pm the hour is the **next occurrence** ahead of the clock (“at 7:00” at 5 PM is 7 PM).
-- Period words move the clock only as events: “dawn breaks”, “night falls”, “it is evening now”, “the sun sets”. A bare “until nightfall” / “by morning” is only a `periodHint`, which `resolveTurnClock` uses to accept the tracker’s `clock_time` when it lies within 3 h of that period.
+- Period words move the clock only as events: “dawn breaks”, “night falls”, “it is evening now”, “the sun sets”. When the reply passes through several, the **last** one counts. A bare “until nightfall” / “by morning” is only a `periodHint`, which `resolveTurnClock` uses to accept the tracker’s `clock_time` when it lies within 3 h of that period.
+- **Arrivals** (audit 4.7): the last sentence with an arrival verb (`reach`, `arrive`, `make it`, `make camp`, `halt`…) and no plan or condition in it (`would`, `need to`, `if`…) is where the turn lands. An hour or period event in it beats every other hour in the reply. A time of day in it (“by the **late afternoon** of the second day, you reach the border”; shades: early / mid / late) is `arrival`: the dawns and dusks on the way no longer count, and `resolveTurnClock` lands on it when there is no stated duration, or when it is near where the duration ends (12 h on a journey of a day or more, otherwise max(30 min, 25%)). “Two hours later, by dusk, you reach the river” from 8 AM contradicts itself: the duration wins.
+- `landing`: the last time of day the reply names at all (“on the morning of the twenty-ninth day”). Only a time skip uses it.
 - “The next morning” adds a day, except after midnight and before 7 AM, where it is later the same day.
 
 `applyParsedTime(current, parsed)` applies elapsed then clock (rolling days as needed).
@@ -620,6 +622,7 @@ Edo Tensei brings the dead back without making them alive. `EntityRecord.reanima
 - `secondsUntilMorning(current)` — seconds to the next 7:00; going to bed after 3 AM sleeps 8 h instead.
 - `resolveTurnClock({reportedSeconds, reportedClock, detected, pace, sceneEnded, current})` — the single source of truth used by `applyStateStep`. Returns `{ elapsedSeconds, minimumSeconds, storyTimed }`, where `elapsedSeconds` is the whole forward step:
   - story time (capped) → then a stated hour (parser first, then the state model’s `clock_time`) on the day the story reached, or the next occurrence of that hour; an hour up to 60 min behind the clock is treated as a restatement of “now” and ignored;
+  - a time skip (`skipSeconds`) keeps its length and lands on the prose's `landing` time of day (else the tracker's `clock_time`), at the occurrence nearest the skip's end (audit 4.8);
   - `sleptNight` jumps to the next morning (or later if the story says so);
   - finally `max(minimum, that step)`, so the clock always moves forward;
   - combat/chase with an unfinished scene: no date jumps, no backward hours, no sleep jump.

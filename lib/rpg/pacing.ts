@@ -1,4 +1,4 @@
-import { advanceSeconds, dateSortValue, paceCapSeconds, secondsBetween, setClock } from './calendar';
+import { advanceSeconds, dateSortValue, paceCapSeconds, secondsBetween, setClock, shiftSeconds } from './calendar';
 import type { CalendarDate, ScenePace } from './types';
 
 const COMBAT = /\b(fight|fights|fighting|fought|battle|clash|clashes|strike|strikes|blade|blades|kunai|shuriken|parry|dodge|blood|jutsu|punch|kick|choke|chokes|choked|choking|strangle|opponent|enemy|ambush|skirmish|duel|cut|wound)\b/i;
@@ -168,6 +168,36 @@ function trustedReportedClock(options: {
   return dateSortValue(onToday) >= dateSortValue(current) ? reported : undefined;
 }
 
+/**
+ * An arrival time of day ("by the late afternoon, you reach the border")
+ * counts when there is no stated duration, or when it lands near where the
+ * duration ends: within 12 hours on a journey of a day or more (the day the
+ * duration reached), otherwise within max(30 min, 25%). "Two hours later, by
+ * dusk, you reach the river" from 8 AM contradicts itself; the duration wins.
+ */
+function arrivalThatFits(
+  arrival: { hour: number; minute: number } | undefined,
+  current: CalendarDate,
+  target: CalendarDate,
+  storySeconds: number
+) {
+  if (!arrival) {
+    return undefined;
+  }
+
+  if (storySeconds <= 0) {
+    return arrival;
+  }
+
+  const tolerance = storySeconds >= 86400 ? 12 * 3600 : reportedClockTolerance(storySeconds);
+  const sameDay = { ...target, hour: arrival.hour, minute: arrival.minute, second: 0 };
+  const fits = [-86400, 0, 86400]
+    .map((shift) => shiftSeconds(sameDay, shift))
+    .some((candidate) => dateSortValue(candidate) > dateSortValue(current) && Math.abs(secondsBetween(target, candidate)) <= tolerance);
+
+  return fits ? arrival : undefined;
+}
+
 /** A reported clock within three hours of the period the prose named ("nightfall" ~ 21:00). */
 function periodAgrees(
   hint: { hour: number; minute: number } | undefined,
@@ -200,6 +230,10 @@ export function resolveTurnClock(options: {
     clock?: { hour: number; minute: number };
     /** "until nightfall": counts only to accept a matching reported clock. */
     periodHint?: { hour: number; minute: number };
+    /** The time of day the journey ends at ("by the late afternoon … you reach"). */
+    arrival?: { hour: number; minute: number };
+    /** The last time of day the prose names: where a time skip lands. */
+    landing?: { hour: number; minute: number };
     sleptNight?: boolean;
   };
   pace: ScenePace | undefined;
@@ -243,6 +277,7 @@ export function resolveTurnClock(options: {
       : undefined;
     const clock =
       options.detected.clock ??
+      arrivalThatFits(options.detected.arrival, current, target, storySeconds) ??
       hinted ??
       trustedReportedClock({
         reported: options.reportedClock,
@@ -272,6 +307,29 @@ export function resolveTurnClock(options: {
           storyTimed = true;
         } else if (!frozen && back > RESTATED_CLOCK_SECONDS) {
           target = setClock(current, clock.hour, clock.minute);
+          storyTimed = true;
+        }
+      }
+    }
+
+    // A time skip keeps its length and lands on the time of day the prose
+    // ends on ("on the morning of the twenty-ninth day"), the way a rest
+    // lands on morning. The tracker's clock_time only when the prose names
+    // none (audit 4.8).
+    if (options.skipSeconds && !options.detected.clock) {
+      const landing = options.detected.landing ?? options.reportedClock;
+
+      if (landing) {
+        // The occurrence of that hour nearest to where the skip's length ends.
+        const end = advanceSeconds(current, options.skipSeconds);
+        const sameDay = { ...end, hour: landing.hour, minute: landing.minute, second: 0 };
+        const nearest = [-86400, 0, 86400]
+          .map((shift) => shiftSeconds(sameDay, shift))
+          .filter((candidate) => dateSortValue(candidate) > now)
+          .sort((a, b) => Math.abs(secondsBetween(end, a)) - Math.abs(secondsBetween(end, b)))[0];
+
+        if (nearest) {
+          target = nearest;
           storyTimed = true;
         }
       }

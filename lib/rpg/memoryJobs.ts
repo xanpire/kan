@@ -47,7 +47,7 @@ import {
 import { parsePovLines, povCandidates, resolvePovs } from './povMemories';
 import { filterCanonMarks, newsAllowance, newsOffer } from './newsDelivery';
 import type { DebugEvent } from './debugEvents';
-import { MAX_SKIP_SECONDS, allowedSkip, describeSpan } from './timeSkip';
+import { MAX_SKIP_SECONDS, allowedSkip, describeSpan, requestedSkip } from './timeSkip';
 import { daysBetween, secondsBetween, shiftDatesAfter, shiftSeconds } from './calendar';
 import { mentionsEntity } from './characterRefs';
 import { buildIndices } from './db';
@@ -299,6 +299,9 @@ export function applyStateStep(
 
   if (skipSeconds) {
     events.push({ kind: 'mode', text: `Time skip: ${describeSpan(skipSeconds)}.` });
+  } else if (requestedSkip(turn.userMessage, beforeDate)) {
+    const why = isCombatPace(pace) && !sceneEnded ? 'a fight is on' : 'the tracker did not agree on how long passed';
+    events.push({ kind: 'refused', text: `Time skip refused: ${why}.` });
   }
 
   const clock = resolveTurnClock({

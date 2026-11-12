@@ -71,7 +71,7 @@ import { SHOT_CHIPS, type ShotChip } from '@/lib/rpg/imageDirection';
 import { paintScene, retouchSceneImage, type PaintedTake } from '@/lib/rpg/paintScene';
 import { currentWeather, weatherPhrase } from '@/lib/rpg/weather';
 import { WeatherIcon } from '@/components/WeatherIcon';
-import { fightOptionInput, resolveTurnMode } from '@/lib/rpg/sceneMode';
+import { fightOptionInput, resolveTurnMode, timeSkipBlocked } from '@/lib/rpg/sceneMode';
 import {
   FLASHBACK_BY_ID,
   REMEMBER_INPUT,
@@ -1038,6 +1038,8 @@ export default function StoryScreen() {
   const override = state.sceneMode?.override ?? null;
   const latestFightOptions = messages.find((message) => message.id === lastAssistantId)?.fightOptions ?? NO_OPTIONS;
   const location = localizePlaceNames(state.location);
+  // Let time pass is closed in a fight (audit 4.9); the sheet says why.
+  const skipBlocked = db && !playing ? timeSkipBlocked(db) : null;
 
   return (
     <KeyboardAvoidingView
@@ -1368,7 +1370,18 @@ export default function StoryScreen() {
               ) : null}
               <ListRow meta={`Chapter ${state.chapter}`} title={state.scene} />
             </ListCard>
-            {skipOpen ? (
+            {skipBlocked ? (
+              <>
+                <AppButton
+                  disabled
+                  label="Let time pass"
+                  onPress={() => undefined}
+                  style={styles.sheetClose}
+                  variant="secondary"
+                />
+                <Text style={type.rowBody}>{skipBlocked}</Text>
+              </>
+            ) : skipOpen ? (
               <>
                 <SectionLabel>Let time pass</SectionLabel>
                 <Text style={type.rowBody}>

@@ -13,6 +13,18 @@ export type ParsedTime = {
   periodHint?: { hour: number; minute: number };
   /** A full night's sleep: the turn clock jumps to the next morning. */
   sleptNight?: boolean;
+  /**
+   * The last time of day the prose names, loosely ("on the morning of the
+   * twenty-ninth day", "that evening"). Never moves the clock alone; a time
+   * skip lands on it (resolveTurnClock), the way a rest lands on morning.
+   */
+  landing?: { hour: number; minute: number };
+  /**
+   * The time of day in the sentence where a journey ends ("By the late
+   * afternoon of the second day, you reach the border"). Lands the turn when
+   * it fits the stated duration, or there is none (resolveTurnClock).
+   */
+  arrival?: { hour: number; minute: number };
 };
 
 /** Hour a "next morning" lands on (pacing.ts has the same WAKE_HOUR). */
@@ -91,7 +103,7 @@ type ClockReading = { hour: number; minute: number; /** No am/pm: either half of
  * a suffix ("o'clock", am/pm, "in the evening", "at night"), so "at one point"
  * or "watched by two guards" are never times. Digits ("at 7:30") count alone.
  */
-function parseClock(text: string): ClockReading | undefined {
+function explicitClock(text: string): ClockReading | undefined {
   const explicit = /\b(?:at|by|until|before|around|after|past)\s+(\d{1,2}):(\d{2})\s*(am|pm|a\.m\.|p\.m\.)?(?![\w])/i.exec(text);
 
   if (explicit) {
@@ -126,19 +138,111 @@ function parseClock(text: string): ClockReading | undefined {
     return { hour: hour % 24, minute: 0, ambiguous: !suffix };
   }
 
-  // A period word fixes the time only as an event: "dawn breaks", "night
-  // falls", "it is evening now".
-  const periodState =
-    /\b(?:it is|it's|it was|now)\s+(?:already\s+)?(morning|noon|midday|afternoon|evening|night|midnight|dawn|dusk)\b(?!\s+(?:when|before|after|by))/i.exec(text) ??
-    /\b(dawn|daybreak|sunrise|dusk|sunset|nightfall|first light)\s+(?:broke|breaks|is breaking|settles?|settled|falls?|fell|came|comes|arrives?|arrived)\b/i.exec(text) ??
-    /\b(morning|evening|night|noon|midday|darkness)\s+(?:came|comes|fell|falls|settled|settles|arrives?|arrived)\b/i.exec(text);
-  const sun = /\bthe sun\s+(?:rises|rose|is rising|comes up|came up)\b/i.test(text)
-    ? 'dawn'
-    : /\bthe sun\s+(?:sets|set|is setting|goes down|went down|sinks|sank)\b/i.test(text)
-      ? 'dusk'
-      : undefined;
+  return undefined;
+}
 
-  return hourOfPeriod(periodState?.[1] ?? sun);
+/** A period word as an event: "dawn breaks", "night falls", "it is evening now". */
+function periodEventClock(text: string): ClockReading | undefined {
+  // When the prose passes through several ("dusk… another dawn… by evening"),
+  // the last one is where the turn ends.
+  const events: Array<{ index: number; word: string }> = [];
+  const collect = (pattern: RegExp, word?: string) => {
+    for (const match of text.matchAll(pattern)) {
+      events.push({ index: match.index ?? 0, word: word ?? match[1] });
+    }
+  };
+
+  collect(/\b(?:it is|it's|it was|now)\s+(?:already\s+)?(morning|noon|midday|afternoon|evening|night|midnight|dawn|dusk)\b(?!\s+(?:when|before|after|by))/gi);
+  collect(/\b(dawn|daybreak|sunrise|dusk|sunset|nightfall|first light)\s+(?:broke|breaks|is breaking|settles?|settled|falls?|fell|came|comes|arrives?|arrived)\b/gi);
+  collect(/\b(morning|evening|night|noon|midday|darkness)\s+(?:came|comes|fell|falls|settled|settles|arrives?|arrived)\b/gi);
+  collect(/\bthe sun\s+(?:rises|rose|is rising|comes up|came up)\b/gi, 'dawn');
+  collect(/\bthe sun\s+(?:sets|set|is setting|goes down|went down|sinks|sank)\b/gi, 'dusk');
+
+  const last = events.sort((a, b) => a.index - b.index).at(-1);
+  return hourOfPeriod(last?.word);
+}
+
+/** Time-of-day words with an early / late / mid shade ("late afternoon" ~ 16:30). */
+const SHADED_PERIOD = '(early|late|mid)?[\\s-]*(midnight|dawn|daybreak|sunrise|first light|morning|noon|midday|afternoon|dusk|sunset|evening|nightfall|night)';
+
+const SHADED_HOURS: Record<string, Record<string, [number, number]>> = {
+  morning: { early: [6, 0], mid: [10, 0], late: [10, 30] },
+  afternoon: { early: [13, 0], mid: [15, 0], late: [16, 30] },
+  evening: { early: [18, 0], mid: [19, 30], late: [21, 0] },
+  night: { early: [20, 0], mid: [0, 0], late: [23, 0] },
+};
+
+function shadedHour(shade: string | undefined, word: string): ClockReading | undefined {
+  const lower = word.toLowerCase();
+  const shaded = shade ? SHADED_HOURS[lower]?.[shade.toLowerCase()] : undefined;
+  return shaded ? { hour: shaded[0], minute: shaded[1] } : hourOfPeriod(lower);
+}
+
+// "you reach", "you arrive", "make camp": the sentence that ends the journey.
+const ARRIVAL =
+  /\b(?:reach|reaches|reached|reaching|arrive|arrives|arrived|arriving|make it|makes it|made it|stumble into|stumbles into|stumbled into|limp into|limps into|limped into|pull into|pulls into|pulled into|make camp|makes camp|made camp|halt|halts|halted|come to a stop|comes to a stop|came to a stop)\b/i;
+// Plans and conditions are not arrivals: "you would need to reach it by morning".
+const NOT_YET =
+  /\b(?:will|would|could|should|might|must|shall|going to|need to|needs to|needed to|have to|has to|had to|plan|plans|planned|hope|hopes|hoped|expect|expects|expected|if|unless|want to|wants to|try to|tries to)\b/i;
+
+function sentencesOf(text: string) {
+  return text.split(/(?<=[.!?])\s+|\n+/).filter((sentence) => sentence.trim());
+}
+
+function arrivalSentences(text: string) {
+  return sentencesOf(text)
+    .filter((sentence) => ARRIVAL.test(sentence) && !NOT_YET.test(sentence))
+    .reverse();
+}
+
+/** An hour or period event inside the sentence where the journey ends. */
+function arrivalStrictClock(text: string): ClockReading | undefined {
+  for (const sentence of arrivalSentences(text)) {
+    const reading = explicitClock(sentence) ?? periodEventClock(sentence);
+    if (reading) return reading;
+  }
+
+  return undefined;
+}
+
+/**
+ * "By the late afternoon of the second day, you reach the border." The prose
+ * may pass through dusk and another dawn on the way; the arrival is where
+ * the turn lands (audit 4.7).
+ */
+function arrivalPeriod(text: string): ClockReading | undefined {
+  const pattern = new RegExp(`\\b(?:at|by|until|till|around|toward|towards|in|on|near)\\s+(?:the\\s+)?${SHADED_PERIOD}\\b`, 'i');
+
+  for (const sentence of arrivalSentences(text)) {
+    const shaded = pattern.exec(sentence);
+    if (shaded) return shadedHour(shaded[1], shaded[2]);
+  }
+
+  return undefined;
+}
+
+/**
+ * The last time of day the prose names at all, with its shade ("on the
+ * morning of the twenty-ninth day", "that evening", "late one night").
+ */
+function landingOf(text: string): ClockReading | undefined {
+  const pattern = new RegExp(`\\b${SHADED_PERIOD}\\b`, 'gi');
+  let last: ClockReading | undefined;
+
+  for (const match of text.matchAll(pattern)) {
+    last = shadedHour(match[1], match[2]) ?? last;
+  }
+
+  return last;
+}
+
+/**
+ * The hour the reply names. The arrival sentence's hour comes first; then an
+ * explicit hour anywhere; then the last period event, unless an arrival
+ * names its time of day (then the dawns and dusks on the way are passing).
+ */
+function parseClock(text: string, arrival: ClockReading | undefined): ClockReading | undefined {
+  return arrivalStrictClock(text) ?? explicitClock(text) ?? (arrival ? undefined : periodEventClock(text));
 }
 
 function hourOfPeriod(word: string | undefined): ClockReading | undefined {
@@ -282,7 +386,8 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
     elapsedSeconds = Math.max(elapsedSeconds, 86400);
   }
 
-  const reading = parseClock(text);
+  const arrivalReading = arrivalPeriod(text);
+  const reading = parseClock(text, arrivalReading);
 
   if (reading) {
     clock = nextOccurrence(reading, advanceSeconds(current, elapsedSeconds));
@@ -295,8 +400,17 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
   }
 
   const periodHint = clock ? undefined : periodHintOf(text);
+  const landing = clock ? undefined : landingOf(text);
+  const arrival = clock ? undefined : arrivalReading;
 
-  return { elapsedSeconds, clock, ...(periodHint ? { periodHint } : {}), ...sleep };
+  return {
+    elapsedSeconds,
+    clock,
+    ...(arrival ? { arrival } : {}),
+    ...(periodHint ? { periodHint } : {}),
+    ...(landing ? { landing } : {}),
+    ...sleep,
+  };
 }
 
 // Words right after the duration that mean it passed: "two hours later", "three months pass".

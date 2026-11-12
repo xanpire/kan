@@ -116,6 +116,19 @@ function fightGoingOn(db: AppDatabase) {
   return !db.state.sceneClosed && (db.state.scenePace === 'combat' || state.lastBeat === 'combat');
 }
 
+/**
+ * Why Let time pass is closed right now, in second person, or null when it is
+ * open. Time cannot jump in the middle of a fight (audit 4.9): the engine
+ * refuses the skip there, so the button must not offer it.
+ */
+export function timeSkipBlocked(db: AppDatabase): string | null {
+  if (fightGoingOn(db) || sceneModeOf(db).override === 'fight') {
+    return 'Not in the middle of a fight. Get clear of it first.';
+  }
+
+  return null;
+}
+
 function partnerNames(db: AppDatabase, partners: string[]) {
   return partners
     .map((partner) => {
