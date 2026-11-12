@@ -625,7 +625,7 @@ function takeItems(db: AppDatabase, houseId: string, items: string[]): AppDataba
 
   if (taken.length === 0) return db;
 
-  const next = { ...db, state: { ...db.state, inventory: addItems(db.state.inventory, taken) } };
+  const next = { ...db, state: { ...db.state, inventory: addItems(db.state.inventory, taken, db.state.pinnedItems ?? []) } };
 
   return updateHouse(next, houseId, (item) => ({ ...item, stash: item.stash.filter((thing) => !taken.includes(thing)) }));
 }

@@ -86,8 +86,14 @@ export function sameItem(a: string, b: string) {
   return [...small].every((word) => large.has(word)) && [...small].join('').length >= 4;
 }
 
-export function isPinnedItem(item: string) {
+/** Kept whatever you do: who Kan is (the protector, the cloak, the ring). */
+export function alwaysKept(item: string) {
   return PINNED_PATTERNS.some((pattern) => pattern.test(item));
+}
+
+/** Never dropped by the limit: always kept, or pinned by you (audit 10). */
+export function isPinnedItem(item: string, pins: readonly string[] = []) {
+  return alwaysKept(item) || pins.some((pin) => itemKey(pin) === itemKey(item));
 }
 
 /** Which item in the list a counted item belongs to (its counted thing matches). */
@@ -98,7 +104,7 @@ function countedMatch(inventory: string[], parsed: Parsed) {
   });
 }
 
-export function addItems(inventory: string[], added: string[]): string[] {
+export function addItems(inventory: string[], added: string[], pins: readonly string[] = []): string[] {
   let next = [...inventory];
 
   for (const raw of added) {
@@ -122,7 +128,7 @@ export function addItems(inventory: string[], added: string[]): string[] {
 
   // Over the limit: the oldest unpinned item goes first.
   while (next.length > INVENTORY_LIMIT) {
-    const drop = next.findIndex((item) => !isPinnedItem(item));
+    const drop = next.findIndex((item) => !isPinnedItem(item, pins));
     if (drop === -1) break;
     next = [...next.slice(0, drop), ...next.slice(drop + 1)];
   }
@@ -217,4 +223,40 @@ export function settleProtector(inventory: string[]): string[] {
   const next = [...inventory];
   next[old] = inventory[scratched];
   return next.filter((_, position) => position !== scratched);
+}
+
+// ---------------------------------------------------------------------------
+// Hand edits from the Journal (audit 10): add, remove, pin.
+
+type WithInventory = { inventory: string[]; pinnedItems?: string[] };
+
+/** You add something by hand: it merges like a tracker add would. */
+export function handAddItem<T extends WithInventory>(state: T, text: string): T {
+  const item = text.trim().replace(/\s+/g, ' ').slice(0, 80);
+  if (!item) return state;
+  return { ...state, inventory: settleProtector(addItems(state.inventory, [item], state.pinnedItems ?? [])) };
+}
+
+/** You take one line off the list (and its pin with it). Always-kept things stay. */
+export function handRemoveItem<T extends WithInventory>(state: T, item: string): T {
+  if (alwaysKept(item)) return state;
+  const index = state.inventory.indexOf(item);
+  if (index === -1) return state;
+  const pins = (state.pinnedItems ?? []).filter((pin) => itemKey(pin) !== itemKey(item));
+  return {
+    ...state,
+    inventory: [...state.inventory.slice(0, index), ...state.inventory.slice(index + 1)],
+    ...(state.pinnedItems ? { pinnedItems: pins } : {}),
+  };
+}
+
+/** Pin or unpin one thing so the 40-item limit never drops it. */
+export function togglePinnedItem<T extends WithInventory>(state: T, item: string): T {
+  if (alwaysKept(item)) return state;
+  const pins = state.pinnedItems ?? [];
+  const pinned = pins.some((pin) => itemKey(pin) === itemKey(item));
+  return {
+    ...state,
+    pinnedItems: pinned ? pins.filter((pin) => itemKey(pin) !== itemKey(item)) : [...pins, item].slice(-40),
+  };
 }

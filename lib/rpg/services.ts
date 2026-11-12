@@ -364,7 +364,7 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
   }
 
   if (Array.isArray(state.inventoryAdded)) {
-    next.state.inventory = settleProtector(addItems(next.state.inventory, state.inventoryAdded));
+    next.state.inventory = settleProtector(addItems(next.state.inventory, state.inventoryAdded, next.state.pinnedItems ?? []));
   }
 
   if (typeof state.location === 'string' && state.location.trim()) {

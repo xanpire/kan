@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { Search } from 'lucide-react-native';
 
 import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
-import { ReputationCard } from '@/components/kan/ReputationCard';
 import { colors, fonts, radius, spacing } from '@/constants/theme';
 import { formatDayMonth } from '@/lib/rpg/calendar';
 import { kanKnowsDeath } from '@/lib/rpg/deaths';
@@ -235,7 +234,6 @@ export function BondsSection() {
 
   return (
     <View style={styles.section}>
-      {!query ? <ReputationCard db={db} /> : null}
 
       {!query && birthdays.length > 0 ? (
         <ListCard>

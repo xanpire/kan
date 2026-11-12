@@ -1180,6 +1180,9 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     worldDescription: state.worldDescription ?? seeded.worldDescription,
     jutsu: Array.isArray(state.jutsu) ? state.jutsu : [...seeded.jutsu],
     inventory: Array.isArray(state.inventory) ? state.inventory : [...seeded.inventory],
+    ...(Array.isArray(state.pinnedItems)
+      ? { pinnedItems: state.pinnedItems.filter((item: unknown): item is string => typeof item === 'string').slice(0, 40) }
+      : {}),
     location: state.location ?? seeded.location,
     locationKind:
       state.locationKind === 'settlement' ||

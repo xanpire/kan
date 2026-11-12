@@ -1,3 +1,4 @@
+import { handAddItem, handRemoveItem, togglePinnedItem } from './inventory';
 import {
   createContext,
   useCallback,
@@ -228,6 +229,8 @@ type GameContextValue = {
   setSceneMode: (mode: SceneModeName | null) => Promise<void>;
   updateThread: (threadId: string, patch: Partial<ThreadRecord>) => Promise<void>;
   toggleMemoryPin: (eventId: string) => Promise<void>;
+  /** What you carry, fixed by hand from the Journal (audit 10). */
+  editInventory: (change: { add?: string; remove?: string; pin?: string }) => Promise<void>;
   editMemory: (
     eventId: string,
     patch: Partial<Pick<EventRecord, 'summary' | 'tags' | 'importance' | 'pinned'>>
@@ -1514,6 +1517,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [commitDb]
   );
 
+  const editInventory = useCallback(
+    async (change: { add?: string; remove?: string; pin?: string }) => {
+      const current = dbRef.current;
+
+      if (!current) {
+        return;
+      }
+
+      let state = current.state;
+
+      if (change.add?.trim()) {
+        state = handAddItem(state, change.add);
+        recordDebugCorrection(current.meta.slotId, 'inventory_added');
+      }
+
+      if (change.remove) {
+        state = handRemoveItem(state, change.remove);
+        recordDebugCorrection(current.meta.slotId, 'inventory_removed');
+      }
+
+      if (change.pin) {
+        state = togglePinnedItem(state, change.pin);
+      }
+
+      if (state !== current.state) {
+        await commitDb({ ...current, state });
+      }
+    },
+    [commitDb]
+  );
+
   const toggleMemoryPin = useCallback(
     async (eventId: string) => {
       const current = dbRef.current;
@@ -1910,6 +1944,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setSceneMode,
       updateThread,
       toggleMemoryPin,
+      editInventory,
       editMemory,
       deleteMemory,
       renameJutsu,
@@ -1956,6 +1991,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       stopNarration,
       switchSlotById,
       toggleMemoryPin,
+      editInventory,
       undoLastTurn,
       updateBond,
       updateSettings,

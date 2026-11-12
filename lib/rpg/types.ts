@@ -111,6 +111,8 @@ export type GameState = {
   worldDescription: string;
   jutsu: string[];
   inventory: string[];
+  /** Items you pinned by hand so the limit never drops them (audit 10). */
+  pinnedItems?: string[];
   location: string;
   locationKind?: LocationKind;
   inStoryDate: CalendarDate;

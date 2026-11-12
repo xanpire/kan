@@ -1,68 +1,67 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ChevronDown, ChevronRight, Pin, X } from 'lucide-react-native';
 
+import { AppButton } from '@/components/AppButton';
 import { EmptyRow, FilterPills, ListCard, ListRow, SectionLabel } from '@/components/List';
-import { colors, spacing, type } from '@/constants/theme';
-import { dateSortValue, formatClock, formatDayMonth } from '@/lib/rpg/calendar';
-import { localizePlaceNames } from '@/lib/rpg/glossary';
-import { useGame } from '@/lib/rpg/game';
-import type { AppDatabase, EventRecord, ThreadRecord } from '@/lib/rpg/types';
-import { shortTitle, titleAndBody } from '@/lib/rpg/util';
-import { loreActive } from '@/lib/rpg/lore';
-import { todayNotes } from '@/lib/rpg/yearly';
-import { grudgeKnown } from '@/lib/rpg/disclosure';
-import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
-import { AUDIENCE_NAME, knownEpithets } from '@/lib/rpg/renown';
-import { PurseCard } from '@/components/kan/PurseCard';
+import { ReputationCard } from '@/components/kan/ReputationCard';
 import { ScrapbookView } from '@/components/kan/ScrapbookView';
-import { displayName, loreTitle, scrubNameLeaks } from '@/lib/rpg/names';
-import { knownCanonPoint } from '@/lib/rpg/canon';
+import { colors, fonts, radius, spacing, type } from '@/constants/theme';
+import { formatClock, formatDayMonth } from '@/lib/rpg/calendar';
+import { companionsOf } from '@/lib/rpg/companions';
+import { grudgeKnown } from '@/lib/rpg/disclosure';
+import { useGame } from '@/lib/rpg/game';
+import { localizePlaceNames } from '@/lib/rpg/glossary';
+import { alwaysKept, isPinnedItem } from '@/lib/rpg/inventory';
+import { chapterDates, kanConditions, memoryTitle, storyTimeline, type TimelineChapter, type TimelineEntry } from '@/lib/rpg/journal';
+import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
+import { formatChange, formatRyo, purseFeel, purseOf } from '@/lib/rpg/money';
+import { displayName } from '@/lib/rpg/names';
+import { AUDIENCE_NAME, knownEpithets } from '@/lib/rpg/renown';
+import type { AppDatabase, ThreadRecord } from '@/lib/rpg/types';
+import { titleAndBody } from '@/lib/rpg/util';
+import { todayNotes } from '@/lib/rpg/yearly';
 
-type JournalView = 'now' | 'recap' | 'world' | 'memories' | 'letters' | 'scrapbook';
+// Three views, not six (audit 11a): Now, Story (one timeline of what
+// happened) and Keepsakes (letters and the scrapbook).
+type JournalView = 'now' | 'story' | 'keepsakes';
 
 const VIEWS: { value: JournalView; label: string }[] = [
   { value: 'now', label: 'Now' },
-  { value: 'recap', label: 'Recap' },
-  { value: 'world', label: 'World' },
-  { value: 'memories', label: 'Memories' },
-  { value: 'letters', label: 'Letters' },
-  { value: 'scrapbook', label: 'Scrapbook' },
+  { value: 'story', label: 'Story' },
+  { value: 'keepsakes', label: 'Keepsakes' },
 ];
 
-// Kept here too: the bond screen imports it from this file.
-export { titleAndBody };
+// Kept here too: the bond screen imports them from this file.
+export { memoryTitle, titleAndBody };
 
-/** A memory's title and description: its own title, else one cut from its text. */
-export function memoryTitle(event: EventRecord): { title: string; body: string | null } {
-  if (event.title?.trim()) {
-    return { title: event.title.trim(), body: event.summary.trim() || null };
-  }
+/** Items shown before "N more things". */
+const SHORT_CARRY = 6;
 
-  return titleAndBody(event.summary);
-}
+/** A row that shows a title and two lines, and the whole text when tapped. */
+function OpenableRow({ title, body, meta, tint }: { title: string; body: string | null; meta?: string | null; tint?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const long = Boolean(body && body.length > 90);
 
-function peopleIn(db: AppDatabase, eventId: string) {
-  const ids = db.eventEntities
-    .filter((link) => link.eventId === eventId)
-    .map((link) => link.entityId);
-
-  return db.entities
-    .filter((entity) => ids.includes(entity.id) && entity.type === 'character' && entity.name !== 'Kan')
-    .slice(0, 2)
-    .map((entity) => displayName(db, entity));
+  return (
+    <View style={tint ? styles.memoryRow : undefined}>
+      <ListRow
+        accessibilityState={long ? { expanded: open } : undefined}
+        body={body}
+        bodyLines={open ? undefined : 2}
+        meta={meta}
+        onPress={long ? () => setOpen((value) => !value) : undefined}
+        title={title}
+      />
+    </View>
+  );
 }
 
 function ThreadRows({ threads }: { threads: ThreadRecord[] }) {
   return (
     <ListCard>
       {threads.map((thread) => (
-        <ListRow
-          body={thread.description || null}
-          bodyLines={3}
-          key={thread.id}
-          meta={`Opened ${formatDayMonth(thread.openedAt)}`}
-          title={thread.title}
-        />
+        <OpenableRow body={thread.description || null} key={thread.id} meta={`Since ${formatDayMonth(thread.openedAt)}`} title={thread.title} />
       ))}
     </ListCard>
   );
@@ -79,6 +78,132 @@ function hiddenGrudge(db: AppDatabase, thread: ThreadRecord) {
   return !bond || !grudgeKnown(bond.grudge);
 }
 
+/** What you carry, with your purse, and hand edits (add, remove, pin). */
+function CarryCard({ db }: { db: AppDatabase }) {
+  const { editInventory } = useGame();
+  const [editing, setEditing] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [purseOpen, setPurseOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const purse = purseOf(db);
+  const pins = db.state.pinnedItems ?? [];
+  const items = db.state.inventory;
+  const shown = showAll || editing ? items : items.slice(0, SHORT_CARRY);
+  const history = [...purse.history].reverse().slice(0, 4);
+
+  const add = () => {
+    if (!draft.trim()) return;
+    void editInventory({ add: draft });
+    setDraft('');
+  };
+
+  return (
+    <>
+      <SectionLabel>What you carry</SectionLabel>
+      <ListCard>
+        <ListRow
+          accessibilityState={{ expanded: purseOpen }}
+          meta={purse.estimatedStart ? 'About what you had on you' : purseFeel(purse.ryo)}
+          onPress={() => setPurseOpen((value) => !value)}
+          title="Purse"
+          trailing={<Text style={styles.total}>{formatRyo(purse.ryo)}</Text>}
+        />
+        {purseOpen
+          ? history.length === 0
+            ? [<ListRow body="Nothing spent or earned yet." key="none" />]
+            : history.map((entry, index) => (
+                <ListRow
+                  key={`${index}-${entry.reason}`}
+                  meta={formatDayMonth(entry.date)}
+                  title={entry.reason}
+                  trailing={
+                    <Text style={[styles.change, entry.change < 0 ? styles.spent : styles.earned]}>
+                      {formatChange(entry.change)}
+                    </Text>
+                  }
+                />
+              ))
+          : null}
+        {items.length === 0 ? <ListRow body="Nothing on you." /> : null}
+        {shown.map((item, index) => {
+          const kept = alwaysKept(item);
+          const pinned = isPinnedItem(item, pins);
+
+          return (
+            <ListRow
+              key={`${index}-${item}`}
+              meta={!editing && pinned ? (kept ? 'Always with you' : 'Pinned') : null}
+              title={item}
+              trailing={
+                editing ? (
+                  <View style={styles.itemTools}>
+                    {kept ? (
+                      <Text style={type.rowMeta}>Always kept</Text>
+                    ) : (
+                      <>
+                        <Pressable
+                          accessibilityLabel={pinned ? `Unpin ${item}` : `Pin ${item}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: pinned }}
+                          onPress={() => void editInventory({ pin: item })}
+                          style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+                        >
+                          <Pin color={pinned ? colors.accentTint : colors.textMuted} fill={pinned ? colors.accentTint : 'transparent'} size={16} strokeWidth={2} />
+                        </Pressable>
+                        <Pressable
+                          accessibilityLabel={`Remove ${item}`}
+                          accessibilityRole="button"
+                          onPress={() => void editInventory({ remove: item })}
+                          style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+                        >
+                          <X color={colors.textMuted} size={17} strokeWidth={2} />
+                        </Pressable>
+                      </>
+                    )}
+                  </View>
+                ) : null
+              }
+            />
+          );
+        })}
+        {editing ? (
+          <View style={styles.addRow}>
+            <TextInput
+              accessibilityLabel="Add something you carry"
+              maxLength={80}
+              onChangeText={setDraft}
+              onSubmitEditing={add}
+              placeholder="Add something you carry"
+              placeholderTextColor={colors.textDim}
+              returnKeyType="done"
+              style={styles.addInput}
+              value={draft}
+            />
+            <AppButton compact disabled={!draft.trim()} label="Add" onPress={add} />
+          </View>
+        ) : null}
+        <View style={styles.cardFoot}>
+          {!editing && items.length > SHORT_CARRY ? (
+            <Pressable accessibilityRole="button" onPress={() => setShowAll((value) => !value)} style={styles.footButton}>
+              <Text style={styles.footLabel}>{showAll ? 'Show less' : `${items.length - SHORT_CARRY} more`}</Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
+          <Pressable
+            accessibilityLabel={editing ? 'Done editing what you carry' : 'Edit what you carry'}
+            accessibilityRole="button"
+            onPress={() => setEditing((value) => !value)}
+            style={styles.footButton}
+          >
+            <Text style={styles.footLabelStrong}>{editing ? 'Done' : 'Edit'}</Text>
+          </Pressable>
+        </View>
+      </ListCard>
+    </>
+  );
+}
+
 function NowView({ db }: { db: AppDatabase }) {
   // A grudge stays off the page until they have acted on it.
   const open = db.threads.filter((thread) => thread.status === 'open' && !hiddenGrudge(db, thread));
@@ -87,19 +212,49 @@ function NowView({ db }: { db: AppDatabase }) {
   const other = open.filter((thread) => thread.type !== 'quest' && thread.type !== 'goal');
   // Birthdays, anniversaries and festivals on today's date, as far as you know.
   const today = todayNotes(db);
+  const withYou = companionsOf(db);
+  const conditions = kanConditions(db);
+  const names = knownEpithets(db);
+  const chapter = `Chapter ${db.state.chapter}${db.state.chapterTitle ? `: ${db.state.chapterTitle}` : ''}`;
 
   return (
     <>
-      <SectionLabel>Now</SectionLabel>
       <ListCard>
         <ListRow
-          meta={`${formatClock(db.state.inStoryDate)}, ${formatDayMonth(db.state.inStoryDate)} · ${localizePlaceNames(db.state.location)}`}
-          title={`Chapter ${db.state.chapter}${db.state.chapterTitle ? `: ${db.state.chapterTitle}` : ""} · ${db.state.scene}`}
+          meta={`${formatClock(db.state.inStoryDate)}, ${formatDayMonth(db.state.inStoryDate)} · ${chapter}`}
+          title={localizePlaceNames(db.state.location)}
         />
-        {today.length > 0 ? <ListRow body={today.join(' · ')} bodyLines={3} title="Today" /> : null}
+        {withYou.map((entity) => (
+          <ListRow key={entity.id} meta="With you" title={displayName(db, entity)} />
+        ))}
+        {today.length > 0 ? <ListRow body={today.join(' · ')} bodyLines={2} title="Today" /> : null}
       </ListCard>
 
-      <PurseCard db={db} />
+      <CarryCard db={db} />
+
+      <SectionLabel>Your condition</SectionLabel>
+      {conditions.length > 0 ? (
+        <ListCard>
+          {conditions.map((item) => (
+            <ListRow key={item.id} meta={item.lasts} title={item.text} />
+          ))}
+        </ListCard>
+      ) : (
+        <EmptyRow title="Nothing slowing you down" />
+      )}
+
+      <ReputationCard db={db} first={false} />
+      {names.length > 0 ? (
+        <ListCard>
+          {names.map(({ audience, epithet }) => (
+            <ListRow
+              key={audience}
+              meta={`What they call you · ${AUDIENCE_NAME[audience].charAt(0).toUpperCase()}${AUDIENCE_NAME[audience].slice(1)}`}
+              title={`“${epithet.name}”`}
+            />
+          ))}
+        </ListCard>
+      ) : null}
 
       <SectionLabel>Missions</SectionLabel>
       {missions.length > 0 ? <ThreadRows threads={missions} /> : <EmptyRow title="No missions. For now." />}
@@ -117,199 +272,62 @@ function NowView({ db }: { db: AppDatabase }) {
   );
 }
 
-type RecapEntry = { id: string; when: string; title: string; body: string | null };
-
-function RecapView({ db }: { db: AppDatabase }) {
-  const entries = useMemo<RecapEntry[]>(() => {
-    if (db.summaries.length > 0) {
-      return [...db.summaries]
-        .filter(
-          (summary, index, all) =>
-            all.findIndex((other) => other.text.trim() === summary.text.trim()) === index
-        )
-        .sort((a, b) => dateSortValue(b.range.to) - dateSortValue(a.range.to))
-        .slice(0, 16)
-        .map((summary) => {
-          const level = summary.level.charAt(0).toUpperCase() + summary.level.slice(1);
-          const label = summary.chapter ? `${level} ${summary.chapter}` : level;
-          const from = formatDayMonth(summary.range.from);
-          const to = formatDayMonth(summary.range.to);
-
-          return {
-            id: summary.id,
-            when: `${label} · ${from === to ? from : `${from} – ${to}`}, year ${summary.range.to.year}`,
-            title: summary.title?.trim() || shortTitle(summary.text),
-            body: summary.text,
-          };
-        });
-    }
-
-    return [...db.events]
-      .filter((event) => !event.tags.includes('canon'))
-      .sort((a, b) => dateSortValue(b.inStoryDate) - dateSortValue(a.inStoryDate))
-      .slice(0, 20)
-      .map((event) => {
-        const { title, body } = memoryTitle(event);
-
-        return {
-          id: event.id,
-          when: `Chapter ${event.chapter} · ${formatDayMonth(event.inStoryDate)} · ${event.scene}`,
-          title,
-          body,
-        };
-      });
-  }, [db]);
-
-  if (entries.length === 0) {
-    return (
-      <>
-        <SectionLabel>Chapters</SectionLabel>
-        <EmptyRow body="Each chapter is summed up here once it ends." title="Nothing behind you yet" />
-      </>
-    );
-  }
-
+function EntryRow({ entry }: { entry: TimelineEntry }) {
   return (
-    <>
-      <SectionLabel>Chapters</SectionLabel>
-      <View style={styles.timeline}>
-        {entries.map((entry, index) => (
-          <View key={entry.id} style={styles.timelineItem}>
-            <View style={styles.rail}>
-              <View style={[styles.dot, index === 0 ? styles.dotNow : styles.dotPast]} />
-              {index < entries.length - 1 ? <View style={styles.line} /> : null}
-            </View>
-            <View style={styles.timelineText}>
-              <Text style={type.rowMeta}>{entry.when}</Text>
-              <Text style={type.rowTitle}>{entry.title}</Text>
-              {entry.body ? <Text style={type.rowBody}>{entry.body}</Text> : null}
-            </View>
-          </View>
-        ))}
-      </View>
-    </>
+    <OpenableRow
+      body={entry.body}
+      meta={entry.kind === 'news' ? `${entry.meta} · news` : entry.meta}
+      tint={entry.kind === 'flashback'}
+      title={entry.title}
+    />
   );
 }
 
-function WorldView({ db }: { db: AppDatabase }) {
-  const news = useMemo(() => {
-    const now = dateSortValue(db.state.inStoryDate);
-    const heard = db.state.canonProgress?.heard ?? {};
-
-    return db.events
-      .filter(
-        (event) =>
-          event.tags.includes('canon') &&
-          Boolean(heard[event.id]) &&
-          dateSortValue(event.inStoryDate) <= now
-      )
-      .sort((a, b) => dateSortValue(b.inStoryDate) - dateSortValue(a.inStoryDate))
-      .slice(0, 40);
-  }, [db]);
-  const heard = db.state.canonProgress?.heard ?? {};
-  const visibleLore = db.loreEntries.filter((lore) => !lore.hidden && loreActive(db, lore));
-  // Only the names you have heard yourself called.
-  const names = knownEpithets(db);
+function ChapterCard({ chapter, startOpen }: { chapter: TimelineChapter; startOpen: boolean }) {
+  const [open, setOpen] = useState(startOpen);
+  const count = chapter.entries.length;
 
   return (
-    <>
-      <SectionLabel>Word on the road</SectionLabel>
-      {news.length === 0 ? (
-        <EmptyRow
-          body="News reaches you through people and couriers, never all at once."
-          title="No word yet"
-        />
-      ) : (
-        <ListCard>
-          {news.map((event) => {
-            const { title, body } = titleAndBody(event.summary);
-            const source = heard[event.id]?.from;
-            const how = source === 'witnessed' ? 'witnessed' : source ? `heard from ${source}` : null;
-
-            return (
-              <ListRow
-                body={body}
-                key={event.id}
-                meta={[formatDayMonth(event.inStoryDate), how].filter(Boolean).join(' · ')}
-                title={title}
-              />
-            );
-          })}
-        </ListCard>
-      )}
-
-      {names.length > 0 ? (
-        <>
-          <SectionLabel>What they call you</SectionLabel>
-          <ListCard>
-            {names.map(({ audience, epithet }) => (
-              <ListRow
-                body={epithet.history?.length ? `Before that: ${epithet.history.map((item) => item.name).join(', ')}` : null}
-                key={audience}
-                meta={`${AUDIENCE_NAME[audience].charAt(0).toUpperCase()}${AUDIENCE_NAME[audience].slice(1)} · since ${formatDayMonth(epithet.since)}, year ${epithet.since.year}`}
-                title={epithet.name}
-              />
-            ))}
-          </ListCard>
-        </>
-      ) : null}
-
-      <SectionLabel>The world as you know it</SectionLabel>
-      <ListCard>
-        <ListRow body={localizePlaceNames(db.state.worldDescription)} title="The world" />
-        {knownCanonPoint(db) ? <ListRow body={localizePlaceNames(knownCanonPoint(db))} title="Timeline" /> : null}
-      </ListCard>
-
-      {visibleLore.length > 0 ? (
-        <>
-          <SectionLabel>Lore</SectionLabel>
-          <ListCard>
-            {visibleLore.map((lore) => (
-              <ListRow
-                body={scrubNameLeaks(db, lore.text).text}
-                key={lore.id}
-                title={loreTitle(db, lore.keywords)}
-              />
-            ))}
-          </ListCard>
-        </>
-      ) : null}
-    </>
+    <ListCard>
+      <Pressable
+        accessibilityLabel={`Chapter ${chapter.chapter}: ${chapter.title}`}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        style={({ pressed }) => [styles.chapterHead, pressed && styles.pressed]}
+      >
+        <View style={styles.chapterText}>
+          <Text style={type.rowMeta}>
+            Chapter {chapter.chapter}
+            {chapterDates(chapter) ? ` · ${chapterDates(chapter)}` : ''}
+          </Text>
+          <Text style={styles.chapterTitle}>{chapter.title}</Text>
+          {!open ? <Text style={type.rowMeta}>{count === 0 ? 'Nothing kept yet' : count === 1 ? '1 moment' : `${count} moments`}</Text> : null}
+        </View>
+        {open ? (
+          <ChevronDown color={colors.textDim} size={18} strokeWidth={2} />
+        ) : (
+          <ChevronRight color={colors.textDim} size={18} strokeWidth={2} />
+        )}
+      </Pressable>
+      {open
+        ? count === 0
+          ? [<ListRow body="The moments that matter in this chapter are kept here." key="empty" />]
+          : chapter.entries.map((entry) => <EntryRow entry={entry} key={entry.id} />)
+        : null}
+    </ListCard>
   );
 }
 
-function MemoriesView({ db }: { db: AppDatabase }) {
-  const memories = useMemo<EventRecord[]>(
-    () =>
-      db.events
-        .filter((event) => !event.tags.includes('canon'))
-        .sort((a, b) => dateSortValue(b.inStoryDate) - dateSortValue(a.inStoryDate))
-        .slice(0, 80),
-    [db]
-  );
+function StoryView({ db }: { db: AppDatabase }) {
+  const chapters = useMemo(() => storyTimeline(db), [db]);
 
   return (
     <>
-      <SectionLabel>What you remember</SectionLabel>
-      {memories.length === 0 ? (
-        <EmptyRow body="The moments that matter stay here." title="Nothing worth keeping yet" />
-      ) : (
-        <ListCard>
-          {memories.map((memory) => {
-            const { title, body } = memoryTitle(memory);
-            const people = peopleIn(db, memory.id);
-
-            return (
-              <ListRow
-                body={body}
-                key={memory.id}
-                meta={[formatDayMonth(memory.inStoryDate), ...people].join(' · ')}
-                title={title}
-              />
-            );
-          })}
-        </ListCard>
-      )}
+      <SectionLabel>Your story so far</SectionLabel>
+      {chapters.map((chapter) => (
+        <ChapterCard chapter={chapter} key={chapter.chapter} startOpen={chapter.current} />
+      ))}
     </>
   );
 }
@@ -331,7 +349,7 @@ function LetterRow({ letter }: { letter: ArchivedLetter }) {
   );
 }
 
-function LettersView({ db }: { db: AppDatabase }) {
+function KeepsakesView({ db }: { db: AppDatabase }) {
   const letters = useMemo(() => letterArchive(db), [db]);
   const kept = letters.filter((letter) => letter.status === 'unsent');
   const rest = letters.filter((letter) => letter.status !== 'unsent');
@@ -341,7 +359,7 @@ function LettersView({ db }: { db: AppDatabase }) {
       <SectionLabel>Letters</SectionLabel>
       {rest.length === 0 ? (
         <EmptyRow
-          body="Letters you write and the ones that find you are kept here, word for word. Tap one to read it."
+          body="Letters you write and the ones that find you are kept here, word for word."
           title="No letters yet"
         />
       ) : (
@@ -362,6 +380,8 @@ function LettersView({ db }: { db: AppDatabase }) {
           </ListCard>
         </>
       ) : null}
+
+      <ScrapbookView db={db} />
     </>
   );
 }
@@ -378,11 +398,8 @@ export function JournalSection() {
     <View style={styles.section}>
       <FilterPills onChange={setView} options={VIEWS} value={view} />
       {view === 'now' ? <NowView db={db} /> : null}
-      {view === 'recap' ? <RecapView db={db} /> : null}
-      {view === 'world' ? <WorldView db={db} /> : null}
-      {view === 'memories' ? <MemoriesView db={db} /> : null}
-      {view === 'letters' ? <LettersView db={db} /> : null}
-      {view === 'scrapbook' ? <ScrapbookView db={db} /> : null}
+      {view === 'story' ? <StoryView db={db} /> : null}
+      {view === 'keepsakes' ? <KeepsakesView db={db} /> : null}
     </View>
   );
 }
@@ -391,41 +408,92 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
   },
-  timeline: {
-    paddingTop: 4,
+  pressed: {
+    opacity: 0.65,
   },
-  timelineItem: {
+  memoryRow: {
+    backgroundColor: colors.memoryTint,
+  },
+  total: {
+    fontFamily: fonts.extrabold,
+    fontSize: 17,
+    color: colors.text,
+  },
+  change: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+  },
+  spent: {
+    color: colors.textMuted,
+  },
+  earned: {
+    color: colors.success,
+  },
+  itemTools: {
     flexDirection: 'row',
-    gap: 14,
-  },
-  rail: {
-    width: 12,
     alignItems: 'center',
   },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginTop: 3,
+  tool: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dotNow: {
-    backgroundColor: colors.accent,
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  dotPast: {
-    borderWidth: 2,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.background,
-  },
-  line: {
+  addInput: {
     flex: 1,
-    width: 2,
-    marginTop: 4,
-    backgroundColor: colors.border,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    color: colors.text,
   },
-  timelineText: {
+  cardFoot: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  footButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  footLabel: {
+    ...type.rowMeta,
+    color: colors.textMuted,
+  },
+  footLabelStrong: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.textSoft,
+  },
+  chapterHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 60,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+  },
+  chapterText: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
-    paddingBottom: 22,
+    gap: 3,
+  },
+  chapterTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 17,
+    lineHeight: 23,
+    color: colors.text,
   },
 });

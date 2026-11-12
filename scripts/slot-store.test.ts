@@ -328,6 +328,7 @@ describe('load keeps every GameState field (audit 3.4)', () => {
       flashbacks: { played: [], offered: {} },
       safehouses: { places: [{ id: 'sh_1', name: 'the cave above the falls', kind: 'camp', place: 'Falls', since: date, status: 'active' }] },
       purse: { ryo: 120, history: [] },
+      pinnedItems: ['Rope'],
       namesVersion: 2,
       futureField: { kept: true },
     } as any;

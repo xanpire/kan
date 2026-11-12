@@ -13,7 +13,7 @@ import { TURN_STATE_SCHEMA } from './stateSchema';
 export const TRACKER_FIELDS = Object.keys(TURN_STATE_SCHEMA.properties);
 
 /** Which tracker field a hand correction fixes. */
-export type TrackerCorrection = 'time' | 'new_characters' | 'deaths' | 'companions_joined';
+export type TrackerCorrection = 'time' | 'new_characters' | 'deaths' | 'companions_joined' | 'inventory_added' | 'inventory_removed';
 
 export type TrackerFieldStat = {
   field: string;

@@ -26,7 +26,7 @@ const RANK_NOTE: Record<string, string> = {
  * your standing inside the Akatsuki. Entries you have not seen stay hidden,
  * like news you have not heard.
  */
-export function ReputationCard({ db }: { db: AppDatabase }) {
+export function ReputationCard({ db, first = true }: { db: AppDatabase; first?: boolean }) {
   const listings = bingoListings(db);
   const known = listings.filter((listing) => listing.known);
   const member = isAkatsukiMember(db);
@@ -34,7 +34,7 @@ export function ReputationCard({ db }: { db: AppDatabase }) {
 
   return (
     <>
-      <SectionLabel first>Your name out there</SectionLabel>
+      <SectionLabel first={first}>Your name out there</SectionLabel>
       <ListCard>
         {known.length === 0 ? (
           <ListRow
