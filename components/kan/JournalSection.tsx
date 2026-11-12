@@ -9,11 +9,10 @@ import { ScrapbookView } from '@/components/kan/ScrapbookView';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { formatClock, formatDayMonth } from '@/lib/rpg/calendar';
 import { companionsOf } from '@/lib/rpg/companions';
-import { grudgeKnown } from '@/lib/rpg/disclosure';
 import { useGame } from '@/lib/rpg/game';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { alwaysKept, isPinnedItem } from '@/lib/rpg/inventory';
-import { chapterDates, kanConditions, memoryTitle, storyTimeline, type TimelineChapter, type TimelineEntry } from '@/lib/rpg/journal';
+import { chapterDates, hiddenGrudge, kanConditions, memoryTitle, storyTimeline, type TimelineChapter, type TimelineEntry } from '@/lib/rpg/journal';
 import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
 import { formatChange, formatRyo, purseFeel, purseOf } from '@/lib/rpg/money';
 import { displayName } from '@/lib/rpg/names';
@@ -67,16 +66,6 @@ function ThreadRows({ threads }: { threads: ThreadRecord[] }) {
   );
 }
 
-function hiddenGrudge(db: AppDatabase, thread: ThreadRecord) {
-  if (thread.type !== 'grudge') return false;
-
-  const ids = new Set(thread.participantIds ?? []);
-  const bond = db.bonds.find(
-    (item) => item.grudge && (ids.has(item.entityId) || thread.participants?.includes(item.characterName))
-  );
-
-  return !bond || !grudgeKnown(bond.grudge);
-}
 
 /** What you carry, with your purse, and hand edits (add, remove, pin). */
 function CarryCard({ db }: { db: AppDatabase }) {

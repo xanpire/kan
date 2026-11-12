@@ -5,7 +5,8 @@
 import { dateSortValue, daysBetween, formatDayMonth } from './calendar';
 import { localizePlaceNames } from './glossary';
 import { displayName, scrubNameLeaks } from './names';
-import type { AppDatabase, CalendarDate, EventRecord, FactRecord } from './types';
+import { grudgeKnown } from './disclosure';
+import type { AppDatabase, CalendarDate, EventRecord, FactRecord, ThreadRecord } from './types';
 import { secondPerson, titleAndBody } from './util';
 
 /** A memory's title and description: its own title, else one cut from its text. */
@@ -198,4 +199,16 @@ export function kanConditions(db: AppDatabase): KanCondition[] {
 
       return { id: fact.id, text: `${text.charAt(0).toUpperCase()}${text.slice(1)}`, lasts };
     });
+}
+
+/** A grudge stays off the page until they have acted on it. */
+export function hiddenGrudge(db: AppDatabase, thread: ThreadRecord) {
+  if (thread.type !== 'grudge') return false;
+
+  const ids = new Set(thread.participantIds ?? []);
+  const bond = db.bonds.find(
+    (item) => item.grudge && (ids.has(item.entityId) || thread.participants?.includes(item.characterName))
+  );
+
+  return !bond || !grudgeKnown(bond.grudge);
 }

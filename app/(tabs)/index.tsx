@@ -12,6 +12,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -34,6 +35,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import {
+  ArrowDown,
   ArrowUp,
   CircleAlert,
   Download,
@@ -44,6 +46,7 @@ import {
   Pencil,
   Copy as CopyIcon,
   Check,
+  ChevronDown,
   Paintbrush,
   RotateCcw,
   Sparkles,
@@ -76,6 +79,7 @@ import { useStoredImage } from '@/lib/rpg/imageStore';
 import { SHOT_CHIPS, type ShotChip } from '@/lib/rpg/imageDirection';
 import { paintScene, retouchSceneImage, type PaintedTake } from '@/lib/rpg/paintScene';
 import { PAINT_STAGE_LABEL, storyMarkers, type PaintStage, type StoryMarker } from '@/lib/rpg/storyMarkers';
+import { chapterJumps, entriesToShow, whereYouLeftOff, type LeftOff } from '@/lib/rpg/storyNav';
 import { currentWeather, weatherPhrase } from '@/lib/rpg/weather';
 import { WeatherIcon } from '@/components/WeatherIcon';
 import { fightOptionInput, resolveTurnMode, timeSkipBlocked } from '@/lib/rpg/sceneMode';
@@ -385,6 +389,36 @@ const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTim
     </>
   );
 });
+
+/** Where you left off (audit 10): what was happening, from the save alone. */
+function LeftOffCard({ leftOff }: { leftOff: LeftOff }) {
+  return (
+    <View accessibilityLabel={`Where you left off, ${leftOff.away} ago`} style={styles.leftOff}>
+      <Text style={styles.leftOffEyebrow}>Where you left off · {leftOff.away} ago</Text>
+      {leftOff.chapter ? (
+        <>
+          {leftOff.chapter.title ? <Text style={type.rowTitle}>{leftOff.chapter.title}</Text> : null}
+          <Text numberOfLines={5} style={styles.leftOffText}>
+            {leftOff.chapter.text}
+          </Text>
+        </>
+      ) : null}
+      <Text style={styles.leftOffMeta}>
+        {leftOff.place}
+        {leftOff.withYou.length > 0 ? ` · With you: ${leftOff.withYou.join(', ')}` : ''}
+      </Text>
+      {leftOff.threads.length > 0 ? (
+        <View style={styles.leftOffThreads}>
+          {leftOff.threads.map((thread) => (
+            <Text key={thread} numberOfLines={1} style={styles.leftOffMeta}>
+              · {thread}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /** A chapter card, or a thin centred line for a new day or place (audit 11b). */
 function StoryMarkerView({ marker }: { marker: StoryMarker }) {
@@ -851,6 +885,92 @@ export default function StoryScreen() {
   const scrollYRef = useRef(0);
   const contentHeightRef = useRef(0);
   const anchorRef = useRef<{ height: number; y: number } | null>(null);
+  const viewportHeightRef = useRef(0);
+  /** Jump to latest shows once you are well above the newest turn (audit 10). */
+  const [farFromEnd, setFarFromEnd] = useState(false);
+  const [chaptersOpen, setChaptersOpen] = useState(false);
+  /** Where each chapter's opening entry sits in the scroll content, and a jump waiting for it. */
+  const chapterYRef = useRef(new Map<string, number>());
+  const chapterNodeRef = useRef(new Map<string, unknown>());
+  const pendingJumpRef = useRef<string | null>(null);
+
+  const updateFarFromEnd = useCallback(() => {
+    const viewport = viewportHeightRef.current;
+    const distance = contentHeightRef.current - scrollYRef.current - viewport;
+    const far = viewport > 0 && distance > Math.max(600, viewport * 1.5);
+    setFarFromEnd((current) => (current === far ? current : far));
+  }, []);
+
+  const jumps = useMemo(() => (db ? chapterJumps(db) : []), [db]);
+  const jumpIds = useMemo(() => new Set(jumps.map((jump) => jump.entryId)), [jumps]);
+
+  const scrollToChapter = useCallback((entryId: string) => {
+    requestAnimationFrame(() => {
+      // On the web the anchor is a DOM node: ask the browser where it is now,
+      // since rows above it may have changed height since it was laid out.
+      const node = chapterNodeRef.current.get(entryId) as { scrollIntoView?: (options: object) => void } | undefined;
+      if (node?.scrollIntoView) {
+        node.scrollIntoView({ block: 'start' });
+        return;
+      }
+
+      const y = chapterYRef.current.get(entryId);
+      if (y !== undefined) scrollRef.current?.scrollTo({ y: Math.max(0, y - spacing.sm), animated: false });
+    });
+  }, []);
+
+  const performJump = useCallback(
+    (entryId: string) => {
+      const need = db ? entriesToShow(db, entryId) : null;
+      if (need === null) return;
+
+      anchorRef.current = null;
+      if (need > visibleCount) {
+        // Open the window far enough first; the anchor scrolls once it is laid out.
+        pendingJumpRef.current = entryId;
+        setVisibleCount(need + (need % 2));
+        return;
+      }
+
+      if (chapterYRef.current.has(entryId)) scrollToChapter(entryId);
+      else pendingJumpRef.current = entryId;
+    },
+    [db, scrollToChapter, visibleCount]
+  );
+
+  // The jump waits for the chapter sheet to close: closing it gives focus back
+  // to the "Chapter N" label at the top, and the browser scrolls to it.
+  const queuedJumpRef = useRef<string | null>(null);
+  const runQueuedJump = useCallback(() => {
+    const entryId = queuedJumpRef.current;
+    queuedJumpRef.current = null;
+    if (entryId) requestAnimationFrame(() => performJump(entryId));
+  }, [performJump]);
+
+  const jumpToChapter = useCallback(
+    (entryId: string) => {
+      queuedJumpRef.current = entryId;
+      setChaptersOpen(false);
+      // onDismiss does not fire everywhere (Android); this catches it.
+      setTimeout(runQueuedJump, 600);
+    },
+    [runQueuedJump]
+  );
+
+  const onChapterAnchor = useCallback(
+    (entryId: string, y: number) => {
+      chapterYRef.current.set(entryId, y);
+      if (pendingJumpRef.current === entryId) {
+        pendingJumpRef.current = null;
+        scrollToChapter(entryId);
+      }
+    },
+    [scrollToChapter]
+  );
+
+  const jumpToLatest = useCallback(() => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, []);
 
   const showEarlier = useCallback(() => {
     // Keep the turn you were reading where it is when earlier turns appear above it.
@@ -866,7 +986,9 @@ export default function StoryScreen() {
       anchorRef.current = null;
       scrollRef.current?.scrollTo({ y: anchor.y + (height - anchor.height), animated: false });
     }
-  }, []);
+
+    updateFarFromEnd();
+  }, [updateFarFromEnd]);
 
   // The story only scrolls itself at two moments: when a save is opened (jump
   // to the latest turn) and when you send an action (show it and where the
@@ -874,6 +996,29 @@ export default function StoryScreen() {
   // you put it, so you can scroll up and down freely.
   const slotId = db?.meta.slotId ?? null;
   const scrolledSlotRef = useRef<string | null>(null);
+
+  // Where you left off (audit 10): when a story opens, or the app comes back,
+  // a real day or more after its last turn. Gone with your first action.
+  const [leftOff, setLeftOff] = useState<LeftOff | null>(null);
+  const leftOffSlotRef = useRef<string | null>(null);
+  const dbRef = useRef(db);
+  dbRef.current = db;
+
+  useEffect(() => {
+    if (!db || !slotId || leftOffSlotRef.current === slotId) return;
+    leftOffSlotRef.current = slotId;
+    setLeftOff(whereYouLeftOff(db));
+  }, [db, slotId]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      const current = dbRef.current;
+      if (next === 'active' && current) {
+        setLeftOff((shown) => shown ?? whereYouLeftOff(current));
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   // A story opens on its latest turns.
   useEffect(() => {
@@ -911,6 +1056,7 @@ export default function StoryScreen() {
 
       lastActionRef.current = action;
       composerRef.current?.clear();
+      setLeftOff(null);
       setEnteringMemory(Boolean(remember));
 
       try {
@@ -1212,20 +1358,37 @@ export default function StoryScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.storyArea}>
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={onContentSizeChange}
+          onLayout={(event) => {
+            viewportHeightRef.current = event.nativeEvent.layout.height;
+            updateFarFromEnd();
+          }}
           onScroll={(event) => {
             scrollYRef.current = event.nativeEvent.contentOffset.y;
+            updateFarFromEnd();
           }}
           ref={scrollRef}
           scrollEventThrottle={100}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={type.sectionLabel}>
-            Chapter {db.state.chapter} · {db.state.scene || db.state.chapterTitle}
-          </Text>
+          <Pressable
+            accessibilityHint={jumps.length > 1 ? 'Opens the list of chapters' : undefined}
+            accessibilityLabel={`Chapter ${db.state.chapter}. Chapters`}
+            accessibilityRole="button"
+            disabled={jumps.length === 0}
+            hitSlop={8}
+            onPress={() => setChaptersOpen(true)}
+            style={({ pressed }) => [styles.chapterLabel, pressed && styles.pressed]}
+          >
+            <Text numberOfLines={1} style={[type.sectionLabel, styles.chapterLabelText]}>
+              Chapter {db.state.chapter} · {db.state.scene || db.state.chapterTitle}
+            </Text>
+            {jumps.length > 0 ? <ChevronDown color={colors.textMeta} size={14} strokeWidth={2.2} /> : null}
+          </Pressable>
 
           {!storyStarted ? (
             <View style={styles.seed}>
@@ -1258,7 +1421,19 @@ export default function StoryScreen() {
 
           {visibleMessages.map((message) => (
             <Fragment key={message.id}>
+            {jumpIds.has(message.id) ? (
+              <View
+                key={`${message.id}:${hiddenCount}`}
+                onLayout={(event) => onChapterAnchor(message.id, event.nativeEvent.layout.y)}
+                ref={(node) => {
+                  if (node) chapterNodeRef.current.set(message.id, node);
+                  else chapterNodeRef.current.delete(message.id);
+                }}
+                style={styles.chapterAnchor}
+              />
+            ) : null}
             {markers.get(message.id) ? <StoryMarkerView marker={markers.get(message.id)!} /> : null}
+            {leftOff && message.id === lastAssistantId && !isNarrating ? <LeftOffCard leftOff={leftOff} /> : null}
             <MessageRow
               eager={eagerImages.has(message.id)}
               footer={
@@ -1365,6 +1540,18 @@ export default function StoryScreen() {
             </ListCard>
           ) : null}
         </ScrollView>
+          {farFromEnd ? (
+            <Pressable
+              accessibilityLabel="Jump to latest"
+              accessibilityRole="button"
+              onPress={jumpToLatest}
+              style={({ pressed }) => [styles.jumpLatest, pressed && styles.pressed]}
+            >
+              <ArrowDown color={colors.text} size={16} strokeWidth={2.2} />
+              <Text style={styles.jumpLatestLabel}>Latest</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         <View style={styles.composerShell}>
           {isProcessing ? (
@@ -1758,6 +1945,35 @@ export default function StoryScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      <Modal
+        animationType="fade"
+        onDismiss={runQueuedJump}
+        onRequestClose={() => setChaptersOpen(false)}
+        transparent
+        visible={chaptersOpen}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable accessibilityLabel="Close" onPress={() => setChaptersOpen(false)} style={StyleSheet.absoluteFill} />
+          <View style={[styles.sheet, styles.chapterSheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <SectionLabel first>Chapters</SectionLabel>
+            <ScrollView style={styles.chapterList}>
+              <ListCard>
+                {[...jumps].reverse().map((jump) => (
+                  <ListRow
+                    key={jump.entryId}
+                    meta={`Chapter ${jump.number}${jump.line ? ` · ${jump.line}` : ''}`}
+                    onPress={() => jumpToChapter(jump.entryId)}
+                    title={jump.title}
+                    trailing={jump.number === db.state.chapter ? <Text style={type.rowMeta}>Now</Text> : undefined}
+                  />
+                ))}
+              </ListCard>
+            </ScrollView>
+            <AppButton label="Close" onPress={() => setChaptersOpen(false)} variant="secondary" />
+          </View>
+        </View>
+      </Modal>
+
       <Modal animationType="fade" onRequestClose={() => setMoreOpen(false)} transparent visible={moreOpen}>
         <View style={styles.sheetOverlay}>
           <Pressable accessibilityLabel="Close" onPress={() => setMoreOpen(false)} style={StyleSheet.absoluteFill} />
@@ -1894,6 +2110,70 @@ export default function StoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  storyArea: {
+    flex: 1,
+  },
+  chapterLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    minHeight: 32,
+    maxWidth: '100%',
+  },
+  chapterLabelText: {
+    flexShrink: 1,
+  },
+  chapterAnchor: {
+    height: 0,
+  },
+  chapterSheet: {
+    maxHeight: '80%',
+  },
+  chapterList: {
+    flexGrow: 0,
+  },
+  jumpLatest: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  jumpLatestLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.text,
+  },
+  leftOff: {
+    gap: 6,
+    marginVertical: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  leftOffEyebrow: {
+    ...type.sectionLabel,
+    color: colors.accentTint,
+  },
+  leftOffText: {
+    ...type.rowBody,
+  },
+  leftOffMeta: {
+    ...type.rowMeta,
+  },
+  leftOffThreads: {
+    gap: 2,
+  },
   showEarlier: {
     alignSelf: 'center',
     minHeight: 44,
