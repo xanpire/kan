@@ -57,6 +57,7 @@ import {
   recordDebugCorrection,
   recordDebugState,
 } from './debug';
+import { foldSpending } from './spending';
 import { describeCallError, isTransientError, streamChatCompletion, type StreamResult } from '../openrouter';
 import { extractTurnDiff } from './services';
 import { appendStoryMessage, cloneDatabase, getLastExchange, pushSnapshot, restoreLastSnapshot } from './log';
@@ -498,9 +499,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         throw new Error('Kan is open in another tab. Close it to keep playing here.');
       }
 
+      // Costs that arrived since the last save join the story's totals (audit 10).
+      const withSpending = foldSpending(next, dbRef.current);
       const normalized = {
-        ...next,
-        indices: buildIndices(next),
+        ...withSpending,
+        indices: buildIndices(withSpending),
       };
 
       // Update the in-memory copy first (synchronously), so anything that
@@ -557,12 +560,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
             return null;
           }
 
-          const next = mutate(stored);
+          const mutated = mutate(stored);
 
-          if (!next) {
+          if (!mutated) {
             return null;
           }
 
+          const next = foldSpending(mutated, stored);
           const normalized = { ...next, indices: buildIndices(next) };
           await enqueueSave(normalized);
           return normalized;

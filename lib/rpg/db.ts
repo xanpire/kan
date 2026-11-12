@@ -923,6 +923,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       canonProgress: true,
       promptTokenBudget: normalizePromptBudget(db.settings?.promptTokenBudget),
     },
+    ...(db.spending && typeof db.spending.total === 'number' ? { spending: db.spending } : {}),
     rawLog: Array.isArray(db.rawLog)
       ? db.rawLog.map((entry) =>
           // Replies are cleaned when they are saved; only one that still

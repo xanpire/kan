@@ -61,6 +61,18 @@ export type ThreadType =
   | 'other';
 
 /** `year` is no longer made (the saga replaced it); old saves may still hold some. */
+/** Running totals of what a story has cost; they only grow. */
+export type Spending = {
+  /** Dollars. */
+  total: number;
+  /** Narrator calls (turns played, retries included). */
+  turns: number;
+  /** Scene paintings and portraits. */
+  images: number;
+  /** Real-world time the totals began. */
+  since: number;
+};
+
 export type SummaryLevel = 'chapter' | 'arc' | 'year' | 'saga';
 
 export type LogKind = 'story' | 'summary' | 'extraction' | 'diff' | 'error';
@@ -1033,6 +1045,8 @@ export type AppDatabase = {
     exportedAt?: number;
   };
   settings: Settings;
+  /** What this story has cost on OpenRouter, kept in the save (audit 10, `spending.ts`). */
+  spending?: Spending;
   rawLog: RawLogEntry[];
   entities: EntityRecord[];
   jutsuRecords: JutsuRecord[];

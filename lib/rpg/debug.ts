@@ -10,6 +10,7 @@ import { useSyncExternalStore } from 'react';
 
 import { fetchGenerationCost, type CallUsage } from '../openrouter';
 import { formatDate } from './calendar';
+import { noteSpend } from './spending';
 import type { AppDatabase, OpenRouterMessage, TurnDiff } from './types';
 
 export type DebugCallKind =
@@ -318,6 +319,11 @@ export function recordDebugCall(
 
   updateTurn(turnId, (turn) => ({ ...turn, calls: [...turn.calls, entry] }));
 
+  // The story's own running totals (audit 10); a cost looked up later joins them then.
+  const slotId = log.turns.find((turn) => turn.id === turnId)?.slotId ?? '';
+  const counts = call.kind === 'narrator' ? 'turn' : call.kind === 'image' || call.kind === 'portrait' ? 'image' : 'other';
+  noteSpend(slotId, hasCost ? call.usage?.cost : 0, call.error ? 'other' : counts);
+
   if (canLookUp) {
     void fetchGenerationCost(call.apiKey as string, call.usage?.generationId as string).then(
       (cost) => {
@@ -327,6 +333,7 @@ export function recordDebugCall(
           return;
         }
 
+        noteSpend(owner.slotId, cost, 'other');
         updateTurn(owner.id, (turn) => ({
           ...turn,
           calls: turn.calls.map((c) =>

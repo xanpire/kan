@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -51,6 +51,7 @@ import {
   type TrashedStory,
 } from '@/lib/rpg/db';
 import { storageStatus, type StorageStatus } from '@/lib/rpg/slotStore';
+import { NO_SPENDING, spendingLine, spendingVersion, storySpending, subscribeSpending } from '@/lib/rpg/spending';
 import { currentAmbience, describeAmbience } from '@/lib/rpg/ambience';
 import { ambienceEngine, ambienceSupported } from '@/lib/audio/ambienceEngine';
 import { setAmbienceSettings, useAmbienceSettings } from '@/lib/audio/ambienceSettings';
@@ -118,6 +119,9 @@ export default function SettingsScreen() {
   const [trash, setTrash] = useState<TrashedStory[]>([]);
   const [trashOpen, setTrashOpen] = useState(false);
   const slotCount = slots.length;
+  // Costs that arrive after a save show at once (audit 10).
+  useSyncExternalStore(subscribeSpending, spendingVersion, spendingVersion);
+  const spent = db ? storySpending(db) : NO_SPENDING;
 
   useEffect(() => {
     let cancelled = false;
@@ -813,6 +817,19 @@ export default function SettingsScreen() {
                 trailing={freeing ? <ActivityIndicator color={colors.textMuted} size="small" /> : null}
               />
             ) : null}
+          </ListCard>
+
+          {/* What this story has cost (audit 10): its own totals, kept in the save. */}
+          <ListCard style={styles.storageCard}>
+            <ListRow
+              body={
+                spendingLine(spent) ??
+                'Nothing yet. Each turn, summary and painting is counted here from now on.'
+              }
+              bodyLines={2}
+              meta={spent.since ? `Since ${formatRealDate(spent.since)}` : null}
+              title="Spending on this story"
+            />
           </ListCard>
 
           {/* Advanced, closed by default: the engine's models and the Debug panel (audit 11a). */}
