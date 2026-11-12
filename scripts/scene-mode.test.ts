@@ -296,3 +296,12 @@ describe('prompts and schema', () => {
     expect(db.state.sceneMode?.lastBeat).toBe('exchange');
   });
 });
+
+describe('the mode label follows a fight that ends (Session 1, decided by Xan: keep the forecast)', () => {
+  test('the tracker is told a fight that stops in the reply is no longer combat', async () => {
+    const { buildExtractionPrompt, trackerPromptText } = await import('../lib/rpg/prompt');
+    const text = trackerPromptText(buildExtractionPrompt(seed(), '*You block.*', 'He backs off and lowers his hand.'));
+    expect(text).toContain('When the fight stops in this reply');
+    expect(text).toContain('fight_options is []');
+  });
+});
