@@ -639,7 +639,7 @@ export function applyFlashbackTurn(
   };
 
   const fightGoesOn = !sceneEnded && (pace === 'combat' || extraction?.beat?.kind === 'combat');
-  const fightOptions = fightGoesOn ? cleanFightOptions(extraction?.fightOptions) : undefined;
+  const fightOptions = fightGoesOn ? cleanFightOptions(extraction?.fightOptions, latest) : undefined;
   const stampIndex = latest.rawLog.findIndex((item) => item.id === turn.turnLogId);
 
   let db: AppDatabase = {

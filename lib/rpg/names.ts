@@ -9,7 +9,7 @@
 
 import { dateSortValue, entityAge } from './calendar';
 import { milestoneKnown, resolveEntity } from './entities';
-import { FAME, IDENTITIES, KNOWN_AT_START, LABELS, NAME_PARTS } from './nameData';
+import { FAME, IDENTITIES, INTRODUCED_AT, KNOWN_AT_START, LABELS, NAME_PARTS } from './nameData';
 import type {
   AppDatabase,
   CalendarDate,
@@ -512,6 +512,16 @@ export function learnFromCanon(db: AppDatabase): AppDatabase {
       if (identity.learnedWith?.some((id) => kanKnowsOf(db, id))) {
         next = learnName(next, entity.id, { name: identity.name, part: 'identity', how: 'news' });
       }
+    }
+  }
+
+  // People a canon beat introduces to Kan when it completes.
+  for (const [milestoneId, names] of Object.entries(INTRODUCED_AT)) {
+    if (!happened(db, milestoneId) || !kanKnowsOf(db, milestoneId)) continue;
+
+    for (const name of names) {
+      const entity = next.entities.find((item) => item.type === 'character' && item.name === name);
+      if (entity) next = learnName(next, entity.id, { name: entity.name, part: 'full', how: 'introduced' });
     }
   }
 

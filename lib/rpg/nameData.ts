@@ -244,6 +244,16 @@ export const FAME: Record<string, { level: FameLevel; from?: string }[]> = {
 };
 
 /**
+ * Names a canon beat itself gives Kan: the people who introduce themselves,
+ * or are named to him, in the moment the beat completes. Pain receives Kan
+ * and names his partner at the joining (its facts say so), so the goal
+ * "Survive Kakuzu" can never show a name Kan hasn't heard.
+ */
+export const INTRODUCED_AT: Record<string, string[]> = {
+  'kan-joins-akatsuki': ['Pain', 'Kakuzu'],
+};
+
+/**
  * Short descriptions for people Kan cannot name yet, where their look alone
  * would make a poor one (or would give a name away).
  */

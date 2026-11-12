@@ -161,3 +161,60 @@ export function removeItems(inventory: string[], removed: string[]): string[] {
 
   return next;
 }
+
+const PROTECTOR = /\b(forehead protector|headband|hitai-ate)\b/i;
+const SCRATCHED = /\b(scratch(?:ed)?|slash(?:ed)?|gouged?|carved?|scored|struck through|cut through|crossed out|defaced)\b/i;
+const SCRATCH_ACT =
+  /\b(scratch(?:es)?|scratched|carv(?:e|es|ed)|goug(?:e|es|ed)|scor(?:e|es|ed)|slash(?:es|ed)?|cut(?:s)?|drag(?:s|ged)?|draw(?:s)?|run(?:s)?|ran)\b/i;
+const PROTECTOR_PART = /\b(forehead protector|headband|hitai-ate|leaf symbol|leaf insignia|insignia|the plate|metal plate|the leaf(?:'s|’s)? (?:symbol|mark|spiral))\b/i;
+const NOT_YET = /\b(not|never|don't|do not|won't|without|almost|nearly|hesitat\w*|refuse\w*|instead of|consider\w*|think\w* about|wonder\w*)\b/i;
+
+/** Kan's forehead protector, scratched through (the lore flag `headbandScratched` reads this). */
+export function isScratchedProtector(item: string) {
+  return PROTECTOR.test(item) && SCRATCHED.test(item);
+}
+
+/**
+ * The prose shows Kan scratching his own forehead protector (Session 1, audit
+ * 6.21: he carved it on the page and the inventory kept "Hidden Leaf forehead
+ * protector"). A pinned item is never dropped, but it can change: the
+ * unscratched protector becomes the scratched one. Speech, negations and
+ * someone else's protector don't count. Returns the new inventory, or null.
+ */
+export function scratchProtectorFromProse(inventory: string[], narration: string): string[] | null {
+  const index = inventory.findIndex((item) => PROTECTOR.test(item));
+  if (index === -1 || isScratchedProtector(inventory[index])) return null;
+
+  const prose = narration.replace(/"[^"\n]*(?:"|$)/g, ' ').replace(/“[^”\n]*(?:”|$)/g, ' ');
+  const sentences = prose.split(/(?<=[.!?])\s+/);
+  const shows = sentences.some(
+    (sentence) =>
+      /\byou(?:r)?\b/i.test(sentence) &&
+      SCRATCH_ACT.test(sentence) &&
+      PROTECTOR_PART.test(sentence) &&
+      !NOT_YET.test(sentence) &&
+      // Itachi's own scratched protector is not yours.
+      !/\b(his|her|their|itachi(?:'s|’s))\s+(?:own\s+)?(forehead protector|headband)\b/i.test(sentence)
+  );
+
+  if (!shows) return null;
+
+  const next = [...inventory];
+  next[index] = 'Hidden Leaf forehead protector, scratched through';
+  return next;
+}
+
+/**
+ * One forehead protector: once a scratched one is carried (the tracker added
+ * it, with or without removing the old name), the unscratched one is gone.
+ */
+export function settleProtector(inventory: string[]): string[] {
+  const scratched = inventory.findIndex(isScratchedProtector);
+  if (scratched === -1) return inventory;
+  const old = inventory.findIndex((item) => PROTECTOR.test(item) && !isScratchedProtector(item));
+  if (old === -1) return inventory;
+  // The scratched one takes the old one's place in the list.
+  const next = [...inventory];
+  next[old] = inventory[scratched];
+  return next.filter((_, position) => position !== scratched);
+}

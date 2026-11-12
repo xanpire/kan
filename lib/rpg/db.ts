@@ -15,7 +15,7 @@ import { isCurrentSnapshot } from './log';
 import { stripNarrationJson } from './prompt';
 import { CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from './canonData';
 import { dropBareNatureJutsu, normalizeJutsuNature } from './jutsu';
-import { normalizeDate } from './calendar';
+import { dateSortValue, normalizeDate } from './calendar';
 import { GEOGRAPHY_LORE, seedDatabase } from './seed';
 import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
@@ -930,6 +930,14 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
           effect: record.effect ?? record.description ?? '',
           visual: record.visual ?? '',
           description: record.description ?? '',
+          // The seed used to start Kan's taijutsu at "Used 1×" before any
+          // fight (Session 1). A record never used since the seed goes to 0.
+          ...(record.user === 'Kan' &&
+          record.name === 'Shinobi taijutsu' &&
+          record.timesUsed === 1 &&
+          dateSortValue(record.lastSeen) === dateSortValue(record.firstSeen)
+            ? { timesUsed: 0 }
+            : {}),
         }))
       : [],
     entities: ensureCanonCast(

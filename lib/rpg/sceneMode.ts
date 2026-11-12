@@ -17,6 +17,7 @@
 // turn, not a jarring change. The player can force or switch off a mode from
 // the chip on the Story screen (`override`).
 
+import { unknownJutsuInOption } from './jutsu';
 import { resolveEntity } from './entities';
 import { displayName } from './names';
 import { characterRefs } from './characterRefs';
@@ -329,9 +330,15 @@ export function setSceneModeOverride(db: AppDatabase, mode: SceneModeName | null
   return { ...db, state: { ...db.state, sceneMode: next } };
 }
 
-/** Fight moves to offer under the latest reply, if the fight goes on. */
-export function cleanFightOptions(options: string[] | undefined): string[] | undefined {
-  const cleaned = [...new Set((options ?? []).map((option) => option.trim()).filter(Boolean))].slice(0, MAX_FIGHT_OPTIONS);
+/**
+ * Fight moves to offer under the latest reply, if the fight goes on. With the
+ * save, a move that names a jutsu Kan doesn't have is dropped (Session 1:
+ * "Fire Style: Hell to force him off", with no such jutsu and no fire nature).
+ */
+export function cleanFightOptions(options: string[] | undefined, db?: AppDatabase): string[] | undefined {
+  const cleaned = [...new Set((options ?? []).map((option) => option.trim()).filter(Boolean))]
+    .filter((option) => !db || !unknownJutsuInOption(db, option))
+    .slice(0, MAX_FIGHT_OPTIONS);
   return cleaned.length > 0 ? cleaned : undefined;
 }
 

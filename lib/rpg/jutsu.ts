@@ -378,3 +378,64 @@ export function dropBareNatureJutsu(db: AppDatabase): AppDatabase {
 
   return { ...db, jutsuRecords, state: { ...db.state, jutsu } };
 }
+
+/** "Fire Style: Fireball", "Lightning Release", "wind style". */
+const STYLE_MENTION = /\b([\p{L}-]+)\s+(?:[Ss]tyle|[Rr]elease)\b(?:\s*:\s*((?:[\p{L}'-]+)(?:\s+(?:(?:of|no|the|and)\s+)?\p{Lu}[\p{L}'-]*){0,4}))?/gu;
+/** "Shadow Clone Jutsu", "Hidden Mist Technique". */
+const TECHNIQUE_MENTION = /\b((?:\p{Lu}[\p{L}'-]*\s+){1,4})(?:[Jj]utsu|[Tt]echnique)\b/gu;
+
+/** Kan's own jutsu names and chakra natures, as far as the save records them. */
+function kanJutsuKnowledge(db: AppDatabase) {
+  const records = db.jutsuRecords.filter((record) => record.user === 'Kan');
+  const names = [...records.map((record) => record.name), ...(db.state.jutsu ?? [])];
+  const natures = new Set(
+    [
+      ...(db.state.player?.natures ?? []).map((item) => item.nature),
+      ...records.map((record) => record.chakraNature),
+    ]
+      .map((value) => normalizeJutsuNature(value).toLowerCase())
+      .filter((value) => value !== 'unknown')
+  );
+  return { names, natures };
+}
+
+function knowsJutsuNamed(names: string[], name: string) {
+  const key = jutsuKey(name);
+  return names.some((known) => jutsuKey(known) === key || sameJutsu(known, name) || jutsuNameVariants(known).some((variant) => jutsuKey(variant) === key));
+}
+
+/**
+ * The first jutsu a quick fight action names that Kan doesn't have (Session 1:
+ * "Fire Style: Hell to force him off", with no fire nature and no such jutsu),
+ * or null when every jutsu it names is his. A bare element ("a Fire Style
+ * strike") needs only the nature; a named jutsu needs to be on his list.
+ */
+export function unknownJutsuInOption(db: AppDatabase, option: string): string | null {
+  const { names, natures } = kanJutsuKnowledge(db);
+
+  for (const match of option.matchAll(STYLE_MENTION)) {
+    const element = match[1].toLowerCase();
+    if (!NATURE_WORDS.has(element)) continue;
+    const full = match[0].trim();
+
+    if (match[2]) {
+      if (!knowsJutsuNamed(names, full)) return full;
+    } else if (!natures.has(normalizeJutsuNature(element).toLowerCase()) && !names.some((known) => natureOfJutsuName(known) === element)) {
+      return full;
+    }
+  }
+
+  for (const match of option.matchAll(TECHNIQUE_MENTION)) {
+    // The option starts with a verb ("Use Shadow Clone Jutsu"): not part of the name.
+    const words = match[0].trim().split(/\s+/);
+    const full = (match.index === 0 && words.length > 2 ? words.slice(1) : words).join(' ').replace(/^(?:a|the|your)\s+/i, '');
+    if (!knowsJutsuNamed(names, full)) return full;
+  }
+
+  return null;
+}
+
+function natureOfJutsuName(name: string) {
+  const match = name.match(/\b([\p{L}-]+)\s+(?:style|release)\b/iu);
+  return match ? match[1].toLowerCase() : null;
+}

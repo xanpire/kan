@@ -26,6 +26,7 @@ import {
   loadSlot,
   loadStorageMeta,
   loadStoredSlot,
+  normalizeDatabase,
   renameSlot,
   restoreBackup,
   saveApiKey,
@@ -39,7 +40,9 @@ import {
 import { acquireSlotLock, type SlotLock } from './tabLock';
 import { downloadJson } from './file';
 import { makeId } from './id';
-import { externalizeImages, storeImage } from './imageStore';
+import { externalizeImages, listImageKeys, storeImage } from './imageStore';
+import { checkSave, type Violation } from './invariants';
+import { repairSave } from './saveDoctor';
 import { buildExportZip, exportFileName, readSaveFile, saveJson } from './saveFile';
 import { FACE_IMAGE } from './imageCompress';
 import { buildNarrationPrompt, stripNarrationJson } from './prompt';
@@ -175,6 +178,10 @@ type GameContextValue = {
   restoreDailyBackup: () => Promise<void>;
   /** Deletes stored images no story refers to; resolves to how many went. */
   freeUpSpace: () => Promise<number>;
+  /** Runs the invariant checker over the open save (audit 11d). */
+  checkOpenSave: () => Promise<Violation[]>;
+  /** Applies the save doctor's safe repairs to the open save; returns what it did. */
+  repairOpenSave: () => Promise<string[]>;
   /** Brings a story back from Recently deleted and opens it. */
   restoreDeletedStory: (trashKey: string) => Promise<void>;
   isNarrating: boolean;
@@ -1390,7 +1397,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const importSlot = useCallback(
     async (file: Uint8Array | string, slotName?: string) => {
       const json = typeof file === 'string' ? file : await readSaveFile(file);
-      const imported = await withStoredImages(await importDatabase(json, slotName));
+      let imported = await withStoredImages(await importDatabase(json, slotName));
+      // The save doctor runs on every import (audit 11d): safe repairs only.
+      const doctored = repairSave(imported);
+      if (doctored.repairs.length > 0) {
+        imported = { ...normalizeDatabase(doctored.db), indices: buildIndices(doctored.db) };
+        await enqueueSave(imported);
+      }
       setBrokenError(null);
       setDb(imported);
       dbRef.current = imported;
@@ -1783,6 +1796,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return deleted;
   }, []);
 
+  const checkOpenSave = useCallback(async () => {
+    const current = dbRef.current;
+    if (!current) return [];
+    const keys = await listImageKeys().catch(() => null);
+    return checkSave(current, keys ? { imageKeys: new Set(keys) } : {});
+  }, []);
+
+  const repairOpenSave = useCallback(async () => {
+    const current = dbRef.current;
+    if (!current) return [];
+    let repairs: string[] = [];
+    await updateLatest(current.meta.slotId, (latest) => {
+      const result = repairSave(latest);
+      repairs = result.repairs;
+      return result.repairs.length > 0 ? normalizeDatabase(result.db) : null;
+    });
+    return repairs;
+  }, [updateLatest]);
+
   const restoreDeletedStory = useCallback(
     async (trashKey: string) => {
       await saveQueueRef.current.catch(() => undefined);
@@ -1875,6 +1907,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       markExported,
       restoreDailyBackup,
       freeUpSpace,
+      checkOpenSave,
+      repairOpenSave,
       restoreDeletedStory,
       retryPendingMemory,
       stopNarration,
@@ -1924,6 +1958,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       editMemory,
       exportActiveSlot,
       freeUpSpace,
+      checkOpenSave,
+      repairOpenSave,
       importSlot,
       markExported,
       mergeCharacters,

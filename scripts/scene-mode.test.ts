@@ -201,11 +201,8 @@ describe('fight mode', () => {
     );
     db = strike.db;
     expect(strike.reply.sceneMode).toBe('fight');
-    expect(strike.reply.fightOptions).toEqual([
-      'Twist away and slash back',
-      'Take the hit and grab his arm',
-      'Fire Style: Great Fireball',
-    ]);
+    // Kan has no Great Fireball, so that move is never offered (Session 1).
+    expect(strike.reply.fightOptions).toEqual(['Twist away and slash back', 'Take the hit and grab his arm']);
     expect(db.state.sceneMode?.exchangeStreak).toBe(0);
     // While it goes on, everything is fight mode, even a line of speech.
     expect(resolveTurnMode(db, '"Stop!"').mode).toBe('fight');

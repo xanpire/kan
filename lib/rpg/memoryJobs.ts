@@ -17,6 +17,8 @@
  * as "pending" until it is retried, and is dropped once the turn it belongs
  * to no longer exists (undo, regenerate).
  */
+import { scratchProtectorFromProse } from './inventory';
+import { checkSave, checkTurn, describeViolations, strictInvariants, type Violation } from './invariants';
 import { bingoListings, formatRyo } from './reputation';
 import { CANON_MILESTONES } from './canonData';
 import { syncBondSides } from './bonds';
@@ -347,6 +349,14 @@ export function applyStateStep(
     }
   }
 
+  // Kan scratched his own forehead protector on the page and the tracker
+  // missed it (Session 1, audit 6.21): the pinned item changes, never drops.
+  const scratched = scratchProtectorFromProse(next.state.inventory, turn.narration);
+  if (scratched) {
+    next = { ...next, state: { ...next.state, inventory: scratched } };
+    events.push({ kind: 'fallback', text: 'Your forehead protector is scratched through (read from the prose).' });
+  }
+
   // Someone Kan had not seen in a long time is here again.
   next = markReunions(latest, next);
   const appliedSeconds = Math.max(0, secondsBetween(beforeDate, next.state.inStoryDate));
@@ -354,7 +364,7 @@ export function applyStateStep(
 
   // Fight moves to offer under the reply, only while the fight goes on.
   const fightGoesOn = !sceneEnded && (pace === 'combat' || extraction?.beat?.kind === 'combat');
-  const fightOptions = fightGoesOn ? cleanFightOptions(extraction?.fightOptions) : undefined;
+  const fightOptions = fightGoesOn ? cleanFightOptions(extraction?.fightOptions, latest) : undefined;
 
   next = {
     ...next,
@@ -568,6 +578,50 @@ export function applyStateStep(
       rawLog: next.rawLog.map((entry) => (entry.id === turn.turnLogId ? { ...entry, content: scrubbed.text } : entry)),
     };
     events.push({ kind: 'mode', text: `Names Kan doesn't know yet replaced in the prose: ${scrubbed.replaced.join(', ')}.` });
+  }
+
+  // Threads the tracker wrote or changed this turn show in the Journal: a
+  // name Kan hasn't learned becomes the label he knows there too (audit 11d).
+  const threadsBefore = new Map(latest.threads.map((thread) => [thread.id, thread]));
+  let threadsScrubbed = false;
+  const threads = next.threads.map((thread) => {
+    const old = threadsBefore.get(thread.id);
+    if (old && old.title === thread.title && old.description === thread.description) return thread;
+    const title = scrubNameLeaks(next, thread.title).text;
+    const description = scrubNameLeaks(next, thread.description).text;
+    if (title === thread.title && description === thread.description) return thread;
+    threadsScrubbed = true;
+    return { ...thread, title, description };
+  });
+
+  if (threadsScrubbed) {
+    next = { ...next, threads };
+    events.push({ kind: 'mode', text: "Names Kan doesn't know yet replaced in a thread." });
+  }
+
+  // The invariant checker (audit 11d): what is wrong with the save after
+  // this step goes to Debug. A bug in the checker must never cost a turn.
+  let violations: Violation[] = [];
+  try {
+    violations = checkTurn(latest, next, {
+      turnLogId: turn.turnLogId,
+      userMessage: turn.userMessage,
+      narration: turn.narration,
+      pace,
+      sceneEnded,
+      skipSeconds,
+    });
+    for (const line of describeViolations(violations)) events.push({ kind: 'violation', text: line });
+  } catch (error) {
+    events.push({ kind: 'violation', text: `The invariant checker failed: ${error instanceof Error ? error.message : String(error)}` });
+  }
+
+  // In tests (`bun run test` sets KAN_STRICT_INVARIANTS) a broken rule fails the test.
+  // Only what this step broke: a test's hand-made save may start broken.
+  if (strictInvariants()) {
+    const already = new Set(checkSave(latest).map((item) => `${item.code}:${item.text}`));
+    const broken = violations.filter((item) => item.severity === 'error' && !already.has(`${item.code}:${item.text}`));
+    if (broken.length > 0) throw new Error(`Invariant broken: ${describeViolations(broken).join(' | ')}`);
   }
 
   return { db: next, followUpIds, notice, appliedDiff: effectiveDiff, nameLeaks: leaks, events };

@@ -198,7 +198,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
         'Fast, economical movements with almost no sound; you close distance in a low stance and end exchanges in one or two blows.',
       firstSeen: DEFAULT_DATE,
       lastSeen: DEFAULT_DATE,
-      timesUsed: 1,
+      timesUsed: 0,
       description: 'Close-quarters hand-to-hand combat focused on speed, silence, and precision.',
       tags: ['taijutsu', 'kan'],
     },

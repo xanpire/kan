@@ -21,6 +21,11 @@ import {
 } from '@/lib/rpg/debug';
 export { formatCost } from '@/lib/rpg/debug';
 import { trackerFieldStats, type TrackerFieldStat } from '@/lib/rpg/trackerStats';
+import { useGame } from '@/lib/rpg/game';
+import { downloadJson } from '@/lib/rpg/file';
+import { describeViolations, type Violation } from '@/lib/rpg/invariants';
+import { buildReplayFixture, REPLAY_MAX_TURNS } from '@/lib/rpg/replay';
+import { APP_VERSION } from '@/lib/version';
 
 const mono = Platform.select({
   web: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -147,6 +152,8 @@ export function DebugPanel({ slotId }: { slotId?: string | null }) {
         />
       ) : null}
 
+      {open ? <SaveDoctor turns={turns} /> : null}
+
       {open ? (
         <View style={styles.body}>
           {!turn ? (
@@ -197,6 +204,87 @@ export function DebugPanel({ slotId }: { slotId?: string | null }) {
         </View>
       ) : null}
     </ListCard>
+  );
+}
+
+/**
+ * The save doctor and replay export (audit 11d): check the open save against
+ * the invariants, apply the safe repairs, and export the last turns as a
+ * replay test fixture.
+ */
+function SaveDoctor({ turns }: { turns: DebugTurn[] }) {
+  const { db, checkOpenSave, repairOpenSave, isNarrating, isProcessing } = useGame();
+  const { showToast } = useToast();
+  const [found, setFound] = useState<Violation[] | null>(null);
+  const [working, setWorking] = useState(false);
+  // Waits for a reply or a memory step to finish, as Restore backup does.
+  const busy = working || isNarrating || isProcessing;
+
+  const check = async () => {
+    setWorking(true);
+    try {
+      setFound(await checkOpenSave());
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const repair = async () => {
+    setWorking(true);
+    try {
+      const repairs = await repairOpenSave();
+      showToast(repairs.length > 0 ? repairs.join(' ') : 'Nothing needed repairing.', 'success');
+      setFound(await checkOpenSave());
+    } catch (caught) {
+      showToast(caught instanceof Error ? caught.message : 'The repair failed.', 'error');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const exportTest = () => {
+    if (!db) return;
+    const built = buildReplayFixture(db, turns, { app: APP_VERSION });
+    if ('error' in built) {
+      showToast(built.error, 'error');
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    downloadJson(`kan-replay-${stamp}.json`, JSON.stringify(built.fixture, null, 1));
+    showToast(`Exported the last ${built.fixture.turns.length} turns as a test.`, 'success');
+  };
+
+  const errors = found?.filter((item) => item.severity === 'error').length ?? 0;
+  const summary =
+    found === null
+      ? 'Checks this story against the rules the app must never break.'
+      : found.length === 0
+        ? 'No problems found.'
+        : `${errors} broken, ${found.length - errors} odd.`;
+
+  return (
+    <>
+      <ListRow meta={working ? 'Working…' : summary} onPress={busy ? undefined : () => void check()} title="Check this save" />
+      {found && found.length > 0 ? (
+        <View style={styles.events}>
+          {describeViolations(found).map((line, position) => (
+            <Text key={position} selectable style={[type.rowMeta, styles.eventText]}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <ListRow
+        meta="Drops links to people or turns that are gone, takes the dead out of the scene, closes finished beats. Never deletes story."
+        onPress={busy ? undefined : () => void repair()}
+        title="Repair what's safe"
+      />
+      <ListRow
+        meta={`The last ${REPLAY_MAX_TURNS} turns with their tracker replies, as a file for scripts/fixtures/.`}
+        onPress={busy ? undefined : exportTest}
+        title="Export this session as a test"
+      />
+    </>
   );
 }
 

@@ -16,7 +16,7 @@ import { validateLocationKind } from './encounters';
 import { guardBondDiff, isBigTurn } from './bondGuard';
 import { canonRoleAhead } from './canonRoles';
 import { refusesKanDeath } from './kanFate';
-import { addItems, removeItems } from './inventory';
+import { addItems, removeItems, settleProtector } from './inventory';
 import type { DebugEvent } from './debugEvents';
 import { applyEntityDiff, mergeDuplicateEntities, recordPresence, resolveCharacterRefs, resolveEntity } from './entities';
 import { applyGrudgeChanges } from './grudges';
@@ -364,7 +364,7 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
   }
 
   if (Array.isArray(state.inventoryAdded)) {
-    next.state.inventory = addItems(next.state.inventory, state.inventoryAdded);
+    next.state.inventory = settleProtector(addItems(next.state.inventory, state.inventoryAdded));
   }
 
   if (typeof state.location === 'string' && state.location.trim()) {
@@ -579,10 +579,22 @@ export async function extractTurnDiff(options: {
     return null;
   }
 
-  // Core's fields from Core, and only the asked-for areas from World.
+  return diffFromParsedReplies(db, parsed, world?.parsed ? { parsed: world.parsed, areas: world.areas } : null);
+}
+
+/**
+ * The turn's diff from the parsed Core and World replies: Core's fields from
+ * Core, and only the asked-for areas from World. Shared with the replay of
+ * real-play fixtures (replay.ts), so a fixture reads exactly as the turn did.
+ */
+export function diffFromParsedReplies(
+  db: AppDatabase,
+  core: Record<string, unknown>,
+  world: { parsed: Record<string, unknown>; areas: readonly WorldArea[] } | null
+): TurnDiff | null {
   const merged = {
-    ...pickFields(parsed, fieldsOf('core')),
-    ...(world?.parsed ? pickFields(world.parsed, fieldsOf(world.areas)) : {}),
+    ...pickFields(core, fieldsOf('core')),
+    ...(world ? pickFields(world.parsed, fieldsOf(world.areas)) : {}),
   };
   const diff = convertStateBlock(merged).diff;
 
