@@ -27,6 +27,7 @@ export type DebugCallKind =
 
 export type { DebugEvent } from './debugEvents';
 import type { DebugEvent } from './debugEvents';
+import type { TrackerCorrection } from './trackerStats';
 
 export type DebugCall = {
   id: string;
@@ -79,6 +80,8 @@ export type DebugTurn = {
   calls: DebugCall[];
   state: DebugStateStep | null;
   error?: string;
+  /** Parts of this turn the player fixed by hand afterwards (audit 7). */
+  corrections?: Array<{ field: TrackerCorrection; at: number }>;
 };
 
 type DebugLog = { turns: DebugTurn[] };
@@ -394,8 +397,60 @@ export function recordDebugState(turnId: string | null | undefined, step: Omit<D
   }));
 }
 
+/**
+ * Notes that the player fixed part of a turn by hand. Goes on the turn named
+ * (the reply whose time was corrected), or on the newest logged turn whose
+ * state step added `addedName` (a duplicate that got merged away), or else on
+ * the newest logged turn of that story.
+ */
+export function recordDebugCorrection(
+  slotId: string,
+  field: TrackerCorrection,
+  target: { turnId?: string | null; addedName?: string | null } = {}
+) {
+  const own = log.turns.filter((turn) => turn.slotId === slotId);
+  const byId = target.turnId ? own.find((turn) => turn.id === target.turnId) : undefined;
+  const byAdded = target.addedName
+    ? own.find((turn) =>
+        (turn.state?.changes ?? []).some(
+          (change) => change.path.endsWith(' · added') && change.to === target.addedName
+        )
+      )
+    : undefined;
+  const owner = byId ?? byAdded ?? (target.turnId ? undefined : own[0]);
+
+  if (!owner) {
+    return;
+  }
+
+  updateTurn(owner.id, (turn) => ({
+    ...turn,
+    corrections: [...(turn.corrections ?? []), { field, at: Date.now() }],
+  }));
+}
+
+/** The turns that belong to one story, newest first. */
+export function turnsForSlot(turns: DebugTurn[], slotId: string | null | undefined) {
+  return slotId ? turns.filter((turn) => turn.slotId === slotId) : turns;
+}
+
 // ---------------------------------------------------------------------------
 // Totals
+
+/** A cost in dollars for the Debug panel, in fixed decimals. */
+export function formatCost(cost: number) {
+  if (cost === 0) {
+    return '$0';
+  }
+
+  if (cost < 0.01) {
+    // Fixed decimals: toPrecision printed tiny costs as "$1.23e-7".
+    const text = cost.toFixed(6).replace(/0+$/, '');
+    return text === '0.' ? '<$0.000001' : `$${text}`;
+  }
+
+  return `$${cost.toFixed(4)}`;
+}
 
 export function turnCost(turn: DebugTurn): { total: number; complete: boolean } {
   let total = 0;

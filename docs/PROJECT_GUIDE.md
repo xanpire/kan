@@ -976,6 +976,8 @@ Three tabs: **Story / Kan / Settings** (the Kan tab switches Bonds / Jutsu / Jou
 - A turn is opened with a temporary id when the prompt is built and re-keyed to the narrator reply's log id once saved; background steps (state retries, summaries) record against `job.turnLogId`, so their spend lands on the turn that caused it.
 - Costs are never estimated. Every chat request sends `usage: { include: true }`; `CallUsage.cost` comes from the reply, or from `GET /api/v1/generation?id=` when the reply had none. A `+` after a total means a call reported no cost.
 - `describeStateChange(before, after)` diffs the save around `applyStateStep` (skips rawLog, snapshots, indices, meta, settings, memoryJobs).
+- The panel shows only the open story's turns (`turnsForSlot`, by `DebugTurn.slotId`); the footer's average counts only turns whose every call has a known cost. `formatCost` prints fixed decimals.
+- **Tracker fields** (audit 7, `trackerStats.ts`): over the logged turns, how often each top-level field of the tracker's reply was filled (not null, not `[]`, not `false`, not an all-null object) and how often the player fixed that part by hand afterwards. Hand fixes are `DebugTurn.corrections`, recorded by `recordDebugCorrection`: the time chip → `time` on that turn; a merge → `new_characters` on the turn whose state step added the dropped person (else the newest turn); Mark as dead / alive → `deaths`; Travel together → `companions_joined` (both on the newest turn). Fixed fields sort first.
 
 ---
 

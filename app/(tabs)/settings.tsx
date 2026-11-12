@@ -855,7 +855,7 @@ export default function SettingsScreen() {
           </ListCard>
 
           <SectionLabel>Debug</SectionLabel>
-          <DebugPanel />
+          <DebugPanel slotId={db?.meta.slotId} />
 
           <View style={styles.about}>
             <Text style={type.rowMeta}>{`KAN · v${APP_VERSION}`}</Text>

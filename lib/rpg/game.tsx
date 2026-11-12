@@ -50,6 +50,7 @@ import {
   linkDebugTurn,
   loadDebugLog,
   recordDebugCall,
+  recordDebugCorrection,
   recordDebugState,
 } from './debug';
 import { describeCallError, isTransientError, streamChatCompletion, type StreamResult } from '../openrouter';
@@ -1433,6 +1434,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      const dropped = current.entities.find((entity) => entity.id === dropId);
+      recordDebugCorrection(current.meta.slotId, 'new_characters', { addedName: dropped?.name });
       await commitDb(merged);
     },
     [commitDb]
@@ -1455,6 +1458,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      recordDebugCorrection(current.meta.slotId, 'deaths');
       await commitDb(next);
     },
     [commitDb]
@@ -1474,6 +1478,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      recordDebugCorrection(current.meta.slotId, 'companions_joined');
       await commitDb(next);
     },
     [commitDb]
@@ -1647,6 +1652,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       try {
         await updateLatest(slotId, (latest) => correctTurnTimeInDb(latest, logId, seconds));
+        recordDebugCorrection(slotId, 'time', { turnId: logId });
       } catch {
         setError('The time change could not be saved. Check your storage space and try again.');
       }

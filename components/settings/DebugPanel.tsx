@@ -9,7 +9,9 @@ import { useToast } from '@/components/Toast';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import {
   clearDebugLog,
+  formatCost,
   turnCost,
+  turnsForSlot,
   turnTokens,
   useDebugLog,
   type DebugCall,
@@ -17,6 +19,8 @@ import {
   type DebugTurn,
   type DebugEvent,
 } from '@/lib/rpg/debug';
+export { formatCost } from '@/lib/rpg/debug';
+import { trackerFieldStats, type TrackerFieldStat } from '@/lib/rpg/trackerStats';
 
 const mono = Platform.select({
   web: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
@@ -44,18 +48,6 @@ const STATE_LABEL = {
   fallback: 'Unreadable · prose fallback',
   failed: 'Failed · queued for retry',
 } as const;
-
-export function formatCost(cost: number) {
-  if (cost === 0) {
-    return '$0';
-  }
-
-  if (cost < 0.01) {
-    return `$${cost.toPrecision(3)}`;
-  }
-
-  return `$${cost.toFixed(4)}`;
-}
 
 function formatTokens(value: number) {
   return value.toLocaleString('en-US');
@@ -85,8 +77,10 @@ async function copyText(text: string) {
   }
 }
 
-export function DebugPanel() {
-  const { turns } = useDebugLog();
+export function DebugPanel({ slotId }: { slotId?: string | null }) {
+  const { turns: allTurns } = useDebugLog();
+  // Only the open story: other stories' prompts and costs don't belong here.
+  const turns = useMemo(() => turnsForSlot(allTurns, slotId), [allTurns, slotId]);
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
@@ -104,17 +98,20 @@ export function DebugPanel() {
   const session = useMemo(() => {
     let total = 0;
     let priced = 0;
+    let pricedTotal = 0;
 
     for (const entry of turns) {
       const cost = turnCost(entry);
       total += cost.total;
 
+      // The average counts only turns whose every call has a known cost.
       if (cost.complete && entry.calls.length > 0) {
         priced += 1;
+        pricedTotal += cost.total;
       }
     }
 
-    return { total, count: turns.length, priced };
+    return { total, count: turns.length, priced, average: priced > 0 ? pricedTotal / priced : 0 };
   }, [turns]);
 
   return (
@@ -166,6 +163,7 @@ export function DebugPanel() {
               />
               <CostBlock turn={turn} />
               <StateBlock turn={turn} />
+              <TrackerBlock turns={turns} />
               <PromptBlock
                 onCopy={async (text) => {
                   const ok = await copyText(text);
@@ -179,9 +177,7 @@ export function DebugPanel() {
                   {`${session.count} turn${session.count === 1 ? '' : 's'} logged · ${formatCost(
                     session.total
                   )} total${
-                    session.priced > 0
-                      ? ` · ${formatCost(session.total / Math.max(session.count, 1))} avg`
-                      : ''
+                    session.priced > 0 ? ` · ${formatCost(session.average)} avg` : ''
                   }`}
                 </Text>
                 <Pressable
@@ -457,6 +453,51 @@ function StateBlock({ turn }: { turn: DebugTurn }) {
   );
 }
 
+/**
+ * Field by field over every logged turn of this story: how often the tracker
+ * filled it, and how often you fixed that part by hand afterwards (audit 7).
+ */
+function TrackerBlock({ turns }: { turns: DebugTurn[] }) {
+  const [open, setOpen] = useState(false);
+  const stats = useMemo(() => trackerFieldStats(turns), [turns]);
+  const fixes = stats.fields.reduce((sum, field) => sum + field.corrected, 0);
+
+  return (
+    <View style={styles.block}>
+      <View style={styles.blockHead}>
+        <Text style={type.sectionLabel}>Tracker fields</Text>
+        <Toggle label={open ? 'Hide' : 'Show'} onPress={() => setOpen((value) => !value)} open={open} />
+      </View>
+      <Text style={type.rowMeta}>
+        {`${stats.turns} readable repl${stats.turns === 1 ? 'y' : 'ies'}${
+          stats.unreadable ? ` · ${stats.unreadable} unreadable` : ''
+        } · ${fixes} fixed by hand (time, merge, death, travel)`}
+      </Text>
+      {open ? (
+        <View style={styles.changes}>
+          {stats.fields.map((field) => (
+            <TrackerRow field={field} key={field.field} total={stats.turns} />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function TrackerRow({ field, total }: { field: TrackerFieldStat; total: number }) {
+  return (
+    <View style={styles.trackerRow}>
+      <Text numberOfLines={1} style={[styles.mono, styles.flex]}>
+        {field.field}
+      </Text>
+      <Text style={type.rowMeta}>{`${field.filled}/${total}`}</Text>
+      <Text style={[type.rowMeta, styles.trackerFixed, field.corrected > 0 && styles.error]}>
+        {field.corrected > 0 ? `fixed ${field.corrected}` : ''}
+      </Text>
+    </View>
+  );
+}
+
 function prettyJson(text: string) {
   try {
     return JSON.stringify(JSON.parse(text), null, 2);
@@ -580,6 +621,15 @@ function CodeBox({ text }: { text: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
+  trackerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  trackerFixed: {
+    minWidth: 56,
+    textAlign: 'right',
+  },
   pressed: { opacity: 0.65 },
   disabled: { opacity: 0.3 },
   trailing: {
