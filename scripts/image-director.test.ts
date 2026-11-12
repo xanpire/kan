@@ -148,7 +148,7 @@ describe('the scene prompt', () => {
       shot: 'extreme wide, tiny in frame',
     });
     const lines = prompt.split('\n');
-    expect(lines[0]).toContain('widescreen anime key frame');
+    expect(lines[0]).toContain('painted anime background art');
     expect(prompt.indexOf('SHOT:')).toBeLessThan(prompt.indexOf('ACTION'));
     expect(prompt.indexOf('ACTION')).toBeLessThan(prompt.indexOf('Reference image 1'));
     expect(prompt.indexOf('Reference image 1')).toBeLessThan(prompt.indexOf('ACTOR RULE'));

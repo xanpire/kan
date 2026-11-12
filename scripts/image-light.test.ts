@@ -86,3 +86,29 @@ describe('the painted light follows the clock (audit 11c, Session 1)', () => {
     expect(prompt.indexOf('SHOT:')).toBeLessThan(prompt.indexOf('Light and atmosphere'));
   });
 });
+
+import { sceneStyleOf } from '../lib/rpg/image';
+
+describe('the style opener follows the scene (audit 11c)', () => {
+  const mode = (db: AppDatabase, current: 'normal' | 'conversation' | 'fight', lastBeat?: 'exchange' | 'combat' | 'travel' | 'action'): AppDatabase => ({
+    ...db,
+    state: { ...db.state, sceneMode: { current, exchangeStreak: 0, partners: [], ...(lastBeat ? { lastBeat } : {}) } },
+  });
+
+  test('a fight is a fight frame, a talk is a quiet still, the road is background art', () => {
+    expect(sceneStyleOf(mode(seed(), 'fight', 'combat'), 'medium')).toBe('fight');
+    expect(sceneStyleOf(mode(seed(), 'conversation', 'exchange'), 'medium')).toBe('quiet');
+    expect(sceneStyleOf(mode(seed(), 'normal', 'travel'), 'wide')).toBe('travel');
+    expect(sceneStyleOf(mode(seed(), 'normal', 'action'), 'extreme wide')).toBe('travel');
+    expect(sceneStyleOf(mode(seed(), 'normal', 'action'), 'medium')).toBe('drama');
+    expect(sceneStyleOf(mode(seed(), 'normal'), 'close-up')).toBe('quiet');
+  });
+
+  test('the prompt opens with the matching style', () => {
+    const quiet = buildSceneImagePrompt(withReply(mode(at(seed(), 9, 12), 'conversation', 'exchange'), 'x'), [], 'Kan pours tea for Itachi.', { shot: 'medium, eye level' });
+    expect(quiet.split('\n')[0]).toContain('soft widescreen anime film still');
+    expect(quiet).not.toContain('fight episode');
+    const fight = buildSceneImagePrompt(withReply(mode(at(seed(), 9, 12), 'fight', 'combat'), 'x'), [], 'Kan kicks Kisame.', { shot: 'low angle' });
+    expect(fight.split('\n')[0]).toContain('fight episode');
+  });
+});

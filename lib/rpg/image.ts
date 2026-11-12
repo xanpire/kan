@@ -433,8 +433,45 @@ export async function writeImageAction(
 
 const KAN_LOOK = `Kan: a lean young shinobi with ${KAN_HAIR_AND_EYES}.`;
 
-const STYLE_OPENER =
-  'A dramatic widescreen anime key frame, like a still from a high-budget Naruto Shippuden fight episode: bold cel shading, clean line art, saturated colour with strong contrast, dynamic composition, film grain.';
+export type SceneStyle = 'fight' | 'quiet' | 'travel' | 'drama';
+
+/**
+ * The style opener follows the scene (audit 11c): every image used to be
+ * styled as a fight, so quiet scenes came out tense.
+ */
+const STYLE_OPENERS: Record<SceneStyle, string> = {
+  fight:
+    'A dramatic widescreen anime key frame, like a still from a high-budget Naruto Shippuden fight episode: bold cel shading, clean line art, saturated colour with strong contrast, dynamic composition, film grain.',
+  drama:
+    'A cinematic widescreen anime key frame, like a still from a high-budget Naruto Shippuden episode: bold cel shading, clean line art, rich colour, a strong composition, film grain.',
+  quiet:
+    'A soft widescreen anime film still: gentle cel shading, clean delicate line art, natural muted colour, soft light, a feeling of stillness; the people at rest or close, nothing in motion that the moment does not need; film grain.',
+  travel:
+    'Widescreen painted anime background art, like an establishing shot of an anime film: a richly painted landscape with depth and atmospheric perspective, small figures in it with simple cel shading, film grain.',
+};
+
+/** Which opener fits: a fight, a quiet or emotional moment, the road, or anything else. */
+export function sceneStyleOf(db: AppDatabase, shotType: ShotType | null, inMemory = false): SceneStyle {
+  const mode = db.state.sceneMode;
+  const beat = mode?.lastBeat;
+
+  if (!inMemory && (mode?.current === 'fight' || beat === 'combat')) return 'fight';
+  if (shotType === 'impact frame') return 'fight';
+  if (beat === 'travel' || shotType === 'extreme wide' || (shotType === 'aerial' && beat !== 'action')) return 'travel';
+  if (
+    inMemory ||
+    mode?.current === 'conversation' ||
+    beat === 'exchange' ||
+    beat === 'remark' ||
+    beat === 'instruction' ||
+    shotType === 'close-up' ||
+    shotType === 'extreme close-up'
+  ) {
+    return 'quiet';
+  }
+
+  return 'drama';
+}
 
 function impactOpener(accent: string) {
   return `An anime impact frame: inverted, limited palette of black, white and ${accent}; rough expressive sketch lines; radial speed lines exploding from the point of impact; flat background.`;
@@ -513,7 +550,7 @@ export function buildSceneImagePrompt(
       ? 'electric blue'
       : 'red';
   const lines = [
-    impact ? impactOpener(accent) : STYLE_OPENER,
+    impact ? impactOpener(accent) : STYLE_OPENERS[sceneStyleOf(db, shotType, Boolean(memoryReply))],
     'Visual image only: no words, letters, numbers, captions, subtitles, logos, watermarks, or readable text anywhere.',
   ];
 

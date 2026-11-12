@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kan",
     "slug": "kan",
-    "version": "1.24.65",
+    "version": "1.24.66",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kan",
