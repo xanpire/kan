@@ -58,6 +58,7 @@ import {
   recordDebugState,
 } from './debug';
 import { foldSpending } from './spending';
+import { rememberAppModels } from './modelDefaults';
 import { describeCallError, isTransientError, streamChatCompletion, type StreamResult } from '../openrouter';
 import { extractTurnDiff } from './services';
 import { appendStoryMessage, cloneDatabase, getLastExchange, pushSnapshot, restoreLastSnapshot } from './log';
@@ -1272,6 +1273,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           ...patch,
         },
       });
+      // Model choices carry over to every new story (audit 10).
+      await rememberAppModels(patch);
     },
     [commitDb]
   );

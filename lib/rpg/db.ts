@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadAppModels, withAppModels } from './modelDefaults';
 import { normalizePost } from './letters';
 import { normalizeYearly } from './yearly';
 import { normalizeReputation } from './reputation';
@@ -529,7 +530,8 @@ export async function saveSlot(db: AppDatabase) {
 
 export async function createSlot(slotName: string): Promise<AppDatabase> {
   const slotId = makeId('slot');
-  const db = seedDatabase(slotId, slotName || 'New story');
+  // A new story starts on the models you last chose, not the defaults (audit 10).
+  const db = withAppModels(seedDatabase(slotId, slotName || 'New story'), await loadAppModels());
   await saveSlot(db);
 
   const meta = await loadStorageMeta();

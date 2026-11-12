@@ -51,6 +51,7 @@ import {
   type TrashedStory,
 } from '@/lib/rpg/db';
 import { storageStatus, type StorageStatus } from '@/lib/rpg/slotStore';
+import { loadModelLists, missingModelLine, missingModels, type ModelLists } from '@/lib/rpg/modelCheck';
 import { NO_SPENDING, spendingLine, spendingVersion, storySpending, subscribeSpending } from '@/lib/rpg/spending';
 import { currentAmbience, describeAmbience } from '@/lib/rpg/ambience';
 import { ambienceEngine, ambienceSupported } from '@/lib/audio/ambienceEngine';
@@ -119,6 +120,20 @@ export default function SettingsScreen() {
   const [trash, setTrash] = useState<TrashedStory[]>([]);
   const [trashOpen, setTrashOpen] = useState(false);
   const slotCount = slots.length;
+  // Retired models are named here once the lists load (audit 10).
+  const [modelLists, setModelLists] = useState<ModelLists | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadModelLists().then((lists) => {
+      if (!cancelled) setModelLists(lists);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const goneModels = db && modelLists ? missingModels(db.settings, modelLists) : [];
   // Costs that arrive after a save show at once (audit 10).
   useSyncExternalStore(subscribeSpending, spendingVersion, spendingVersion);
   const spent = db ? storySpending(db) : NO_SPENDING;
@@ -426,6 +441,20 @@ export default function SettingsScreen() {
           <Text style={[type.pageTitle, styles.pageTitle]}>Settings</Text>
 
           <SectionLabel>Narrator</SectionLabel>
+          {goneModels.length > 0 ? (
+            <ListCard style={styles.goneCard}>
+              {goneModels.map((gone) => (
+                <ListRow
+                  body={missingModelLine(gone)}
+                  bodyLines={3}
+                  key={gone.key}
+                  leading={<CircleAlert color={colors.warning} size={18} strokeWidth={2} />}
+                  onPress={gone.key === 'narrationModel' || gone.key === 'imageModel' ? undefined : () => setAdvancedOpen(true)}
+                  title={`${gone.label}: model not found`}
+                />
+              ))}
+            </ListCard>
+          ) : null}
           <ListCard>
             <ListRow
               accessibilityLabel="OpenRouter key"
@@ -542,7 +571,7 @@ export default function SettingsScreen() {
             ) : null}
 
             <ModelSelect
-              hint="Writes the story."
+              hint="Writes the story. New stories start with the models you pick here."
               label="Story"
               onChange={(value) => void updateSettings({ narrationModel: value })}
               value={db.settings.narrationModel}
@@ -1005,6 +1034,9 @@ function formatRealDate(at: number) {
 }
 
 const styles = StyleSheet.create({
+  goneCard: {
+    marginBottom: spacing.sm,
+  },
   storageCard: {
     marginTop: spacing.md,
   },
