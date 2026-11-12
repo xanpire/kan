@@ -16,6 +16,8 @@ export type OpenRouterModelSummary = {
   recommended: boolean;
   /** Short tag shown next to the name, e.g. "4 refs". */
   badge?: string;
+  /** Takes images as input (for the image check, audit 11c). */
+  seesImages?: boolean;
 };
 
 type RawModel = {
@@ -23,6 +25,7 @@ type RawModel = {
   name?: string;
   context_length?: number;
   pricing?: { prompt?: string };
+  architecture?: { input_modalities?: string[] };
 };
 
 export type OpenRouterImageModelSummary = {
@@ -205,6 +208,7 @@ export async function fetchOpenRouterModels(): Promise<OpenRouterModelSummary[]>
       name?: string;
       context_length?: number;
       pricing?: { prompt?: string };
+      architecture?: { input_modalities?: string[] };
     }>;
   };
 
@@ -218,6 +222,7 @@ export async function fetchOpenRouterModels(): Promise<OpenRouterModelSummary[]>
       contextLength: model.context_length ?? 0,
       promptPrice: formatPrice(model.pricing?.prompt),
       recommended: RECOMMENDED_MODELS.has(model.id),
+      seesImages: Boolean(model.architecture?.input_modalities?.includes('image')),
     }))
     .sort((a, b) => {
       if (a.recommended !== b.recommended) {

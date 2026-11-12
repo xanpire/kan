@@ -6,7 +6,7 @@
 import { fetchOpenRouterImageModels, fetchOpenRouterModels } from '../openrouter';
 import type { Settings } from './types';
 
-export type ModelLists = { text: Set<string>; image: Set<string> };
+export type ModelLists = { text: Set<string>; image: Set<string>; /** Text models that take images. */ seesImages?: Set<string> };
 
 export type MissingModel = { key: keyof Settings; label: string; id: string };
 
@@ -47,12 +47,14 @@ let cached: Promise<ModelLists> | null = null;
 export function loadModelLists(): Promise<ModelLists> {
   if (!cached) {
     cached = Promise.all([
-      fetchOpenRouterModels().then((models) => new Set(models.map((model) => model.id)), () => new Set<string>()),
+      fetchOpenRouterModels().then((models) => models, () => []),
       fetchOpenRouterImageModels().then((models) => new Set(models.map((model) => model.id)), () => new Set<string>()),
-    ]).then(([text, image]) => {
+    ]).then(([models, image]) => {
+      const text = new Set(models.map((model) => model.id));
+      const seesImages = new Set(models.filter((model) => model.seesImages).map((model) => model.id));
       // Try again next time if both failed (offline).
       if (text.size === 0 && image.size === 0) cached = null;
-      return { text, image };
+      return { text, image, seesImages };
     });
   }
 
@@ -62,4 +64,13 @@ export function loadModelLists(): Promise<ModelLists> {
 /** "Story uses google/x, which isn't on OpenRouter any more. Pick another." */
 export function missingModelLine(missing: MissingModel) {
   return `${missing.label} uses ${missing.id}, which isn’t on OpenRouter any more. Pick another model, or the ${missing.label.toLowerCase()} calls will fail.`;
+}
+
+/**
+ * Whether a text model can look at an image (audit 11c: the image check needs
+ * one). Unknown (the list did not load, or the model is not on it) counts as yes.
+ */
+export function modelSeesImages(lists: ModelLists, id: string): boolean {
+  if (!lists.seesImages || lists.text.size === 0 || !listed(lists.text, id)) return true;
+  return listed(lists.seesImages, id);
 }

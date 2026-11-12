@@ -66,7 +66,9 @@ export async function paintScene({
   onStage?.('framing');
   const recentRefs = collectRecentSceneImages(db);
   const [written, recentLoaded, kanRefs] = await Promise.all([
-    writeImageAction(apiKey, db, undefined, { chip }),
+    writeImageAction(apiKey, db, undefined, { chip }, (model, error) =>
+      recordDebugSideCall(turnId, { kind: 'imageAction', model, usage: null, apiKey, error })
+    ),
     Promise.all(recentRefs.map((ref) => loadImage(ref))),
     loadKanReferenceImages(wearsAkatsukiCloak(db)),
   ]);
@@ -145,12 +147,14 @@ export async function paintScene({
   });
 
   const check = imageCheckEnabled(db);
+  const checkFailed = (model: string, error: string) =>
+    recordDebugSideCall(turnId, { kind: 'imageCheck', model, usage: null, apiKey, error });
 
   if (takes === 2) {
     const images = await Promise.all([makeOne(prompt), makeOne(prompt)]);
     if (check) onStage?.('checking');
     const checks = check
-      ? await Promise.all(images.map((image) => checkSceneImage(apiKey, db, image, action)))
+      ? await Promise.all(images.map((image) => checkSceneImage(apiKey, db, image, action, undefined, checkFailed)))
       : [null, null];
     checks.forEach((result) => recordCheck(turnId, apiKey, result));
 
@@ -169,7 +173,7 @@ export async function paintScene({
     return { turnId, takes: [{ dataUri: first, meta: metaFor(prompt, false) }] };
   }
 
-  const firstCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, first, action));
+  const firstCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, first, action, undefined, checkFailed));
   recordCheck(turnId, apiKey, firstCheck);
 
   // Only reversed roles are worth a second image; extra people are flagged.
@@ -184,7 +188,7 @@ export async function paintScene({
 
   try {
     const second = await makeOne(retryPrompt);
-    const secondCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, second, action));
+    const secondCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, second, action, undefined, checkFailed));
     recordCheck(turnId, apiKey, secondCheck);
 
     if (!secondCheck || secondCheck.rolesOk) {

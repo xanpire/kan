@@ -367,7 +367,9 @@ export async function writeImageAction(
   apiKey: string,
   db: AppDatabase,
   signal?: AbortSignal,
-  options: DirectorOptions = {}
+  options: DirectorOptions = {},
+  /** Why an attempt gave nothing, for the Debug log (audit 11c). */
+  onFail?: (model: string, reason: string) => void
 ): Promise<DirectedImage | null> {
   const context = directorContext(db, options);
 
@@ -392,12 +394,18 @@ export async function writeImageAction(
           { role: 'user', content: context },
         ],
         temperature: attempt.temperature,
-        maxTokens: 900,
+        // Low reasoning and room to spare: a thinking model used to spend the
+        // whole 900-token allowance thinking and return nothing (audit 11c).
+        maxTokens: 1500,
+        reasoning: { effort: 'low', exclude: true },
         signal,
       });
       const parsed = parseImageAction(result.text);
 
-      if (!parsed.action) continue;
+      if (!parsed.action) {
+        onFail?.(attempt.model, 'empty answer');
+        continue;
+      }
 
       let shot = parsed.shot;
       let shotType = shotTypeOf(shot);
@@ -423,8 +431,9 @@ export async function writeImageAction(
         usage: result.usage,
         model: attempt.model,
       };
-    } catch {
+    } catch (error) {
       if (signal?.aborted) return null;
+      onFail?.(attempt.model, error instanceof Error ? error.message.slice(0, 120) : 'failed');
     }
   }
 

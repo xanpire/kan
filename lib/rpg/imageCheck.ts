@@ -4,6 +4,7 @@
 // redone once with a sharper actor rule built from the check's note.
 
 import { completeChat, type CallUsage } from '../openrouter';
+import { loadModelLists, modelSeesImages } from './modelCheck';
 import type { AppDatabase } from './types';
 
 export type ImageCheck = {
@@ -54,10 +55,20 @@ export async function checkSceneImage(
   db: AppDatabase,
   image: string,
   action: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  /** Why the check gave no answer, for the Debug log (audit 11c). */
+  onFail?: (model: string, reason: string) => void
 ): Promise<ImageCheck | null> {
   const model = imageCheckModel(db);
   const actor = actorOf(action);
+
+  // A model that cannot see images would answer "fine" without looking.
+  const lists = await loadModelLists().catch(() => null);
+
+  if (lists && !modelSeesImages(lists, model)) {
+    onFail?.(model, 'skipped: this model cannot look at images');
+    return null;
+  }
 
   try {
     const result = await completeChat({
@@ -71,13 +82,18 @@ export async function checkSceneImage(
         },
       ],
       temperature: 0,
-      maxTokens: 300,
+      // A thinking model can spend a small allowance thinking and say nothing.
+      maxTokens: 600,
+      reasoning: { effort: 'low', exclude: true },
       signal,
     });
     const parsed = parseImageCheck(result.text);
 
+    if (!parsed) onFail?.(model, result.text.trim() ? 'answer was not the JSON asked for' : 'empty answer');
+
     return parsed ? { ...parsed, usage: result.usage, model } : null;
-  } catch {
+  } catch (error) {
+    onFail?.(model, error instanceof Error ? error.message.slice(0, 120) : 'failed');
     return null;
   }
 }
