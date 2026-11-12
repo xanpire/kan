@@ -7,6 +7,7 @@ import { eraTitle } from './canonData';
 import { characterRefs, mentionsEntity, refByEntityId } from './characterRefs';
 import {
   activeCanonMilestones,
+  canonStoryOver,
   recentCanonEvents,
   recentlyConcludedMilestones,
   upcomingCanonMilestones,
@@ -48,6 +49,7 @@ import { formatWeatherLine, formatWeatherTracking } from './weather';
 import { currentSafehouse, formatSafehouseLine, formatSafehouseTracking, letterAddress, placesLine } from './safehouses';
 import { WORLD_AREAS, type WorldArea } from './stateSchema';
 import { PRICE_GUIDE, formatPurseLine } from './money';
+import { KAN_FATE_RULE } from './kanFate';
 import { CONVERSATION_MODE_MINIMUM_SECONDS, formatSceneModeLine, formatSceneModeTracking, resolveTurnMode } from './sceneMode';
 import {
   activeFlashback,
@@ -85,6 +87,7 @@ CORE
 - Kan carries only what CURRENT STATE lists under Inventory: never give him a weapon, tool or item he does not have, and when he uses one up or loses it, show it.
 - Kan's money is the Purse in CURRENT STATE. He can never pay more than he has; when he is short, the seller says so. Whenever money changes hands for Kan (he pays, is paid, finds, wins, loses or is robbed), say how much in ryō, at believable prices. Someone else may pay for him. ${PRICE_GUIDE}
 - Characters have the age, rank, and knowledge they would have on the current date, and goals of their own: they can refuse, lie, or leave. Canon power levels hold, with no power creep or nerfing. Trust and love are earned.
+${KAN_FATE_RULE}
 - The supplied state, characters, bonds, facts, threads, summaries, and memories are truth, and win over canon where they differ. Characters know only the secrets they learned in this story. Open threads are binding: never change a mission's goal, destination, or allies unless Kan does.
 
 TIME
@@ -1335,6 +1338,13 @@ function formatCanonBlock(db: AppDatabase) {
         '  If Kan\'s scene reaches this beat, play it out fully on the page.'
       );
     }
+  }
+
+  // Free roam (audit 8): the timeline has run out, the world goes on.
+  if (canonStoryOver(db)) {
+    lines.push(
+      '- The canon story is over: Naruto is the Seventh Hokage and the timeline has no more events. Play goes on in this same world, but never invent a new canon event, and nothing from any later era.'
+    );
   }
 
   if (concluded.length > 0) {

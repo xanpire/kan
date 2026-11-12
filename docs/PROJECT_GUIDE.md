@@ -527,6 +527,11 @@ Decided by Xan. A turn may cover a long stretch only when the player asks for it
 - **Long jumps** (`guardLongJump`, 4.5): without a requested skip, a jump of more than 36 hours stands only when the prose parser and the tracker agree within 25%; otherwise the tracker's value, capped by pace. With no tracker reply (the prose fallback) the prose alone is used, as before.
 - **Corrections** (`correctTurnTime`): the time chip goes up to 3 years. Corrected backwards, `unfireFutureMilestones` takes back world milestones whose date is now ahead (their event, facts, threads, deaths and heard record), so they fire again when the clock gets there.
 
+### Kan's fate and free roam (audit 8, decided by Xan for now)
+
+- **Kan is never killed** (`kanFate.ts`, the one place to change it): `KAN_CAN_DIE = false`. `KAN_FATE_RULE` is a CORE line of `NARRATION_SYSTEM` (he can lose, be badly hurt, captured, crippled for a while, or saved at a price, and those are real and lasting; a fight he cannot win ends in one of those, not a win), and `refusesKanDeath` makes `applyTurnDiff` refuse a tracker death for Kan (a `refused` event in Debug). Setting `KAN_CAN_DIE` to true removes both.
+- **Free roam after the story**: `canonStoryOver(db)` is true when nothing is under way and every milestone has played, lapsed or had its window close (the last ones are the Seventh Hokage and Your legacy). The game goes on: every canon block copes with an empty timeline (no beats, no rumors, no news offer, the world clock still opens), and CANON TIMELINE then says the canon story is over, never to invent a new canon event or anything from a later era. No Boruto-era content exists. Tested in `scripts/free-roam.test.ts`.
+
 ### Canon protects itself (`canonRoles.ts`)
 
 Decided by Xan: anyone with a canon role still ahead cannot die early. `milestoneNeeds` lists who a milestone needs: its own `needs` when set, otherwise the canon people its title and description name plus its `deaths`, leaving out anyone canon has already killed by then. `canonRoleAhead(db, entity)` is the first not-completed milestone (a closed personal beat doesn't count) that needs them; Kan and original characters never have one.

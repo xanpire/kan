@@ -15,6 +15,7 @@ import { type DebugCallKind, recordDebugCall, recordDebugState } from './debug';
 import { validateLocationKind } from './encounters';
 import { guardBondDiff, isBigTurn } from './bondGuard';
 import { canonRoleAhead } from './canonRoles';
+import { refusesKanDeath } from './kanFate';
 import { addItems, removeItems } from './inventory';
 import type { DebugEvent } from './debugEvents';
 import { applyEntityDiff, mergeDuplicateEntities, recordPresence, resolveCharacterRefs, resolveEntity } from './entities';
@@ -160,6 +161,12 @@ export function applyTurnDiff(
         : resolveEntity(next, death.name);
 
       if (!entity) {
+        continue;
+      }
+
+      // Kan is never killed, for now (kanFate.ts).
+      if (refusesKanDeath(entity)) {
+        options.events?.push({ kind: 'refused', text: 'Death of Kan refused: Kan is never killed (for now).' });
         continue;
       }
 

@@ -670,6 +670,22 @@ export function activeCanonMilestones(db: AppDatabase): CanonMilestone[] {
   );
 }
 
+/**
+ * The canon story is over (audit 8, free roam): nothing is under way, and
+ * every milestone has played, lapsed, or had its window close. Play goes on
+ * in the same world with no further canon beats.
+ */
+export function canonStoryOver(db: AppDatabase): boolean {
+  const progress = normalizeProgress(db);
+  const today = dayKey(db.state.inStoryDate);
+  const settled = new Set([...progress.completed, ...(progress.expired ?? [])]);
+
+  return (
+    activeCanonMilestones(db).length === 0 &&
+    CANON_MILESTONES.every((milestone) => settled.has(milestone.id) || !windowOpen(milestone, today).notClosed)
+  );
+}
+
 /** How many personal beats the narrator is offered per turn. */
 export const PERSONAL_OFFERS_PER_TURN = 2;
 
