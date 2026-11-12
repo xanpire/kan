@@ -48,13 +48,13 @@ import {
   listTrash,
   turnsSinceExport,
   type BackupInfo,
+  type SlotSummary,
   type TrashedStory,
 } from '@/lib/rpg/db';
 import { storageStatus, type StorageStatus } from '@/lib/rpg/slotStore';
 import { currentAmbience, describeAmbience } from '@/lib/rpg/ambience';
 import { ambienceEngine, ambienceSupported } from '@/lib/audio/ambienceEngine';
 import { setAmbienceSettings, useAmbienceSettings } from '@/lib/audio/ambienceSettings';
-import type { AppDatabase } from '@/lib/rpg/types';
 
 type Feedback = {
   tone: 'success' | 'error';
@@ -101,7 +101,7 @@ export default function SettingsScreen() {
 
   const [creating, setCreating] = useState(false);
   const [newSlotName, setNewSlotName] = useState('');
-  const [menuSlot, setMenuSlot] = useState<AppDatabase | null>(null);
+  const [menuSlot, setMenuSlot] = useState<SlotSummary | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [deleteSlotId, setDeleteSlotId] = useState<string | null>(null);
@@ -333,7 +333,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    await renameSlotById(menuSlot.meta.slotId, name);
+    await renameSlotById(menuSlot.slotId, name);
     closeMenu();
     showToast('Story renamed.', 'success');
   };
@@ -405,7 +405,7 @@ export default function SettingsScreen() {
     );
   }
 
-  const menuIsActive = menuSlot?.meta.slotId === db.meta.slotId;
+  const menuIsActive = menuSlot?.slotId === db.meta.slotId;
 
   return (
     <View style={styles.root}>
@@ -699,22 +699,24 @@ export default function SettingsScreen() {
           <SectionLabel>Stories</SectionLabel>
           <ListCard>
             {slots.map((slot) => {
-              const active = slot.meta.slotId === db.meta.slotId;
-              const story = active ? db : slot;
+              const active = slot.slotId === db.meta.slotId;
+              // The open story is read live; the others from their saved summary.
+              const chapter = active ? db.state.chapter : slot.chapter;
+              const date = active ? db.state.inStoryDate : slot.inStoryDate;
 
               return (
                 <ListRow
-                  accessibilityLabel={active ? `${slot.meta.slotName}, playing` : `Switch to ${slot.meta.slotName}`}
-                  key={slot.meta.slotId}
-                  meta={`Chapter ${story.state.chapter} · ${formatDayMonth(story.state.inStoryDate)}, year ${story.state.inStoryDate.year}`}
-                  onPress={active ? undefined : () => void switchSlotById(slot.meta.slotId)}
+                  accessibilityLabel={active ? `${slot.slotName}, playing` : `Switch to ${slot.slotName}`}
+                  key={slot.slotId}
+                  meta={`Chapter ${chapter} · ${formatDayMonth(date)}, year ${date.year}`}
+                  onPress={active ? undefined : () => void switchSlotById(slot.slotId)}
                   trailing={
                     <Pressable
-                      accessibilityLabel={`More options for ${slot.meta.slotName}`}
+                      accessibilityLabel={`More options for ${slot.slotName}`}
                       accessibilityRole="button"
                       onPress={() => {
                         setMenuSlot(slot);
-                        setRenameValue(slot.meta.slotName);
+                        setRenameValue(slot.slotName);
                       }}
                       style={({ pressed }) => [styles.moreButton, pressed && styles.pressed]}
                     >
@@ -724,7 +726,7 @@ export default function SettingsScreen() {
                 >
                   <View style={styles.slotTitle}>
                     <Text numberOfLines={1} style={[type.rowTitle, styles.flexShrink]}>
-                      {slot.meta.slotName}
+                      {slot.slotName}
                     </Text>
                     {active ? <Text style={styles.playing}>Playing</Text> : null}
                   </View>
@@ -867,7 +869,7 @@ export default function SettingsScreen() {
           <Pressable accessibilityLabel="Close menu" onPress={closeMenu} style={StyleSheet.absoluteFill} />
           {menuSlot ? (
             <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-              <SectionLabel first>{menuSlot.meta.slotName}</SectionLabel>
+              <SectionLabel first>{menuSlot.slotName}</SectionLabel>
               {renaming ? (
                 <View style={styles.createRow}>
                   <TextInput
@@ -885,7 +887,7 @@ export default function SettingsScreen() {
                   {!menuIsActive ? (
                     <ListRow
                       onPress={() => {
-                        void switchSlotById(menuSlot.meta.slotId);
+                        void switchSlotById(menuSlot.slotId);
                         closeMenu();
                       }}
                       title="Play this story"
@@ -893,7 +895,7 @@ export default function SettingsScreen() {
                   ) : null}
                   <ListRow
                     onPress={() => {
-                      void duplicateSlotById(menuSlot.meta.slotId, `${menuSlot.meta.slotName} copy`);
+                      void duplicateSlotById(menuSlot.slotId, `${menuSlot.slotName} copy`);
                       closeMenu();
                     }}
                     title="Make a copy"
@@ -901,7 +903,7 @@ export default function SettingsScreen() {
                   <ListRow onPress={() => setRenaming(true)} title="Rename" />
                   <ListRow
                     onPress={() => {
-                      setDeleteSlotId(menuSlot.meta.slotId);
+                      setDeleteSlotId(menuSlot.slotId);
                       closeMenu();
                     }}
                     trailing={<Text style={styles.removeLabel}>Delete</Text>}

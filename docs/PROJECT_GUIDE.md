@@ -77,7 +77,7 @@ Tech: Expo SDK 54, Expo Router, React Native Web, TypeScript, `bun` as package m
 
 | Key | Where | Contents |
 |---|---|---|
-| `kan.meta.v1` | AsyncStorage (localStorage) | `StorageMeta`: active slot id, slot list |
+| `kan.meta.v1` | AsyncStorage (localStorage) | `StorageMeta`: active slot id, slot list, and `slotIndex`: one `SlotSummary` per slot (name, last saved, turns, chapter, in-story date) |
 | `kan.slot.<slotId>.v1` | IndexedDB `kan-saves` / `slots` (`slotStore.ts`) | One `AppDatabase` JSON per save slot |
 | `kan.apiKey.v1` | AsyncStorage (localStorage) | OpenRouter API key (never stored in slots or exports) |
 
@@ -98,6 +98,7 @@ Slots live in IndexedDB because localStorage is ~5 MB for the whole app, shared 
 Important functions:
 
 - `loadSlot`, `saveSlot`, `createSlot`, `duplicateSlot`, `deleteSlot`, `renameSlot`, `switchSlot`, `listSlots`, `loadActiveSlot`
+- **The story list never opens every save** (v1.24.39). `saveSlot` refreshes the slot's `SlotSummary` in `kan.meta.v1` after each write, and `listSlots` returns those summaries (`slots` in the game context is `SlotSummary[]`); only a slot with no summary yet is opened once to make one. Every write to `kan.meta.v1` goes through one queue (`updateStoredMeta`), and `saveStorageMeta` keeps the stored summaries and prunes them to the slots still listed, so switching or deleting never writes over a summary. A broken slot is listed with `broken: true`.
 - Export / import (`saveFile.ts`): "Export with images" builds a zip (`buildExportZip`: compact `save.json` plus each referenced image as `images/<key>.<ext>`, added one at a time into a Blob). "Export without images" is compact JSON (`saveJson`). `deliverFile` hands the file to the share sheet on phones / installed apps (`navigator.share` with files) and downloads elsewhere; success is shown only after that resolves, a cancelled share shows nothing, a failure shows the real error. Import (`pickSaveFile`, which settles with null on cancel) accepts the zip or any JSON save (`readSaveFile` puts a zip's images back into the image store under their own keys, inlining any it can't store), then `importDatabase(json, name?)` → new slot
 - `deleteSlot` moves the story to Recently deleted (`kan.slot.<id>.trash.<deletedAt>`) for `TRASH_DAYS` (7); `listTrash`, `restoreFromTrash` (back as a new slot id), `purgeTrash` (on start: drops old trash and every other copy of that slot). Deleting the last story starts a fresh one under a new id
 - `normalizeDatabase(db)` → migration + repair + JSON stripping + default fields. **Every load/import passes through it.**

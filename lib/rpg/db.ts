@@ -10,6 +10,7 @@ import { classifyThread, knowersOf } from './facts';
 
 import { DEFAULT_SETTINGS, emptyIndex, normalizePromptBudget } from './defaults';
 import { makeId } from './id';
+import { playerTurnCount } from './util';
 import { isCurrentSnapshot } from './log';
 import { stripNarrationJson } from './prompt';
 import { CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from './canonData';
@@ -33,10 +34,73 @@ const META_KEY = 'kan.meta.v1';
 const SLOT_PREFIX = 'kan.slot.';
 const API_KEY_KEY = 'kan.apiKey.v1';
 
+/** What the story list shows for a slot, kept in `kan.meta.v1` so the list never opens every save (audit 9). */
+export type SlotSummary = {
+  slotId: string;
+  slotName: string;
+  updatedAt: number;
+  /** Kan's actions so far. */
+  turns: number;
+  chapter: number;
+  inStoryDate: AppDatabase['state']['inStoryDate'];
+  /** The slot failed to open this session (see `isSlotBroken`). */
+  broken?: boolean;
+};
+
 export type StorageMeta = {
   activeSlotId: string;
   slotOrder: string[];
+  /** One summary per slot, refreshed on every save. Missing entries are filled in by `listSlots`. */
+  slotIndex?: Record<string, SlotSummary>;
 };
+
+export function slotSummaryOf(db: AppDatabase): SlotSummary {
+  return {
+    slotId: db.meta.slotId,
+    slotName: db.meta.slotName,
+    updatedAt: db.meta.updatedAt,
+    turns: playerTurnCount(db),
+    chapter: db.state.chapter,
+    inStoryDate: db.state.inStoryDate,
+  };
+}
+
+/**
+ * Every write to `kan.meta.v1` after the first runs through this queue, so a
+ * save refreshing its summary and a switch changing the active slot never
+ * write over each other.
+ */
+let metaQueue: Promise<unknown> = Promise.resolve();
+
+function updateStoredMeta(change: (stored: Partial<StorageMeta>) => StorageMeta | null): Promise<void> {
+  const run = metaQueue.then(async () => {
+    let stored: Partial<StorageMeta> = {};
+    try {
+      stored = JSON.parse((await AsyncStorage.getItem(META_KEY)) ?? '{}') ?? {};
+    } catch {
+      stored = {};
+    }
+    const next = change(stored);
+    if (next) {
+      await AsyncStorage.setItem(META_KEY, JSON.stringify(next));
+    }
+  });
+  metaQueue = run.catch(() => undefined);
+  return run;
+}
+
+/** Records a slot's summary after it was saved. */
+async function rememberSlotSummary(summary: SlotSummary) {
+  await updateStoredMeta((stored) =>
+    stored.activeSlotId && Array.isArray(stored.slotOrder)
+      ? {
+          activeSlotId: stored.activeSlotId,
+          slotOrder: stored.slotOrder,
+          slotIndex: { ...(stored.slotIndex ?? {}), [summary.slotId]: summary },
+        }
+      : null
+  );
+}
 
 const DEFAULT_SLOT_ID = 'slot_main';
 const DEFAULT_SLOT_NAME = 'Main Story';
@@ -79,8 +143,16 @@ export async function loadStorageMeta(): Promise<StorageMeta> {
   }
 }
 
+/**
+ * Sets the active slot and the slot order. The stored summaries are kept
+ * (the caller's copy may be older) and pruned to the slots still listed.
+ */
 export async function saveStorageMeta(meta: StorageMeta) {
-  await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
+  await updateStoredMeta((stored) => {
+    const index = { ...(stored.slotIndex ?? {}), ...(meta.slotIndex ?? {}) };
+    const slotIndex = Object.fromEntries(meta.slotOrder.filter((id) => index[id]).map((id) => [id, index[id]]));
+    return { activeSlotId: meta.activeSlotId, slotOrder: meta.slotOrder, slotIndex };
+  });
 }
 
 export async function ensureSlot(slotId: string, slotName: string) {
@@ -433,6 +505,8 @@ export async function saveSlot(db: AppDatabase) {
   for (const attempt of attempts) {
     try {
       await writeSlotJson(key, JSON.stringify(attempt));
+      // The story list reads this, not the save (audit 9).
+      await rememberSlotSummary(slotSummaryOf(attempt)).catch(() => undefined);
       return;
     } catch (error) {
       if (attempt === attempts[attempts.length - 1]) {
@@ -668,23 +742,35 @@ export async function switchSlot(slotId: string) {
 export const BROKEN_SLOT_NAME = 'A story that could not be opened';
 
 /**
- * Every slot, for the story list. A slot that fails to open is listed as a
- * placeholder (see `isSlotBroken`), so one broken save never hides the rest
- * and can't be written over: `saveSlot` refuses broken slots.
+ * Every slot, for the story list: the summaries kept in `kan.meta.v1`. Only a
+ * slot with no summary yet (saved before v1.24.39) is opened, once, to make
+ * one. A slot that fails to open is listed as a placeholder (see
+ * `isSlotBroken`), so one broken save never hides the rest.
  */
-export async function listSlots(): Promise<AppDatabase[]> {
+export async function listSlots(): Promise<SlotSummary[]> {
   const meta = await loadStorageMeta();
-  const slots = await Promise.all(
-    meta.slotOrder.map((id) =>
-      loadSlot(id).catch((error) => {
+  const index = meta.slotIndex ?? {};
+
+  return Promise.all(
+    meta.slotOrder.map(async (id): Promise<SlotSummary> => {
+      const known = index[id];
+
+      if (known) {
+        return isSlotBroken(id) ? { ...known, broken: true } : known;
+      }
+
+      try {
+        const summary = slotSummaryOf(await loadSlot(id));
+        await rememberSlotSummary(summary).catch(() => undefined);
+        return summary;
+      } catch (error) {
         if (error instanceof SlotLoadError) {
-          return seedDatabase(id, BROKEN_SLOT_NAME);
+          return { ...slotSummaryOf(seedDatabase(id, BROKEN_SLOT_NAME)), broken: true };
         }
         throw error;
-      })
-    )
+      }
+    })
   );
-  return slots;
 }
 
 export async function loadActiveSlot(): Promise<AppDatabase> {

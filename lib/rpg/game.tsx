@@ -20,6 +20,7 @@ import {
   purgeTrash,
   restoreFromTrash,
   listSlots,
+  type SlotSummary,
   loadActiveSlot,
   loadApiKey,
   loadSlot,
@@ -150,7 +151,8 @@ function endsMidSentence(text: string) {
 
 type GameContextValue = {
   db: AppDatabase | null;
-  slots: AppDatabase[];
+  /** The story list: one summary per slot, not the saves themselves. */
+  slots: SlotSummary[];
   meta: StorageMeta | null;
   apiKey: string;
   loading: boolean;
@@ -249,7 +251,7 @@ const GameContext = createContext<GameContextValue | null>(null);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<AppDatabase | null>(null);
-  const [slots, setSlots] = useState<AppDatabase[]>([]);
+  const [slots, setSlots] = useState<SlotSummary[]>([]);
   const [meta, setMeta] = useState<StorageMeta | null>(null);
   const [apiKey, setApiKeyState] = useState('');
   const [loading, setLoading] = useState(true);

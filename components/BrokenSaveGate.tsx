@@ -21,7 +21,7 @@ export function BrokenSaveGate({ children }: { children: ReactNode }) {
   }
 
   const others = slots.filter(
-    (slot) => slot.meta.slotId !== brokenSave.slotId && !isSlotBroken(slot.meta.slotId)
+    (slot) => slot.slotId !== brokenSave.slotId && !slot.broken && !isSlotBroken(slot.slotId)
   );
 
   const run = async (action: () => Promise<void>) => {
@@ -56,10 +56,10 @@ export function BrokenSaveGate({ children }: { children: ReactNode }) {
             <Text style={styles.label}>Open another story</Text>
             {others.map((slot) => (
               <AppButton
-                key={slot.meta.slotId}
+                key={slot.slotId}
                 disabled={busy}
-                label={slot.meta.slotName}
-                onPress={() => void run(() => switchSlotById(slot.meta.slotId))}
+                label={slot.slotName}
+                onPress={() => void run(() => switchSlotById(slot.slotId))}
                 variant="ghost"
               />
             ))}

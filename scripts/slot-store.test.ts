@@ -191,7 +191,8 @@ describe('a save that fails to open (audit 3.1)', () => {
     local.set('kan.meta.v1', JSON.stringify({ activeSlotId: 'slot_main', slotOrder: ['slot_main', 'slot_test'] }));
     await writeSlotJson(KEY, 'not json');
     const slots = await listSlots();
-    expect(slots.map((slot) => slot.meta.slotName)).toEqual(['Main', 'A story that could not be opened']);
+    expect(slots.map((slot) => slot.slotName)).toEqual(['Main', 'A story that could not be opened']);
+    expect(slots.map((slot) => Boolean(slot.broken))).toEqual([false, true]);
     expect(isSlotBroken('slot_test')).toBe(true);
     expect(await readSlotJson(KEY)).toBe('not json');
   });
@@ -491,5 +492,83 @@ describe('one tab per story (audit 3.3)', () => {
     let acquired = false;
     acquireSlotLock('slot_y', { onAcquired: () => (acquired = true), onBlocked: () => undefined });
     expect(acquired).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Audit 9: the story list reads a small index, not every save.
+// ---------------------------------------------------------------------------
+
+import { deleteSlot, renameSlot, saveStorageMeta, slotSummaryOf } from '../lib/rpg/db';
+import { appendStoryMessage } from '../lib/rpg/log';
+
+describe('the slot index (audit 9)', () => {
+  beforeEach(() => {
+    local.clear();
+    localCap = Infinity;
+    (globalThis as any).indexedDB = new IDBFactory();
+    resetSlotStoreForTests({ retryDelayMs: 1 });
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).indexedDB;
+    resetSlotStoreForTests();
+    clearBrokenSlot('slot_a');
+  });
+
+  const meta = () => JSON.parse(local.get('kan.meta.v1')!);
+
+  test('a save refreshes its summary, and the list is read from it without opening the saves', async () => {
+    local.set('kan.meta.v1', JSON.stringify({ activeSlotId: 'slot_a', slotOrder: ['slot_a', 'slot_b'] }));
+    let a = seedDatabase('slot_a', 'First');
+    a = appendStoryMessage(appendStoryMessage(a, 'user', '*I wait.*', null, 0, 0), 'assistant', 'Rain.', 'm', 0, 0);
+    await saveSlot(a);
+    await saveSlot(seedDatabase('slot_b', 'Second'));
+    expect(meta().slotIndex.slot_a).toMatchObject({ slotName: 'First', turns: 1, chapter: a.state.chapter });
+
+    // The saves become unreadable: the list still shows both from the index.
+    await writeSlotJson('kan.slot.slot_a.v1', 'not json');
+    await writeSlotJson('kan.slot.slot_b.v1', 'not json');
+    const slots = await listSlots();
+    expect(slots.map((slot) => slot.slotName)).toEqual(['First', 'Second']);
+    expect(isSlotBroken('slot_a')).toBe(false);
+  });
+
+  test('a slot saved before the index is opened once and gets a summary', async () => {
+    await saveSlot(seedDatabase('slot_a', 'Old'));
+    local.set('kan.meta.v1', JSON.stringify({ activeSlotId: 'slot_a', slotOrder: ['slot_a'] }));
+    expect((await listSlots())[0]).toMatchObject({ slotId: 'slot_a', slotName: 'Old', turns: 0 });
+    expect(meta().slotIndex.slot_a.slotName).toBe('Old');
+  });
+
+  test('changing the active slot keeps the summaries; deleting a slot drops its summary', async () => {
+    local.set('kan.meta.v1', JSON.stringify({ activeSlotId: 'slot_a', slotOrder: ['slot_a', 'slot_b'] }));
+    await saveSlot(seedDatabase('slot_a', 'First'));
+    await saveSlot(seedDatabase('slot_b', 'Second'));
+    // A caller holding an old copy of the meta (no index) switches stories.
+    await saveStorageMeta({ activeSlotId: 'slot_b', slotOrder: ['slot_a', 'slot_b'] });
+    expect(Object.keys(meta().slotIndex).sort()).toEqual(['slot_a', 'slot_b']);
+    await deleteSlot('slot_a');
+    expect(Object.keys(meta().slotIndex)).toEqual(['slot_b']);
+    expect((await listSlots()).map((slot) => slot.slotId)).toEqual(['slot_b']);
+  });
+
+  test('a summary is what the list row needs', () => {
+    const db = seedDatabase('slot_a', 'First');
+    expect(slotSummaryOf(db)).toEqual({
+      slotId: 'slot_a',
+      slotName: 'First',
+      updatedAt: db.meta.updatedAt,
+      turns: 0,
+      chapter: db.state.chapter,
+      inStoryDate: db.state.inStoryDate,
+    });
+  });
+
+  test('a renamed slot shows its new name', async () => {
+    local.set('kan.meta.v1', JSON.stringify({ activeSlotId: 'slot_a', slotOrder: ['slot_a'] }));
+    await saveSlot(seedDatabase('slot_a', 'First'));
+    await renameSlot('slot_a', 'Renamed');
+    expect((await listSlots())[0].slotName).toBe('Renamed');
   });
 });
