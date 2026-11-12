@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -18,6 +18,7 @@ import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { formatClock, formatDayMonth } from '@/lib/rpg/calendar';
 import { useStoredImage } from '@/lib/rpg/imageStore';
 import { scrapbook, type ScrapbookPhoto } from '@/lib/rpg/scrapbook';
+import { loadThumbnail, useNearScreen } from '@/lib/rpg/thumbnails';
 import type { AppDatabase } from '@/lib/rpg/types';
 
 const COLUMNS = 3;
@@ -27,11 +28,33 @@ function photoMeta(photo: ScrapbookPhoto) {
   return [`${formatDayMonth(photo.date)}, year ${photo.date.year}`, `you were ${photo.age}`, photo.place].filter(Boolean).join(' · ');
 }
 
+/**
+ * One photo: drawn only once it nears the screen, as a small thumbnail
+ * (audit 11c). Where a thumbnail can't be drawn, the full image is shown.
+ */
 function Thumb({ photo, size, onOpen }: { photo: ScrapbookPhoto; size: number; onOpen: () => void }) {
-  const uri = useStoredImage(photo.image);
+  const ref = useRef<View>(null);
+  const near = useNearScreen(ref);
+  // undefined: not drawn yet; null: no thumbnail here.
+  const [thumb, setThumb] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!near) return;
+    let live = true;
+    void loadThumbnail(photo.image).then((value) => {
+      if (live) setThumb(value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [near, photo.image]);
+
+  const full = useStoredImage(near && thumb === null ? photo.image : null);
+  const uri = thumb ?? full;
 
   return (
     <Pressable
+      ref={ref}
       accessibilityLabel={`${photo.caption} ${photoMeta(photo)}`}
       accessibilityRole="imagebutton"
       onPress={onOpen}
@@ -39,9 +62,9 @@ function Thumb({ photo, size, onOpen }: { photo: ScrapbookPhoto; size: number; o
     >
       {uri ? (
         <Image resizeMode="cover" source={{ uri }} style={StyleSheet.absoluteFill} />
-      ) : (
+      ) : near ? (
         <ActivityIndicator color={colors.textDim} size="small" />
-      )}
+      ) : null}
     </Pressable>
   );
 }
