@@ -29,7 +29,7 @@ export type ToastOptions = {
   /** A button on the toast (e.g. "Redo"). Tapping it closes the toast. */
   action?: ToastAction;
   /** How long it stays. Defaults to the time it takes to read; errors stay until tapped. */
-  durationMs?: number;
+  durationMs?: number | null;
 };
 
 type ToastState = {

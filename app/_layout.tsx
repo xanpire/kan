@@ -15,6 +15,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppUpdateNotice } from '@/components/AppUpdateNotice';
 import { BrokenSaveGate } from '@/components/BrokenSaveGate';
 import { ToastProvider } from '@/components/Toast';
 import { colors } from '@/constants/theme';
@@ -58,6 +59,7 @@ export default function RootLayout() {
         <GameProvider>
           <AmbiencePlayer />
           <ToastProvider>
+            <AppUpdateNotice />
             <View style={styles.root}>
             <BrokenSaveGate>
             <Stack

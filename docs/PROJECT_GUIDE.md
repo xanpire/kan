@@ -1017,6 +1017,7 @@ Three tabs: **Story / Kan / Settings** (the Kan tab switches Bonds / Jutsu / Jou
 10. **Token ceiling**: prompts over `settings.promptTokenBudget` are trimmed; never add unbounded prompt data. Keep the rules and slow blocks first so the cached prefix survives.
 11. **Images only on user action**, with Kan’s face/outfit references and the action brief.
 12. **Version sync**: `package.json` → `app.json` → SW cache (`scripts/generate-sw.js`) → Settings display.
+   A new worker takes over at once (`skipWaiting`, `clients.claim`), but an open page keeps the old code: `AppUpdateNotice` (`lib/appUpdate.ts`, test `app-update`) shows "A new version of Kan is ready." with **Reload** when the controller changes under a page that already had one (never on the first install), once no reply or memory step is running. It also asks for an update when the app comes back to the front and every 30 minutes.
 13. **A flashback never moves the present**: its turns change only `state.flashbacks.active`; the present's clock, place, inventory, jutsu, facts, canon and weather stand still, and its turns stay out of chapter summaries.
 14. **A safehouse comes from the story**: the tracker tags it (or a night's downtime at an inn, a camp or an Akatsuki hideout makes one); upgrades, stash moves and endings only come from what the page shows, never a menu. Its line reaches the narrator only when Kan is at one or heading to one.
 

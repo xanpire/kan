@@ -3,7 +3,7 @@
 export type ToastTone = 'success' | 'error' | 'info';
 
 /** Roughly reading time: 2.8 s for a short line, up to 8 s for a long one. */
-export function toastDuration(message: string, tone: ToastTone, options?: { durationMs?: number }): number | null {
+export function toastDuration(message: string, tone: ToastTone, options?: { durationMs?: number | null }): number | null {
   if (options?.durationMs !== undefined) {
     return options.durationMs;
   }
