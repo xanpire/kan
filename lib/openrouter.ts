@@ -1,3 +1,4 @@
+import { providerRouting } from './rpg/defaults';
 import type { OpenRouterMessage } from './rpg/types';
 
 const CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -902,14 +903,20 @@ export async function completeChat({
   };
 
   const startedAt = Date.now();
+  const routing = providerRouting(model);
+
+  if (routing) {
+    body.provider = { ...routing };
+  }
 
   if (jsonSchema) {
     body.response_format = {
       type: 'json_schema',
       json_schema: { name: jsonSchema.name, strict: true, schema: jsonSchema.schema },
     };
-    // Only route to providers that actually enforce the schema.
-    body.provider = { require_parameters: true };
+    // Only route to providers that actually enforce the schema (the preferred
+    // order still applies among them).
+    body.provider = { ...(routing ?? {}), require_parameters: true };
   } else if (responseFormatJson) {
     body.response_format = { type: 'json_object' };
   }
@@ -1037,6 +1044,12 @@ export async function streamChatCompletion({
     stream: true,
     usage: { include: true },
   };
+
+  const routing = providerRouting(model);
+
+  if (routing) {
+    body.provider = routing;
+  }
 
   if (reasoning) {
     body.reasoning = reasoning;

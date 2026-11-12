@@ -222,3 +222,39 @@ describe('which output mode answered', () => {
     expect((await completeChat({ ...request, jsonSchema: schema })).responseMode).toBe('plain');
   });
 });
+
+describe('provider preference (audit 5.5, decided by Xan)', () => {
+  /** A fetch that records each request body and answers a plain or streamed reply. */
+  function recordingFetch(bodies: Record<string, unknown>[], stream: boolean) {
+    return (async (_url: unknown, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      if (stream) {
+        const encoder = new TextEncoder();
+        const text = sse({ choices: [{ delta: { content: 'You wait.' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }, '[DONE]');
+        return new Response(new ReadableStream({ start: (c) => { c.enqueue(encoder.encode(text)); c.close(); } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{}' }, finish_reason: 'stop' }] }), { status: 200 });
+    }) as typeof fetch;
+  }
+
+  test('the narrator prefers Vertex, with fallbacks on', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    globalThis.fetch = recordingFetch(bodies, true);
+    await streamChatCompletion({ ...request, model: 'google/gemini-3.8-flash', onDelta: () => undefined });
+    expect(bodies[0].provider).toEqual({ order: ['google-vertex'], allow_fallbacks: true });
+  });
+
+  test('the tracker prefers DeepSeek and still requires the schema', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    globalThis.fetch = recordingFetch(bodies, false);
+    await completeChat({ ...request, model: 'deepseek/deepseek-v4.1-flash-1017', jsonSchema: { name: 's', schema: { type: 'object' } } });
+    expect(bodies[0].provider).toEqual({ order: ['deepseek'], allow_fallbacks: true, require_parameters: true });
+  });
+
+  test('a model with no preference is left to OpenRouter', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    globalThis.fetch = recordingFetch(bodies, false);
+    await completeChat({ ...request, model: 'someone/other-model' });
+    expect(bodies[0].provider).toBeUndefined();
+  });
+});
