@@ -26,21 +26,46 @@ type Kit = {
 };
 
 const NOISE_SECONDS = 7;
+/** The cross-faded stretch at each end of a noise buffer. */
+export const SEAM_SECONDS = 0.05;
+/** Brown noise has nothing above a few hundred hertz, so it is made at a quarter of the rate. */
+const BROWN_RATE_DIVISOR = 4;
 
-/** Three stereo noise buffers, made once per context. */
+/** Samples cross-faded at the seam of a buffer at this rate. */
+export function seamSamples(sampleRate: number) {
+  return Math.floor(sampleRate * SEAM_SECONDS);
+}
+
+/**
+ * Cross-fades the last `fade` samples toward the first `fade`, so the buffer's
+ * last sample runs on into sample `fade`. A loop of it must start there
+ * (`loopStart = fade / rate`), not at 0, or it jumps back across the fade.
+ */
+function fadeSeam(data: Float32Array, fade: number) {
+  const length = data.length;
+  for (let i = 0; i < fade; i += 1) {
+    const k = i / fade;
+    data[length - fade + i] = data[length - fade + i] * (1 - k) + data[i] * k;
+  }
+}
+
+/**
+ * Three stereo noise buffers, made once per context. About 6 MB of samples,
+ * so the engine builds them in an idle moment, not inside the first tap.
+ */
 export function makeNoise(ctx: BaseAudioContext, random: () => number = Math.random): Noise {
-  const length = Math.floor(ctx.sampleRate * NOISE_SECONDS);
-  const make = () => ctx.createBuffer(2, length, ctx.sampleRate);
-  const white = make();
-  const pink = make();
-  const brown = make();
+  const rate = ctx.sampleRate;
+  const length = Math.floor(rate * NOISE_SECONDS);
+  const brownRate = Math.max(3000, Math.floor(rate / BROWN_RATE_DIVISOR));
+  const brownLength = Math.floor(brownRate * NOISE_SECONDS);
+  const white = ctx.createBuffer(2, length, rate);
+  const pink = ctx.createBuffer(2, length, rate);
+  const brown = ctx.createBuffer(2, brownLength, brownRate);
 
   for (let channel = 0; channel < 2; channel += 1) {
     const w = white.getChannelData(channel);
     const p = pink.getChannelData(channel);
-    const b = brown.getChannelData(channel);
     let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-    let last = 0;
 
     for (let i = 0; i < length; i += 1) {
       const x = random() * 2 - 1;
@@ -54,18 +79,24 @@ export function makeNoise(ctx: BaseAudioContext, random: () => number = Math.ran
       b5 = -0.7616 * b5 - x * 0.016898;
       p[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + x * 0.5362) * 0.11;
       b6 = x * 0.115926;
-      last = (last + 0.02 * x) / 1.02;
+    }
+
+    // Brown: a leaky random walk. At a quarter of the rate each step is four
+    // of the full-rate walk's, so the leak and the step are scaled to keep
+    // the same colour and level.
+    const b = brown.getChannelData(channel);
+    const scale = rate / brownRate;
+    const leak = 1 / (1 + 0.02 * scale);
+    const step = 0.02 * Math.sqrt(scale);
+    let last = 0;
+    for (let i = 0; i < brownLength; i += 1) {
+      last = (last + step * (random() * 2 - 1)) * leak;
       b[i] = last * 3.5;
     }
 
-    // Fade the seam so the loop never clicks.
-    const fade = Math.floor(ctx.sampleRate * 0.05);
-    for (const data of [w, p, b]) {
-      for (let i = 0; i < fade; i += 1) {
-        const k = i / fade;
-        data[length - fade + i] = data[length - fade + i] * (1 - k) + data[i] * k;
-      }
-    }
+    fadeSeam(w, seamSamples(rate));
+    fadeSeam(p, seamSamples(rate));
+    fadeSeam(b, seamSamples(brownRate));
   }
 
   return { white, pink, brown };
@@ -82,7 +113,12 @@ function loop(kit: Kit, buffer: AudioBuffer, sources: AudioScheduledSourceNode[]
   const source = kit.ctx.createBufferSource();
   source.buffer = buffer;
   source.loop = true;
-  source.start(kit.ctx.currentTime, kit.random() * NOISE_SECONDS);
+  // The seam was faded toward the buffer's start, so the end flows on into
+  // the sample after the fade: loop back to there, not to 0 (audit 11e.1).
+  const loopStart = seamSamples(buffer.sampleRate) / buffer.sampleRate;
+  source.loopStart = loopStart;
+  source.loopEnd = buffer.duration;
+  source.start(kit.ctx.currentTime, between(kit.random, loopStart, buffer.duration));
   sources.push(source);
   return source;
 }
@@ -216,12 +252,62 @@ function tone(
     extra.push(lfo);
   }
 
-  chain(osc, env, pan(kit, options.pan ?? 0), options.dest ?? kit.out);
+  const panner = pan(kit, options.pan ?? 0);
+  chain(osc, env, panner, options.dest ?? kit.out);
   osc.start(at);
   osc.stop(end + 0.1);
   osc.onended = () => {
+    osc.disconnect();
     env.disconnect();
+    panner.disconnect();
     for (const node of extra) node.disconnect();
+  };
+}
+
+type Ping = (at: number, options: { from: number; to: number; length: number; peak: number; pan: number }) => boolean;
+
+/**
+ * A short rising blip (a bubble, a drip) from a fixed pool of oscillators that
+ * run all the time behind a closed gain, as `striker` does for noise. Water
+ * fires dozens of these a second; a fresh oscillator each time made the
+ * stream build about 1,600 nodes a minute (audit 11e.1).
+ */
+function pinger(kit: Kit, sources: AudioScheduledSourceNode[], voices: number, dest: AudioNode = kit.out): Ping {
+  const { ctx } = kit;
+  const pool = Array.from({ length: voices }, () => {
+    const osc = ctx.createOscillator();
+    osc.frequency.setValueAtTime(1000, ctx.currentTime);
+    const env = gain(kit, 0);
+    const panner = typeof ctx.createStereoPanner === 'function' ? ctx.createStereoPanner() : null;
+    if (panner) {
+      panner.pan.setValueAtTime(0, ctx.currentTime);
+      chain(osc, env, panner, dest);
+    } else {
+      chain(osc, env, dest);
+    }
+    osc.start();
+    sources.push(osc);
+    return { osc, env, panner, busy: 0 };
+  });
+
+  return (at, options) => {
+    const first = Math.floor(kit.random() * pool.length);
+    for (let i = 0; i < pool.length; i += 1) {
+      const voice = pool[(first + i) % pool.length];
+      if (at < voice.busy) continue;
+      const end = at + options.length;
+      const attack = Math.min(0.015, options.length / 4);
+      voice.osc.frequency.setValueAtTime(options.from, at);
+      voice.osc.frequency.exponentialRampToValueAtTime(options.to, end);
+      voice.panner?.pan.setValueAtTime(options.pan, at);
+      voice.env.gain.setValueAtTime(0, at);
+      voice.env.gain.linearRampToValueAtTime(options.peak, at + attack);
+      voice.env.gain.exponentialRampToValueAtTime(0.0001, end + 0.05);
+      voice.env.gain.setValueAtTime(0, end + 0.05);
+      voice.busy = end + 0.06;
+      return true;
+    }
+    return false;
   };
 }
 
@@ -295,8 +381,9 @@ function rainRoof(kit: Kit): Bed {
   const pats = [-0.6, -0.2, 0.2, 0.6].map((side) => striker(kit, s, noise.pink, 'bandpass', 3, side));
 
   // A gutter dripping somewhere.
+  const ping = pinger(kit, s, 2);
   const drip = every(random, 1.2, 4, (at) => {
-    tone(kit, at, { from: between(random, 900, 1500), to: between(random, 1700, 2600), length: 0.05, peak: 0.05, pan: between(random, -0.7, 0.7) });
+    ping(at, { from: between(random, 900, 1500), to: between(random, 1700, 2600), length: 0.05, peak: 0.05, pan: between(random, -0.7, 0.7) });
   });
 
   return {
@@ -456,12 +543,17 @@ function forestDay(kit: Kit): Bed {
   };
 }
 
-function forestNight(kit: Kit): Bed {
+/**
+ * Crickets: a high tone pulsed fast, in groups. Each one's level and chirp
+ * rate wander slowly, so the field breathes instead of ticking like a clock.
+ * Summer-to-autumn only: the mix never asks for them in winter or snow.
+ */
+function insects(kit: Kit): Bed {
   const s: AudioScheduledSourceNode[] = [];
   const { ctx, noise, random } = kit;
-  layer(kit, s, noise.brown, 0.12, filter(kit, 'lowpass', 300));
+  const parts: Array<(now: number, until: number) => void> = [];
+  layer(kit, s, noise.brown, 0.08, filter(kit, 'lowpass', 300));
 
-  // Crickets: a high tone pulsed fast, in groups.
   for (let i = 0; i < 3; i += 1) {
     const carrier = ctx.createOscillator();
     carrier.frequency.value = between(random, 4200, 5200);
@@ -475,7 +567,9 @@ function forestNight(kit: Kit): Bed {
     const fastDepth = gain(kit, 0.5);
     const slow = ctx.createOscillator();
     slow.type = 'square';
-    slow.frequency.value = between(random, 1.5, 3.2);
+    const rate = between(random, 1.5, 3.2);
+    slow.frequency.value = rate;
+    slow.frequency.setValueAtTime(rate, ctx.currentTime);
     const slowDepth = gain(kit, 0.5);
     chain(fast, fastDepth);
     fastDepth.connect(pulse.gain);
@@ -486,10 +580,22 @@ function forestNight(kit: Kit): Bed {
       osc.start();
       s.push(osc);
     }
+    parts.push(
+      drifter(level.gain, random, 0.006, 0.024, 6, 15),
+      drifter(slow.frequency, random, Math.max(1.2, rate * 0.75), rate * 1.25, 8, 20),
+    );
   }
 
-  // An owl, now and then.
-  const owl = every(random, 20, 50, (at) => {
+  return { tick: ticks(...parts), stop: stopper(s) };
+}
+
+/** An owl, now and then, over a low night air. Plays in every season. */
+function owl(kit: Kit): Bed {
+  const s: AudioScheduledSourceNode[] = [];
+  const { noise, random } = kit;
+  layer(kit, s, noise.brown, 0.08, filter(kit, 'lowpass', 300));
+
+  const hoot = every(random, 20, 50, (at) => {
     const base = between(random, 330, 420);
     const side = between(random, -0.8, 0.8);
     tone(kit, at, { from: base, to: base * 0.94, length: 0.4, peak: 0.12, pan: side, attack: 0.06 });
@@ -497,7 +603,7 @@ function forestNight(kit: Kit): Bed {
     tone(kit, at + 1.05, { from: base, to: base * 0.9, length: 0.5, peak: 0.11, pan: side, attack: 0.06 });
   }, 6);
 
-  return { tick: owl, stop: stopper(s) };
+  return { tick: hoot, stop: stopper(s) };
 }
 
 function cicadas(kit: Kit): Bed {
@@ -533,17 +639,18 @@ function babble(kit: Kit, s: AudioScheduledSourceNode[], amount: number, low: nu
   return parts;
 }
 
-function bubbles(kit: Kit, low: number, high: number, peak: number) {
+function bubbles(kit: Kit, s: AudioScheduledSourceNode[], low: number, high: number, peak: number) {
+  const ping = pinger(kit, s, 4);
   return every(kit.random, low, high, (at) => {
     const f = between(kit.random, 500, 1600);
-    tone(kit, at, { from: f, to: f * between(kit.random, 1.6, 2.2), length: between(kit.random, 0.025, 0.06), peak: peak * between(kit.random, 0.3, 1), pan: between(kit.random, -0.7, 0.7) });
+    ping(at, { from: f, to: f * between(kit.random, 1.6, 2.2), length: between(kit.random, 0.025, 0.06), peak: peak * between(kit.random, 0.3, 1), pan: between(kit.random, -0.7, 0.7) });
   });
 }
 
 function stream(kit: Kit): Bed {
   const s: AudioScheduledSourceNode[] = [];
   layer(kit, s, kit.noise.pink, 0.25, filter(kit, 'highpass', 400), filter(kit, 'lowpass', 5000));
-  return { tick: ticks(...babble(kit, s, 3, 700, 2600), bubbles(kit, 0.04, 0.18, 0.06)), stop: stopper(s) };
+  return { tick: ticks(...babble(kit, s, 3, 700, 2600), bubbles(kit, s, 0.04, 0.18, 0.06)), stop: stopper(s) };
 }
 
 function river(kit: Kit): Bed {
@@ -551,7 +658,7 @@ function river(kit: Kit): Bed {
   const wash = layer(kit, s, kit.noise.pink, 0.6, filter(kit, 'lowpass', 1600));
   layer(kit, s, kit.noise.brown, 0.35, filter(kit, 'lowpass', 400));
   return {
-    tick: ticks(drifter(wash.gain, kit.random, 0.45, 0.7, 3, 6), ...babble(kit, s, 2, 500, 1600), bubbles(kit, 0.1, 0.35, 0.04)),
+    tick: ticks(drifter(wash.gain, kit.random, 0.45, 0.7, 3, 6), ...babble(kit, s, 2, 500, 1600), bubbles(kit, s, 0.1, 0.35, 0.04)),
     stop: stopper(s),
   };
 }
@@ -742,7 +849,8 @@ export const BED_BUILDERS: Record<AmbienceBed, (kit: Kit) => Bed> = {
   'wind-high': windHigh,
   'snow-quiet': snowQuiet,
   'forest-day': forestDay,
-  'forest-night': forestNight,
+  insects,
+  owl,
   cicadas,
   stream,
   river,

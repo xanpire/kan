@@ -45,17 +45,20 @@ describe('ambience: what you hear where you are', () => {
     const day = mix({});
     expect(day.beds['forest-day']).toBeGreaterThan(0.5);
     expect(day.beds['wind-light']).toBeGreaterThan(0);
-    expect(day.beds['forest-night']).toBeUndefined();
+    expect(day.beds.insects).toBeUndefined();
+    expect(day.beds.owl).toBeUndefined();
 
     const night = mix({ period: 'night', hour: 23 });
     expect(night.beds['forest-day']).toBeUndefined();
-    expect(night.beds['forest-night']).toBeGreaterThan(0.5);
+    expect(night.beds.insects).toBeGreaterThan(0.5);
+    expect(night.beds.owl).toBeGreaterThan(0);
   });
 
   test('dawn birds are louder; winter birds are fewer and winter nights have no insects', () => {
     expect(mix({ hour: 6 }).beds['forest-day']!).toBeGreaterThan(mix({ hour: 10 }).beds['forest-day']!);
     expect(mix({ season: 'winter' }).beds['forest-day']!).toBeLessThan(mix({}).beds['forest-day']!);
-    expect(mix({ season: 'winter', period: 'night', hour: 2 }).beds['forest-night']!).toBeLessThan(0.3);
+    expect(mix({ season: 'winter', period: 'night', hour: 2 }).beds.insects).toBeUndefined();
+    expect(mix({ season: 'winter', period: 'night', hour: 2 }).beds.owl).toBeGreaterThan(0);
   });
 
   test('summer afternoons in the Land of Fire bring cicadas', () => {

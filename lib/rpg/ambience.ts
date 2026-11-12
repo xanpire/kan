@@ -36,7 +36,8 @@ export const AMBIENCE_BEDS = [
   'snow-quiet',
   // Life
   'forest-day',
-  'forest-night',
+  'insects',
+  'owl',
   'cicadas',
   // Water
   'stream',
@@ -260,15 +261,19 @@ export function ambienceMix(input: AmbienceInput): AmbienceMix {
         add(beds, 'cicadas', forest ? 0.55 : 0.35);
       }
     }
+    // Crickets need warmth: none in winter or in falling snow. The owl calls
+    // in every season (audit 11e.1: crickets in the snow).
+    const warm = season !== 'winter' && condition !== 'snow' && condition !== 'sleet';
     if (period === 'evening') {
-      if (season !== 'winter') add(beds, 'forest-night', forest ? 0.4 : 0.25);
+      if (warm) add(beds, 'insects', forest ? 0.4 : 0.25);
+      if (forest) add(beds, 'owl', 0.3);
       // The last birds only while there is light (Session 1: birds at 7 PM
       // in a pitch-dark October gorge).
       if (input.hour < sunsetHour(input.month) + 0.5) add(beds, 'forest-day', season === 'winter' ? 0.1 : 0.22);
     }
     if (night) {
-      // Insects stop in the cold; the owl doesn't.
-      add(beds, 'forest-night', season === 'winter' || condition === 'snow' ? 0.25 : forest ? 0.75 : 0.5);
+      if (warm) add(beds, 'insects', forest ? 0.75 : 0.5);
+      add(beds, 'owl', forest ? 0.6 : 0.4);
     }
   }
 
@@ -290,7 +295,7 @@ export function ambienceMix(input: AmbienceInput): AmbienceMix {
     const level = night ? 0.12 : period === 'evening' ? (busy ? 0.6 : 0.4) : busy ? 0.95 : 0.55;
     add(beds, 'village', rain >= 0.6 || condition === 'blizzard' ? level * 0.35 : level);
     if (day && !harsh) add(beds, 'forest-day', 0.12);
-    if (night && season !== 'winter') add(beds, 'forest-night', 0.18);
+    if (night && season !== 'winter' && condition !== 'snow') add(beds, 'insects', 0.18);
   }
 
   if (indoors) {
@@ -327,7 +332,7 @@ export function ambienceMix(input: AmbienceInput): AmbienceMix {
   if (indoors) {
     // Outside sounds come through the walls, quieter.
     for (const bed of ['wind-light', 'wind-strong', 'wind-high'] as const) scale(beds, bed, 0.35);
-    for (const bed of ['forest-day', 'forest-night', 'cicadas', 'village'] as const) scale(beds, bed, cave ? 0 : 0.3);
+    for (const bed of ['forest-day', 'insects', 'owl', 'cicadas', 'village'] as const) scale(beds, bed, cave ? 0 : 0.3);
     for (const bed of ['stream', 'river', 'waterfall', 'sea'] as const) scale(beds, bed, 0.45);
     scale(beds, 'snow-quiet', 0.5);
   }
@@ -359,7 +364,8 @@ const BED_LABEL: Record<AmbienceBed, string> = {
   'wind-high': 'wind over the heights',
   'snow-quiet': 'the hush of snow',
   'forest-day': 'birds',
-  'forest-night': 'night insects',
+  insects: 'night insects',
+  owl: 'an owl',
   cicadas: 'cicadas',
   stream: 'a stream',
   river: 'the river',

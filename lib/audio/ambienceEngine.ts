@@ -13,7 +13,12 @@ export const CROSSFADE_SECONDS = 4;
 /** A bed faded out this long is stopped to save the battery. */
 const IDLE_STOP_SECONDS = 10;
 const TICK_MS = 200;
-const LOOKAHEAD_SECONDS = 0.6;
+/**
+ * How far ahead each bed schedules its events. A busy main thread (a long
+ * reply streaming in, a save) can hold the timer back for a second; anything
+ * already scheduled keeps playing through it (audit 11e.1).
+ */
+export const LOOKAHEAD_SECONDS = 1.5;
 /** How far a fight lowers the ambience. */
 export const FIGHT_DUCK = 0.3;
 /** Overall headroom; the volume slider scales this. */
@@ -30,7 +35,8 @@ export const BED_TRIM: Record<AmbienceBed, number> = {
   'wind-high': 1.1,
   'snow-quiet': 0.8,
   'forest-day': 2.2,
-  'forest-night': 1.4,
+  insects: 1.4,
+  owl: 1.4,
   cicadas: 1.2,
   stream: 1.1,
   river: 0.8,
@@ -60,7 +66,15 @@ type Voice = {
 type WindowLike = {
   AudioContext?: typeof AudioContext;
   webkitAudioContext?: typeof AudioContext;
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
 };
+
+/** Runs `work` when the browser is idle (or soon, where it has no idle callback). */
+function whenIdle(work: () => void) {
+  const w = (typeof window === 'undefined' ? {} : window) as unknown as WindowLike;
+  if (typeof w.requestIdleCallback === 'function') w.requestIdleCallback(work, { timeout: 1000 });
+  else setTimeout(work, 50);
+}
 
 function audioContextClass(): typeof AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -95,7 +109,14 @@ export class AmbienceEngine {
     if (!this.ctx) {
       const ctx = new Context();
       this.ctx = ctx;
-      this.noise = makeNoise(ctx);
+      // Only the context is made inside the tap. The noise (megabytes of
+      // samples) is built in the next idle moment, then the mix starts
+      // (audit 11e.1: the first tap stalled).
+      whenIdle(() => {
+        if (!this.ctx) return;
+        this.noise = makeNoise(this.ctx);
+        this.refresh();
+      });
       this.volumeNode = ctx.createGain();
       this.volumeNode.gain.setValueAtTime(0, 0);
       this.duck = ctx.createGain();
