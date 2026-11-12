@@ -4,9 +4,9 @@ const kanFaceSheet = require('../../assets/images/kan-face-sheet.jpg');
 const kanOutfitBlack = require('../../assets/images/kan-outfit-black.jpg');
 const kanOutfitAkatsuki = require('../../assets/images/kan-outfit-akatsuki.jpg');
 
-let referencesPromise: Promise<string[]> | null = null;
+import { isImageData, pickKanReferences, type KanReferences } from './referencePlan';
 
-export type KanReferences = { face: string; outfit: string; alternate: string };
+let referencesPromise: Promise<[string, string, string]> | null = null;
 
 export function loadKanReferenceImages(wearsAkatsukiCloak: boolean): Promise<KanReferences> {
   if (!referencesPromise) {
@@ -14,14 +14,18 @@ export function loadKanReferenceImages(wearsAkatsukiCloak: boolean): Promise<Kan
       toDataUri(Asset.fromModule(kanFaceSheet)),
       toDataUri(Asset.fromModule(kanOutfitBlack)),
       toDataUri(Asset.fromModule(kanOutfitAkatsuki)),
-    ]).then((values) => values.filter(Boolean));
+    ]);
   }
 
-  return referencesPromise.then(([face, black, akatsuki]) => {
-    const current = wearsAkatsukiCloak ? akatsuki : black;
-    const alternate = wearsAkatsukiCloak ? black : akatsuki;
+  const loading = referencesPromise;
 
-    return { face: face ?? '', outfit: current ?? '', alternate: alternate ?? '' };
+  return loading.then((values) => {
+    // Try again next time if a sheet did not load (offline for a moment).
+    if (values.some((value) => !value) && referencesPromise === loading) {
+      referencesPromise = null;
+    }
+
+    return pickKanReferences(values, wearsAkatsukiCloak);
   });
 }
 
@@ -39,28 +43,35 @@ async function toDataUri(asset: Asset) {
   }
 
   if (uri.startsWith('data:')) {
-    return uri;
+    return isImageData(uri) ? uri : '';
   }
 
   try {
     const response = await fetch(uri);
 
     if (!response.ok) {
-      return uri;
+      return '';
     }
 
     const blob = await response.blob();
 
-    return await new Promise<string>((resolve, reject) => {
+    const dataUri = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result ?? ''));
       reader.onerror = () => reject(new Error('Could not read reference image.'));
       reader.readAsDataURL(blob);
     });
+
+    // All three sheets are JPEGs; a host that serves them untyped still counts.
+    const typed = /^data:(application\/octet-stream|binary\/octet-stream)?[;,]/.test(dataUri)
+      ? dataUri.replace(/^data:[^;,]*/, 'data:image/jpeg')
+      : dataUri;
+
+    return isImageData(typed) ? typed : '';
   } catch {
-    return uri;
+    return '';
   }
 }
 
-export { faceDroppedWarning, planReferences } from './referencePlan';
-export type { PlannedReference, ReferenceKind } from './referencePlan';
+export { faceDroppedWarning, isImageData, pickKanReferences, planReferences } from './referencePlan';
+export type { KanReferences, PlannedReference, ReferenceKind } from './referencePlan';

@@ -58,3 +58,27 @@ export function faceDroppedWarning(
     ? 'Kan’s face reference couldn’t be loaded, so this image went without it and his face may not match.'
     : `Kan’s face reference wasn’t sent: ${model} doesn’t accept reference images, so his face may not match. Pick a reference-capable image model in Settings.`;
 }
+
+export type KanReferences = { face: string; outfit: string; alternate: string };
+
+/**
+ * Puts each loaded sheet in its own slot (audit 11c). The old code dropped
+ * failed loads with filter(Boolean) and then read by position, so a missing
+ * face sheet sent the black outfit as his face. A failed sheet stays ''.
+ */
+export function pickKanReferences(
+  [face, black, akatsuki]: readonly [string, string, string],
+  wearsAkatsukiCloak: boolean
+): KanReferences {
+  return {
+    face: face || '',
+    outfit: (wearsAkatsukiCloak ? akatsuki : black) || '',
+    alternate: (wearsAkatsukiCloak ? black : akatsuki) || '',
+  };
+}
+
+/** Only image data can be sent: a plain URL is something the image model cannot open. */
+export function isImageData(uri: string) {
+  return uri.startsWith('data:image/');
+}
+
