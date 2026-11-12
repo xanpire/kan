@@ -13,6 +13,7 @@ import {
   collectRecentSceneImages,
   fallbackImageAction,
   personReferenceSlots,
+  viewAtReply,
   sceneCharacterReferences,
   usePreviousForStyle,
   writeImageAction,
@@ -45,16 +46,21 @@ export async function paintScene({
   takes = 1,
   onWarning,
   onStage,
+  replyId,
 }: {
   apiKey: string;
   db: AppDatabase;
   caps: ImageModelCaps;
+  /** An older reply to paint (audit 11c); the latest when left out. */
+  replyId?: string;
   chip?: ShotChip;
   takes?: 1 | 2;
   onWarning?: (message: string) => void;
   /** Where the painting is, for the Story screen (audit 11b). */
   onStage?: (stage: PaintStage) => void;
 }): Promise<{ turnId: string; takes: PaintedTake[] }> {
+  // Everything below reads the story as it stood at that reply.
+  db = replyId ? viewAtReply(db, replyId) : db;
   const latestAssistant = [...db.rawLog]
     .reverse()
     .find((message) => message.kind === 'story' && message.role === 'assistant');
@@ -154,6 +160,8 @@ export async function paintScene({
     model: caps.modelId,
     createdAt: Date.now(),
     ...(placeKey ? { place: { key: placeKey, name: db.state.location, ...(placeLook ? { look: placeLook } : {}) } } : {}),
+    // A repaint keeps the old image one step back, as a retouch does.
+    ...(latestAssistant.image ? { previous: latestAssistant.image } : {}),
   });
 
   const check = imageCheckEnabled(db);

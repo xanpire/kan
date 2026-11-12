@@ -356,6 +356,41 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
     .join('\n');
 }
 
+/**
+ * The story as it stood at an older reply, for painting that moment (audit
+ * 11c): the log ends at it, and the clock, place, scene, cast and mode are
+ * that reply's own. Replies saved before v1.24.71 kept no place, so the
+ * current one stands in. The latest reply gives the database unchanged.
+ */
+export function viewAtReply(db: AppDatabase, replyId: string): AppDatabase {
+  const index = db.rawLog.findIndex((entry) => entry.id === replyId);
+  const entry = db.rawLog[index];
+
+  if (!entry || entry.kind !== 'story' || entry.role !== 'assistant') {
+    throw new Error('That reply can’t be painted.');
+  }
+
+  if (entry === latestStoryReply(db)) return db;
+
+  const cast = (entry.sceneCastIds ?? [])
+    .map((id) => db.entities.find((item) => item.id === id)?.name)
+    .filter((name): name is string => Boolean(name));
+
+  return {
+    ...db,
+    rawLog: db.rawLog.slice(0, index + 1),
+    state: {
+      ...db.state,
+      inStoryDate: entry.inStoryDate,
+      location: entry.location ?? db.state.location,
+      scene: entry.scene,
+      sceneCast: cast,
+      sceneMode: { ...(db.state.sceneMode ?? { current: 'normal', exchangeStreak: 0, partners: [] }), current: entry.sceneMode ?? 'normal', lastBeat: undefined },
+      // The weather is today's; an old reply's own sky is not kept.
+    },
+  };
+}
+
 /** A chip's shot type, to keep when the director answers with another. */
 const CHIP_SHOT: Partial<Record<ShotChip, ShotType>> = {
   closeup: 'close-up',

@@ -522,6 +522,8 @@ export type RawLogEntry = {
   sceneSeq?: number;
   /** Who was in the scene this turn (entity ids, from the scene cast, Kan excluded). */
   sceneCastIds?: string[];
+  /** Where Kan was at the end of this reply (assistant story turns), for painting it later. */
+  location?: string;
   /** How the scene image on this entry was made, so drift can be traced and it can be redone. */
   imageMeta?: SceneImageMeta;
   /** The scene mode this reply was narrated in (assistant story turns). */

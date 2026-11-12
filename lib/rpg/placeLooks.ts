@@ -5,7 +5,7 @@
 // by the safehouse, so a camp keeps its look even when the location wording
 // drifts.
 
-import { currentSafehouse } from './safehouses';
+import { currentSafehouse, matchesSafehouse } from './safehouses';
 import type { AppDatabase, PlaceLookRecord, SceneImageMeta } from './types';
 
 /** Most places remembered; the oldest go first. */
@@ -25,8 +25,10 @@ function normalize(text: string) {
 export function placeKeyOf(db: Pick<AppDatabase, 'state'>): string | null {
   if (db.state.flashbacks?.active) return null;
 
+  // The safehouse Kan is at, as long as the location is still it (an older
+  // reply being painted may be somewhere else).
   const house = currentSafehouse(db);
-  if (house) return `safehouse:${house.id}`;
+  if (house && matchesSafehouse(house, db.state.location)) return `safehouse:${house.id}`;
 
   const key = normalize(db.state.location ?? '');
   return key ? `place:${key}` : null;

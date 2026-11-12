@@ -818,9 +818,11 @@ function stampTurnScene(
   return {
     ...after,
     rawLog: after.rawLog.map((entry, position) =>
-      position === index || position === userIndex
-        ? { ...entry, sceneSeq: seq, sceneCastIds: castIds }
-        : entry
+      position === index
+        ? { ...entry, sceneSeq: seq, sceneCastIds: castIds, ...(after.state.location ? { location: after.state.location } : {}) }
+        : position === userIndex
+          ? { ...entry, sceneSeq: seq, sceneCastIds: castIds }
+          : entry
     ),
     events: after.events.map((event) =>
       !knownEvents.has(event.id) && event.sourceLogId === null && !event.turnLogId

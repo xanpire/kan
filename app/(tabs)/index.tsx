@@ -328,14 +328,14 @@ type MessageRowProps = {
   onTimePress: (logId: string, seconds: number) => void;
   /** The controls under the latest reply; other replies show only their time chip. */
   footer?: ReactNode;
-  /** Long-press a reply: copy it. */
-  onCopy?: (content: string) => void;
+  /** Long-press a reply: the small menu to paint or copy it (audit 11c). */
+  onReplyMenu?: (message: StoryMessage) => void;
   /** Long-press your last action: edit and resend it. */
   onEdit?: () => void;
 };
 
 /** One saved turn. Memoised by its message, so a new turn or a keystroke never redraws the log. */
-const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTimePress, footer, onCopy, onEdit }: MessageRowProps) {
+const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTimePress, footer, onReplyMenu, onEdit }: MessageRowProps) {
   const paragraphs = useMemo(
     () => (message.role === 'assistant' ? paragraphsOf(message.content) : []),
     [message.role, message.content]
@@ -366,10 +366,10 @@ const MessageRow = memo(function MessageRow({ message, eager, onOpenImage, onTim
       ) : (
         <View style={[styles.narration, message.memory && styles.memoryNarration]}>
           <Pressable
-            accessibilityHint={onCopy ? 'Long-press to copy' : undefined}
+            accessibilityHint={onReplyMenu ? 'Long-press to paint or copy this reply' : undefined}
             delayLongPress={500}
-            disabled={!onCopy}
-            onLongPress={onCopy ? () => onCopy(message.content) : undefined}
+            disabled={!onReplyMenu}
+            onLongPress={onReplyMenu ? () => onReplyMenu(message) : undefined}
             style={styles.narrationText}
           >
             {paragraphs.map((paragraph, index) => (
@@ -871,6 +871,12 @@ export default function StoryScreen() {
   const selectedImage = viewer?.uri ?? null;
   /** The shot menu (long-press Paint): a forced shot and how many takes. */
   const [shotMenuOpen, setShotMenuOpen] = useState(false);
+  /** The reply the shot menu paints: an older one picked from its long-press menu, or the latest. */
+  const [shotTarget, setShotTarget] = useState<string | null>(null);
+  /** The long-press menu on a reply: paint that moment, or copy it (audit 11c). */
+  const [replyMenu, setReplyMenu] = useState<StoryMessage | null>(null);
+  /** Which reply is being painted, for the stages under it. */
+  const [paintingId, setPaintingId] = useState<string | null>(null);
   const [shotChip, setShotChip] = useState<ShotChip>('auto');
   /** Two takes waiting for you to keep one. */
   const [pendingTakes, setPendingTakes] = useState<{ turnId: string; takes: PaintedTake[] } | null>(null);
@@ -1191,12 +1197,13 @@ export default function StoryScreen() {
   }));
 
   const generateSceneImage = useCallback(
-    async (chip: ShotChip = 'auto', twoTakes = Boolean(db?.settings.imageTwoTakes)) => {
+    async (chip: ShotChip = 'auto', twoTakes = Boolean(db?.settings.imageTwoTakes), replyId?: string) => {
       if (!db || isGeneratingImage || !apiKey) {
         return;
       }
 
       setIsGeneratingImage(true);
+      setPaintingId(replyId ?? null);
 
       try {
         const caps = await ensureImageCaps(db, updateSettings);
@@ -1208,6 +1215,7 @@ export default function StoryScreen() {
           takes: twoTakes ? 2 : 1,
           onWarning: (message) => showToast(message, 'error'),
           onStage: setPaintStage,
+          ...(replyId ? { replyId } : {}),
         });
 
         if (result.takes.length > 1) {
@@ -1228,6 +1236,7 @@ export default function StoryScreen() {
       } finally {
         setIsGeneratingImage(false);
         setPaintStage(null);
+        setPaintingId(null);
       }
     },
     [apiKey, attachImage, db, isGeneratingImage, showToast, updateSettings]
@@ -1544,7 +1553,10 @@ export default function StoryScreen() {
                         )
                       }
                       label="Paint"
-                      onLongPress={() => setShotMenuOpen(true)}
+                      onLongPress={() => {
+                        setShotTarget(null);
+                        setShotMenuOpen(true);
+                      }}
                       onPress={() => void generateSceneImage()}
                     />
                     <Pressable
@@ -1561,12 +1573,12 @@ export default function StoryScreen() {
               }
               key={message.id}
               message={message}
-              onCopy={message.role === 'assistant' ? copyReply : undefined}
+              onReplyMenu={message.role === 'assistant' && !isNarrating ? setReplyMenu : undefined}
               onEdit={message.id === lastUserId && canUndo && !isNarrating ? editLastAction : undefined}
               onOpenImage={openImage}
               onTimePress={openTimeSheet}
             />
-            {message.id === lastAssistantId && paintStage ? <PaintingStages stage={paintStage} /> : null}
+            {message.id === (paintingId ?? lastAssistantId) && paintStage ? <PaintingStages stage={paintStage} /> : null}
             </Fragment>
           ))}
 
@@ -2075,7 +2087,7 @@ export default function StoryScreen() {
               ) : null}
               <ListRow
                 leading={<CopyIcon color={colors.textMuted} size={18} strokeWidth={2} />}
-                meta="Long-press any reply to copy it"
+                meta="Long-press any reply to copy or paint it"
                 onPress={() => {
                   setMoreOpen(false);
                   if (lastReply) copyReply(lastReply.content);
@@ -2084,6 +2096,57 @@ export default function StoryScreen() {
               />
             </ListCard>
             <AppButton label="Cancel" onPress={() => setMoreOpen(false)} variant="secondary" />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setReplyMenu(null)}
+        transparent
+        visible={replyMenu !== null}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable accessibilityLabel="Close" onPress={() => setReplyMenu(null)} style={StyleSheet.absoluteFill} />
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+            <SectionLabel first>This reply</SectionLabel>
+            <ListCard>
+              {apiKey && !isGeneratingImage ? (
+                <>
+                  <ListRow
+                    leading={<Paintbrush color={colors.textMuted} size={18} strokeWidth={2} />}
+                    meta={replyMenu?.image ? 'Paint it again; the old picture stays one step back' : 'Paint this moment'}
+                    onPress={() => {
+                      const target = replyMenu;
+                      setReplyMenu(null);
+                      if (target) void generateSceneImage('auto', undefined, target.id);
+                    }}
+                    title={replyMenu?.image ? 'Repaint' : 'Paint'}
+                  />
+                  <ListRow
+                    leading={<ImageIcon color={colors.textMuted} size={18} strokeWidth={2} />}
+                    meta="Close-up, jutsu, epic wide and more"
+                    onPress={() => {
+                      const target = replyMenu;
+                      setReplyMenu(null);
+                      setShotTarget(target?.id ?? null);
+                      setShotMenuOpen(true);
+                    }}
+                    title="Choose the shot"
+                  />
+                </>
+              ) : null}
+              <ListRow
+                leading={<CopyIcon color={colors.textMuted} size={18} strokeWidth={2} />}
+                onPress={() => {
+                  const target = replyMenu;
+                  setReplyMenu(null);
+                  if (target) copyReply(target.content);
+                }}
+                title="Copy"
+              />
+            </ListCard>
+            <AppButton label="Cancel" onPress={() => setReplyMenu(null)} variant="secondary" />
           </View>
         </View>
       </Modal>
@@ -2131,7 +2194,7 @@ export default function StoryScreen() {
               label="Paint"
               onPress={() => {
                 setShotMenuOpen(false);
-                void generateSceneImage(shotChip);
+                void generateSceneImage(shotChip, undefined, shotTarget ?? undefined);
               }}
             />
             <AppButton label="Cancel" onPress={() => setShotMenuOpen(false)} variant="secondary" />
