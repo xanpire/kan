@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fonts.extrabold,
     fontSize: 20,
-    color: colors.accentText,
+    color: colors.accentTint,
   },
   bounty: {
     fontFamily: fonts.bold,
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: colors.accentText,
+    color: colors.accentTint,
   },
   track: {
     height: 4,

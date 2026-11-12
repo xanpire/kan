@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontFamily: fonts.bold,
-    color: colors.accentText,
+    color: colors.accentTint,
   },
   nameRow: {
     flexDirection: 'row',
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   },
   grudge: {
     fontFamily: fonts.bold,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: colors.danger,

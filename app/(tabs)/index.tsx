@@ -1351,7 +1351,7 @@ export default function StoryScreen() {
             <ListCard>
               <ListRow
                 body="Add your OpenRouter key in Settings to begin."
-                leading={<Sparkles color={colors.accentText} size={18} strokeWidth={2} />}
+                leading={<Sparkles color={colors.accentTint} size={18} strokeWidth={2} />}
                 title="No narrator yet"
                 trailing={
                   <AppButton
@@ -2092,7 +2092,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textMuted,
   },
   modeDotFight: {
-    backgroundColor: colors.accentBright,
+    backgroundColor: colors.accentTint,
   },
   modeDotSelected: {
     width: 8,
@@ -2417,7 +2417,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     color: colors.text,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
   },
   retouchNote: {
     ...type.rowBody,

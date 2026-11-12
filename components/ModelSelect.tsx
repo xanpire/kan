@@ -190,7 +190,7 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
                   <Text style={styles.loadingText}>Loading models…</Text>
                 </View>
               ) : (
-                filteredModels.slice(0, 60).map((model) => (
+                filteredModels.slice(0, MODEL_ROWS).map((model) => (
                   <Pressable
                     accessibilityLabel={`Select ${model.name}`}
                     accessibilityRole="button"
@@ -228,6 +228,11 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
                   </Pressable>
                 ))
               )}
+              {filteredModels.length > MODEL_ROWS ? (
+                <Text style={styles.moreText}>
+                  {filteredModels.length - MODEL_ROWS} more: search to narrow
+                </Text>
+              ) : null}
             </ScrollView>
           </View>
         </View>
@@ -235,6 +240,9 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
     </>
   );
 }
+
+/** Rows drawn before "N more: search to narrow". */
+const MODEL_ROWS = 60;
 
 /** "anthropic/claude-sonnet-4" → "claude-sonnet-4" for the compact row. */
 function shortModelName(value: string) {
@@ -264,41 +272,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
   },
-  label: {
-    fontFamily: fonts.semibold,
-    fontSize: 11,
-    lineHeight: 15,
-    color: colors.textMuted,
-  },
-  select: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 50,
-    paddingHorizontal: 13,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  selectCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  selectValue: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.text,
-  },
-  hint: {
-    fontFamily: fonts.regular,
-    fontSize: 10,
-    lineHeight: 14,
-    color: colors.textDim,
-  },
   pressed: {
     opacity: 0.65,
+  },
+  moreText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textDim,
+    textAlign: 'center',
+    paddingVertical: 14,
   },
   overlay: {
     flex: 1,
@@ -308,6 +291,7 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxWidth: 680,
+    alignSelf: 'center',
     height: '88%',
     paddingHorizontal: 18,
     paddingTop: 14,
@@ -355,7 +339,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
   },
   customWrap: {
@@ -369,7 +353,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.background,
     fontFamily: fonts.regular,
-    fontSize: 13,
+    fontSize: 16,
     color: colors.text,
   },
   error: {
@@ -416,7 +400,7 @@ const styles = StyleSheet.create({
   },
   referenceBadge: {
     fontFamily: fonts.semibold,
-    fontSize: 8,
+    fontSize: 11,
     lineHeight: 11,
     color: colors.accent,
     textTransform: 'uppercase',
@@ -432,13 +416,13 @@ const styles = StyleSheet.create({
   },
   modelId: {
     fontFamily: fonts.regular,
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 14,
     color: colors.textDim,
   },
   modelMeta: {
     fontFamily: fonts.regular,
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 14,
     color: colors.textMuted,
   },

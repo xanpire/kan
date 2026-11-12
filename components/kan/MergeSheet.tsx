@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 14,
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     height: 44,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
   },
   list: {

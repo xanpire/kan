@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   destructive: {
     backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255, 90, 95, 0.24)',
+    borderColor: colors.dangerBorder,
   },
   pressed: {
     opacity: 0.8,

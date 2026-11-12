@@ -10,22 +10,23 @@ export const colors = {
   borderStrong: '#343434',
   text: '#F5F5F5',
   textMuted: '#A3A3A3',
-  textDim: '#7D7D7D',
+  textDim: '#8A8A8A',
   textSoft: '#E6E6E6',
   textMeta: '#8C8C8C',
   divider: '#1C1C1C',
   hairline: '#161616',
-  accentText: '#FF1F2D',
+  /** Red for small text and icons: 5.9:1 on black. */
   accentTint: '#FF4D57',
   warning: '#F0A34A',
   accent: '#E50914',
-  accentBright: '#FF1F2D',
   accentSoft: 'rgba(229, 9, 20, 0.12)',
   accentBorder: 'rgba(229, 9, 20, 0.42)',
   success: '#46D369',
   successSoft: 'rgba(70, 211, 105, 0.10)',
   danger: '#FF5A5F',
-  dangerSoft: 'rgba(229, 9, 20, 0.10)',
+  // Soft and border tones come from their own colour (audit 11e.4).
+  dangerSoft: 'rgba(255, 90, 95, 0.10)',
+  dangerBorder: 'rgba(255, 90, 95, 0.24)',
   onAccent: '#FFFFFF',
   overlay: 'rgba(0, 0, 0, 0.82)',
   // Flashbacks: a muted, warm tint, so a memory is never mistaken for the present.
@@ -35,6 +36,20 @@ export const colors = {
   memoryMuted: '#B39E80',
   memoryAccent: '#C9A06A',
   white: '#FFFFFF',
+};
+
+/** The map board's own colours (audit 11e.4); the outlines themselves live in mapShapes.ts. */
+export const mapColors = {
+  sea: '#06090c',
+  board: '#07090b',
+  land: '#151517',
+  landVisited: '#1f1416',
+  landSelected: '#26262a',
+  border: '#3a3a3e',
+  label: '#8a8a8f',
+  dot: '#9a9aa0',
+  placeName: '#b4b4ba',
+  hole: '#050505',
 };
 
 export const fonts = {
@@ -78,7 +93,8 @@ export const type: Record<
   | 'rowTitle'
   | 'rowBody'
   | 'rowMeta'
-  | 'prose',
+  | 'prose'
+  | 'input',
   TextStyle
 > = {
   eyebrow: {
@@ -157,6 +173,12 @@ export const type: Record<
     fontSize: 16,
     lineHeight: 26,
     color: colors.textSoft,
+  },
+  /** Every text field: 16 px, so iPhone Safari never zooms the page (audit 11e.4). */
+  input: {
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    color: colors.text,
   },
   caption: {
     fontFamily: fonts.regular,

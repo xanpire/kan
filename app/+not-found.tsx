@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 14,
     letterSpacing: 1,
     textTransform: 'uppercase',

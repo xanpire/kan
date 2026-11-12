@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   initial: {
     fontFamily: fonts.bold,
     fontSize: 36,
-    color: colors.accentText,
+    color: colors.accentTint,
   },
   painting: {
     ...StyleSheet.absoluteFillObject,

@@ -6,7 +6,7 @@ import Svg, { Circle, G, Line, Path, Polyline, Rect, Text as SvgText } from 'rea
 
 import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
 import { WeatherIcon } from '@/components/WeatherIcon';
-import { colors, fonts, radius, spacing, type } from '@/constants/theme';
+import { colors, fonts, mapColors, radius, spacing, type } from '@/constants/theme';
 import { dateSortValue, formatDayMonth } from '@/lib/rpg/calendar';
 import { useGame } from '@/lib/rpg/game';
 import { REGION_NAME, currentRegion, type Region } from '@/lib/rpg/geography';
@@ -61,11 +61,11 @@ function dateLine(date: CalendarDate) {
   return `${formatDayMonth(date)}, year ${date.year}`;
 }
 
-const SEA = '#06090c';
-const LAND = '#151517';
-const LAND_VISITED = '#1f1416';
-const LAND_SELECTED = '#26262a';
-const BORDER = '#3a3a3e';
+const SEA = mapColors.sea;
+const LAND = mapColors.land;
+const LAND_VISITED = mapColors.landVisited;
+const LAND_SELECTED = mapColors.landSelected;
+const BORDER = mapColors.border;
 const LABEL_SIZE = { large: 2.6, medium: 2.1, small: 1.6 } as const;
 const PLACE_NAME_SIZE = 0.9;
 /** How close a tap must land to a place to pick it, in board units. */
@@ -242,7 +242,7 @@ function WorldBoard({
               const [first, name] = labelLines(shape.label);
               const x = shape.labelX ?? shape.x;
               const y = shape.labelY ?? shape.y;
-              const fill = region === here ? colors.accentTint : large ? colors.textDim : '#8a8a8f';
+              const fill = region === here ? colors.accentTint : large ? colors.textDim : mapColors.label;
 
               return (
                 <G key={`label-${region}`}>
@@ -288,10 +288,10 @@ function WorldBoard({
                 <Circle
                   cx={place.x}
                   cy={place.y}
-                  fill={beenThere ? colors.textSoft : '#050505'}
+                  fill={beenThere ? colors.textSoft : mapColors.hole}
                   key={place.id}
                   r={isSelected ? size + 0.45 : size}
-                  stroke={isSelected ? colors.white : beenThere ? colors.textSoft : '#9a9aa0'}
+                  stroke={isSelected ? colors.white : beenThere ? colors.textSoft : mapColors.dot}
                   strokeWidth={0.28}
                 />
               );
@@ -308,7 +308,7 @@ function WorldBoard({
                       <SvgText fill={SEA} fontFamily={fonts.semibold} fontSize={PLACE_NAME_SIZE} stroke={SEA} strokeWidth={0.35} textAnchor={spot.anchor} x={spot.x} y={spot.y}>
                         {place.name}
                       </SvgText>
-                      <SvgText fill={visits.has(place.id) ? colors.textSoft : '#b4b4ba'} fontFamily={fonts.semibold} fontSize={PLACE_NAME_SIZE} textAnchor={spot.anchor} x={spot.x} y={spot.y}>
+                      <SvgText fill={visits.has(place.id) ? colors.textSoft : mapColors.placeName} fontFamily={fonts.semibold} fontSize={PLACE_NAME_SIZE} textAnchor={spot.anchor} x={spot.x} y={spot.y}>
                         {place.name}
                       </SvgText>
                     </G>
@@ -318,7 +318,7 @@ function WorldBoard({
 
             {houses.map(({ house, point }) => (
               <Rect
-                fill={house.kind === 'camp' ? 'none' : '#050505'}
+                fill={house.kind === 'camp' ? 'none' : mapColors.hole}
                 height={1.5}
                 key={house.id}
                 stroke={colors.accentTint}
@@ -752,7 +752,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: '#07090b',
+    backgroundColor: mapColors.board,
   },
   zoomButton: {
     position: 'absolute',

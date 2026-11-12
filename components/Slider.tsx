@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { PanResponder, Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { colors } from '@/constants/theme';
 
@@ -69,6 +69,19 @@ export function Slider({ value, onChange, onDone, disabled, accessibilityLabel }
       accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}
       onAccessibilityAction={(event) => nudge(event.nativeEvent.actionName === 'increment' ? 0.1 : -0.1)}
       onLayout={onLayout}
+      // The arrow keys move it on the web too (audit 11e.4).
+      {...(Platform.OS === 'web'
+        ? {
+            focusable: !disabled,
+            onKeyDown: (event: { key?: string; nativeEvent?: { key?: string }; preventDefault?: () => void }) => {
+              const key = event.key ?? event.nativeEvent?.key;
+              const delta = key === 'ArrowRight' || key === 'ArrowUp' ? STEP * 2 : key === 'ArrowLeft' || key === 'ArrowDown' ? -STEP * 2 : 0;
+              if (!delta) return;
+              event.preventDefault?.();
+              nudge(delta);
+            },
+          }
+        : {})}
       pointerEvents={disabled ? 'none' : 'auto'}
       style={[styles.root, disabled && styles.disabled]}
       {...responder.panHandlers}
@@ -83,7 +96,7 @@ export function Slider({ value, onChange, onDone, disabled, accessibilityLabel }
 
 const styles = StyleSheet.create({
   root: {
-    height: 36,
+    height: 44,
     justifyContent: 'center',
   },
   disabled: {
@@ -93,7 +106,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     marginHorizontal: THUMB / 2,
-    backgroundColor: colors.surfaceSoft,
+    backgroundColor: colors.borderStrong,
     overflow: 'hidden',
   },
   fill: {

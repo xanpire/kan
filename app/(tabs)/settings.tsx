@@ -26,9 +26,8 @@ import {
 
 import { AppButton } from '@/components/AppButton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { ListCard, ListRow, SectionLabel } from '@/components/List';
+import { ListCard, ListRow, SectionLabel, Segmented } from '@/components/List';
 import { ModelSelect } from '@/components/ModelSelect';
-import { SegmentedControl } from '@/components/SegmentedControl';
 import { Slider } from '@/components/Slider';
 import { DebugPanel } from '@/components/settings/DebugPanel';
 import { useToast } from '@/components/Toast';
@@ -704,7 +703,7 @@ export default function SettingsScreen() {
                 onPress={() => setCreating(true)}
                 style={({ pressed }) => [styles.newStory, pressed && styles.pressed]}
               >
-                <Plus color={colors.accentText} size={17} strokeWidth={2.2} />
+                <Plus color={colors.accentTint} size={17} strokeWidth={2.2} />
                 <Text style={styles.newStoryLabel}>New story</Text>
               </Pressable>
             )}
@@ -862,8 +861,9 @@ export default function SettingsScreen() {
                   <Text style={styles.budgetHint}>
                     How much the narrator reads each turn, in tokens. More remembers more of the scene; less costs less.
                   </Text>
-                  <SegmentedControl
+                  <Segmented
                     accessibilityLabel="Story context size"
+                    variant="choice"
                     onChange={(value) => void updateSettings({ promptTokenBudget: Number(value) })}
                     options={PROMPT_BUDGET_OPTIONS.map((option) => ({
                       value: String(option),
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 46,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
   },
   eye: {
@@ -1180,10 +1180,10 @@ const styles = StyleSheet.create({
   },
   playing: {
     fontFamily: fonts.bold,
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: colors.accentText,
+    color: colors.accentTint,
   },
   moreButton: {
     width: 44,
@@ -1202,7 +1202,7 @@ const styles = StyleSheet.create({
   newStoryLabel: {
     fontFamily: fonts.bold,
     fontSize: 15,
-    color: colors.accentText,
+    color: colors.accentTint,
   },
   createRow: {
     flexDirection: 'row',

@@ -143,6 +143,7 @@ export function FilterPills<T extends string>({
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ selected }}
+            hitSlop={4}
             key={option.value}
             onPress={() => onChange(option.value)}
             style={({ pressed }) => [
@@ -161,34 +162,58 @@ export function FilterPills<T extends string>({
   );
 }
 
-/** Full-width segmented tabs (Bonds / Jutsu / Journal). */
+/**
+ * The one segmented control (audit 11e.4). `tabs` (Bonds / Jutsu / Journal /
+ * Map) marks the selected tab in grey; `choice` (a setting) fills it red.
+ */
 export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  variant = 'tabs',
+  accessibilityLabel,
+  disabled = false,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  variant?: 'tabs' | 'choice';
+  accessibilityLabel?: string;
+  disabled?: boolean;
 }) {
+  const choice = variant === 'choice';
+
   return (
-    <View accessibilityRole="tablist" style={styles.segmented}>
+    <View
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={choice ? 'radiogroup' : 'tablist'}
+      style={styles.segmented}
+    >
       {options.map((option) => {
         const selected = option.value === value;
 
         return (
           <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
+            accessibilityLabel={option.label}
+            accessibilityRole={choice ? 'radio' : 'tab'}
+            accessibilityState={choice ? { checked: selected, disabled } : { selected, disabled }}
+            disabled={disabled}
             key={option.value}
             onPress={() => onChange(option.value)}
             style={({ pressed }) => [
               styles.segment,
-              selected && styles.segmentSelected,
+              selected && (choice ? styles.segmentChoice : styles.segmentSelected),
               pressed && styles.pressed,
+              disabled && styles.segmentDisabled,
             ]}
           >
-            <Text style={[styles.segmentLabel, selected && styles.segmentLabelSelected]}>
+            <Text
+              style={[
+                styles.segmentLabel,
+                selected && styles.segmentLabelSelected,
+                selected && choice && styles.segmentLabelChoice,
+              ]}
+            >
               {option.label}
             </Text>
           </Pressable>
@@ -235,7 +260,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   pill: {
-    minHeight: 36,
+    minHeight: 40,
     paddingHorizontal: 14,
     justifyContent: 'center',
     borderRadius: radius.full,
@@ -265,13 +290,20 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
   },
   segmentSelected: {
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderStrong,
+  },
+  segmentChoice: {
+    backgroundColor: colors.accent,
+  },
+  segmentDisabled: {
+    opacity: 0.45,
   },
   segmentLabel: {
     fontFamily: fonts.bold,
@@ -280,5 +312,8 @@ const styles = StyleSheet.create({
   },
   segmentLabelSelected: {
     color: colors.text,
+  },
+  segmentLabelChoice: {
+    color: colors.onAccent,
   },
 });

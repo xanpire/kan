@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.semibold,
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 14,
     letterSpacing: 1,
     textTransform: 'uppercase',
