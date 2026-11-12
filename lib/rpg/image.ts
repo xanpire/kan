@@ -25,6 +25,7 @@ import {
   type ShotType,
 } from './imageDirection';
 import { CONDITION_INFO } from './weather';
+import { placeLookOf } from './placeLooks';
 import type { AppDatabase, EntityRecord } from './types';
 import { REANIMATED_LOOK, isReanimated } from './deaths';
 
@@ -227,24 +228,27 @@ Pick the shot that sells the moment:
   - clash: two groups colliding mid-air, jutsu crossing between them
 Avoid: eye-level medium shots of people standing, centered symmetrical framing, neutral faces, posing for the camera.
 
+PLACE: how this location itself looks, so it can be painted the same way next time: landmarks, terrain, buildings, layout, at most 25 words; no people, no light, weather or time of day. If "This place looks like" is given below, keep to it and only add what is new.
+
 CAPTION: the same moment for the player's scrapbook of photos of Kan's life. The player is Kan, so the caption calls Kan "you" and "your", never "Kan", "he" or "his": one sentence, at most 20 words, present tense, plain words ("You kneel at Izumi's grave and set down a white flower."). Call people only by the name you know them by (after "to you:"), or describe them.
 
-Output exactly three lines and nothing else:
+Output exactly four lines and nothing else:
 ACTION: <the action sentences>
 SHOT: <the camera line>
+PLACE: <the look of the place>
 CAPTION: <the caption>`;
 
-const LABELS = ['action', 'shot', 'caption'] as const;
+const LABELS = ['action', 'shot', 'place', 'caption'] as const;
 
 /**
  * Splits the director's reply into the action, the camera line and the
  * caption. A reply without labels is all action (no shot, no caption).
  */
-export function parseImageAction(text: string): { action: string; shot?: string; caption?: string } {
+export function parseImageAction(text: string): { action: string; shot?: string; caption?: string; place?: string } {
   const found: Partial<Record<(typeof LABELS)[number], string>> = {};
   let rest = text;
 
-  for (const label of ['shot', 'caption'] as const) {
+  for (const label of ['shot', 'place', 'caption'] as const) {
     const match = new RegExp(`^\\s*\\**${label}\\**\\s*:\\s*(.+)$`, 'im').exec(rest);
 
     if (match) {
@@ -255,9 +259,10 @@ export function parseImageAction(text: string): { action: string; shot?: string;
 
   const caption = found.caption?.slice(0, 200);
   const shot = found.shot?.slice(0, 500);
+  const place = found.place?.slice(0, 240);
   const action = cleanProse(rest).replace(/^action:\s*/i, '').slice(0, 700);
 
-  return { action, ...(shot ? { shot } : {}), ...(caption ? { caption } : {}) };
+  return { action, ...(shot ? { shot } : {}), ...(caption ? { caption } : {}), ...(place ? { place } : {}) };
 }
 
 export type DirectorOptions = {
@@ -270,6 +275,8 @@ export type DirectedImage = {
   shot?: string;
   shotType: ShotType | null;
   caption?: string;
+  /** The director's one-line look of the location. */
+  place?: string;
   usage: CallUsage;
   model: string;
 };
@@ -316,6 +323,7 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
     memory || reply.flashback
       ? `This reply is a memory from Year ${reply.flashback!.date.year}: Kan is ${kanAgeAt(db, reply.flashback!.date)} years old in it.${memory ? ` Location: ${memory.place}.` : ''}`
       : `Location: ${db.state.location}.`,
+    reply.flashback || !placeLookOf(db)?.look ? '' : `This place looks like: ${placeLookOf(db)!.look}`,
     reply.flashback ? '' : `Scene: ${db.state.scene}.`,
     reply.flashback ? '' : `Kan's clothes: ${outfitWords(kanOutfit(db))}. ${kanAgeLine(kanAgeNow(db))}`,
     reply.flashback ? '' : kanRightNow(db) ?? '',
@@ -428,6 +436,7 @@ export async function writeImageAction(
         ...(shot ? { shot } : {}),
         shotType,
         ...(parsed.caption ? { caption: parsed.caption } : {}),
+        ...(parsed.place ? { place: parsed.place } : {}),
         usage: result.usage,
         model: attempt.model,
       };
@@ -499,6 +508,8 @@ function outfitWords(outfit: KanOutfit) {
 export type ScenePromptOptions = {
   shot?: string;
   shotType?: ShotType | null;
+  /** The place's look: the remembered one, else the director's PLACE line. */
+  placeLook?: string;
 };
 
 export function buildSceneImagePrompt(
@@ -587,6 +598,8 @@ export function buildSceneImagePrompt(
     lines.push(memoryNote);
   } else {
     lines.push(`Location: ${db.state.location}.`);
+    const placeLook = options.placeLook ?? placeLookOf(db)?.look;
+    if (placeLook) lines.push(`This place looks like: ${placeLook.replace(/\.$/, '')}.`);
   }
 
   // Kan's look.
@@ -646,6 +659,10 @@ export function buildSceneImagePrompt(
         reference.source === 'face'
           ? `Reference image ${n}: ${name}'s face, at ${memoryNote ? 'the age the memory note gives' : 'their current age'}, in this image's art style. ${IDENTITY_ONLY}`
           : `Reference image ${n}: a portrait of ${name}: their face, hair, colouring and usual clothing. ${IDENTITY_ONLY}`
+      );
+    } else if (reference.kind === 'place') {
+      lines.push(
+        `Reference image ${n}: this place${reference.name ? ` (${reference.name})` : ''} as it looked when Kan was here before. Keep its landmarks, buildings, terrain and layout. Ignore the people, the light, the weather and the camera in it; they belonged to another moment.`
       );
     } else if (reference.kind === 'cast') {
       const names = reference.names ?? [];

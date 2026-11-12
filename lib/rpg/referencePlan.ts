@@ -1,10 +1,10 @@
 /** Which reference images go with an image request. Pure, so it can be tested. */
-export type ReferenceKind = 'face' | 'outfit' | 'character' | 'cast' | 'alternate' | 'previous' | 'edit';
+export type ReferenceKind = 'face' | 'outfit' | 'character' | 'cast' | 'place' | 'alternate' | 'previous' | 'edit';
 
 export type PlannedReference = {
   kind: ReferenceKind;
   uri: string;
-  /** For 'character': who it shows, and whether it is their face reference or a painted portrait. */
+  /** For 'place': the place's name. For 'character': who it shows, and whether it is their face reference or a painted portrait. */
   name?: string;
   source?: 'face' | 'portrait';
   /** For 'cast': the people on the cast sheet, left to right. */
@@ -29,7 +29,7 @@ export function planReferences(
   leftOut: ReferenceKind[];
 } {
   // Other people's faces outrank older scenes: drifting faces are worse than drifting style.
-  const order: ReferenceKind[] = ['edit', 'face', 'outfit', 'character', 'cast', 'previous', 'alternate'];
+  const order: ReferenceKind[] = ['edit', 'face', 'outfit', 'character', 'cast', 'place', 'previous', 'alternate'];
   const available = candidates
     .filter((candidate) => Boolean(candidate.uri))
     .map((candidate, index) => ({ candidate, index }))

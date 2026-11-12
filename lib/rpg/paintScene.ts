@@ -23,6 +23,7 @@ import { checkSceneImage, imageCheckEnabled, sharperActorRule, type ImageCheck }
 import { wantsEnsemble, type ShotChip } from './imageDirection';
 import { loadImage, toDataUri } from './imageStore';
 import { kanOutfit } from './kanLook';
+import { placeKeyOf, placeLookOf } from './placeLooks';
 import { wearsAkatsukiCloak } from './portrait';
 import { faceDroppedWarning, loadKanReferenceImages, planReferences, type PlannedReference } from './referenceImages';
 import type { AppDatabase, SceneImageMeta } from './types';
@@ -65,12 +66,17 @@ export async function paintScene({
   const turnId = latestAssistant.id;
   onStage?.('framing');
   const recentRefs = collectRecentSceneImages(db);
-  const [written, recentLoaded, kanRefs] = await Promise.all([
+  // How this place looked the first time it was painted (audit 11c).
+  const placeKey = latestAssistant.flashback ? null : placeKeyOf(db);
+  const placeRecord = placeKey ? placeLookOf(db) : null;
+  const placeRef = placeRecord?.image && !recentRefs.includes(placeRecord.image) ? placeRecord.image : null;
+  const [written, recentLoaded, kanRefs, placeLoaded] = await Promise.all([
     writeImageAction(apiKey, db, undefined, { chip }, (model, error) =>
       recordDebugSideCall(turnId, { kind: 'imageAction', model, usage: null, apiKey, error })
     ),
     Promise.all(recentRefs.map((ref) => loadImage(ref))),
     loadKanReferenceImages(wearsAkatsukiCloak(db)),
+    placeRef ? loadImage(placeRef) : Promise.resolve(null),
   ]);
 
   if (written) {
@@ -103,6 +109,7 @@ export async function paintScene({
   const refOf = new Map<string, string>();
   loaded.forEach((person) => person.uri && refOf.set(person.uri, person.ref));
   recentLoaded.forEach((uri, index) => uri && refOf.set(uri, recentRefs[index]));
+  if (placeLoaded && placeRef) refOf.set(placeLoaded, placeRef);
   // The last image guides rendering style only when it was framed the same way.
   const recentImages = usePreviousForStyle(db, shotType)
     ? recentLoaded.filter((uri): uri is string => Boolean(uri))
@@ -113,6 +120,7 @@ export async function paintScene({
       { kind: 'face', uri: kanRefs.face },
       ...(sheets ? [{ kind: 'outfit' as const, uri: kanRefs.outfit }] : []),
       ...people,
+      ...(placeLoaded ? [{ kind: 'place' as const, uri: placeLoaded, name: db.state.location }] : []),
       ...recentImages.map((uri) => ({ kind: 'previous' as const, uri })),
       ...(sheets ? [{ kind: 'alternate' as const, uri: kanRefs.alternate }] : []),
     ],
@@ -123,7 +131,8 @@ export async function paintScene({
     onWarning?.(faceDroppedWarning(plan.faceDropped, caps.modelId));
   }
 
-  const prompt = buildSceneImagePrompt(db, plan.references, action, { shot, shotType });
+  const placeLook = placeRecord?.look ?? written?.place;
+  const prompt = buildSceneImagePrompt(db, plan.references, action, { shot, shotType, ...(placeLook ? { placeLook } : {}) });
   const inputReferences = plan.references.map((reference) => reference.uri);
 
   const makeOne = async (text: string) => {
@@ -144,6 +153,7 @@ export async function paintScene({
     references: plan.references.map((reference) => referenceRecord(reference, refOf)),
     model: caps.modelId,
     createdAt: Date.now(),
+    ...(placeKey ? { place: { key: placeKey, name: db.state.location, ...(placeLook ? { look: placeLook } : {}) } } : {}),
   });
 
   const check = imageCheckEnabled(db);

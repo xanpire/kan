@@ -555,6 +555,20 @@ export type SceneImageMeta = {
   references: { kind: string; name?: string; ref?: string }[];
   model: string;
   createdAt: number;
+  /** Where it was painted and the director's one-line look of the place (audit 11c). */
+  place?: { key: string; name: string; look?: string };
+};
+
+export type PlaceLookRecord = {
+  /** `safehouse:<id>` or `place:<normalized location>`. */
+  key: string;
+  /** The location as the story named it. */
+  name: string;
+  /** One line: landmarks, terrain, buildings. */
+  look?: string;
+  /** The first scene image painted there (an img: reference). */
+  image?: string;
+  createdAt: number;
 };
 
 export type EntityRecord = {
@@ -1065,6 +1079,8 @@ export type AppDatabase = {
   characterPortraits?: CharacterPortraitRecord[];
   /** Face references you chose for people, kept only on this device. */
   characterFaces?: CharacterFaceRecord[];
+  /** How places look, from the first scene painted at each (audit 11c, `placeLooks.ts`). */
+  placeLooks?: PlaceLookRecord[];
   memoryJobs?: MemoryJob[];
 };
 

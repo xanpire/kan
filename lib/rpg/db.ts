@@ -1,4 +1,5 @@
 import { KAN_APPEARANCE, migrateKanEyes } from './kanLook';
+import { normalizePlaceLooks } from './placeLooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAppModels, withAppModels } from './modelDefaults';
 import { normalizePost } from './letters';
@@ -1049,6 +1050,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     memoryJobs: Array.isArray(db.memoryJobs)
       ? db.memoryJobs.filter((job) => job && typeof job.turnLogId === 'string')
       : [],
+    ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
   const withDeaths = ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(normalized)))));

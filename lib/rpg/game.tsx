@@ -1,3 +1,4 @@
+import { rememberPlaceLook } from './placeLooks';
 import { handAddItem, handRemoveItem, togglePinnedItem } from './inventory';
 import {
   createContext,
@@ -1672,10 +1673,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         entry.id === logId ? { ...entry, image: stored, ...(meta ? { imageMeta: meta } : {}) } : entry
       );
 
-      await commitDb({
-        ...latest,
-        rawLog,
-      });
+      // The first image painted at a place becomes its look (audit 11c).
+      await commitDb(rememberPlaceLook({ ...latest, rawLog }, logId, stored, meta));
     },
     [commitDb]
   );
