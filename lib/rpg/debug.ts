@@ -70,8 +70,21 @@ export type DebugStateStep = {
   nameLeaks?: string[];
   /** What the engine refused, dropped, merged or fell back on during the step. */
   events?: DebugEvent[];
+  /** The state call's prompt, Core and World (newest few turns only, audit 11e.3). */
+  prompt?: DebugTrackerPrompt | null;
   at: number;
 };
+
+export type DebugTrackerPrompt = {
+  core: OpenRouterMessage[];
+  world: OpenRouterMessage[] | null;
+};
+
+/** A tracker prompt as one text: Core, then World (Copy and the code box). */
+export function trackerPromptForCopy(prompt: DebugTrackerPrompt): string {
+  const block = (messages: OpenRouterMessage[]) => messages.map((message) => `### ${message.role}\n${message.content}`).join('\n\n');
+  return prompt.world ? `${block(prompt.core)}\n\n--- World call ---\n\n${block(prompt.world)}` : block(prompt.core);
+}
 
 export type DebugTurn = {
   /** Temporary id until the narrator reply is saved, then the reply's log id. */
@@ -210,7 +223,9 @@ function emit() {
 
 function commit(turns: DebugTurn[]) {
   const trimmed = turns.slice(0, MAX_TURNS).map((turn, index) =>
-    index >= KEEP_PROMPTS && turn.prompt ? { ...turn, prompt: null } : turn
+    index >= KEEP_PROMPTS && (turn.prompt || turn.state?.prompt)
+      ? { ...turn, prompt: null, state: turn.state ? { ...turn.state, prompt: null } : null }
+      : turn
   );
   log = { turns: trimmed };
   emit();

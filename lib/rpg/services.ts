@@ -480,7 +480,11 @@ export async function extractTurnDiff(options: {
 }): Promise<TurnDiff | null> {
   const { apiKey, db, userMessage, assistantMessage, signal, debugTurnId } = options;
   const prompt = buildExtractionPrompt(db, userMessage, assistantMessage);
-  recordDebugState(debugTurnId, { status: 'running' });
+  const plain = (messages: typeof prompt.messages) => messages.map(({ role, content }) => ({ role, content }));
+  recordDebugState(debugTurnId, {
+    status: 'running',
+    prompt: { core: plain(prompt.messages), world: prompt.world ? plain(prompt.world.messages) : null },
+  });
 
   const request: ChatRequest = {
     apiKey,

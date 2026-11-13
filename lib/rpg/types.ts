@@ -1028,6 +1028,11 @@ export type Settings = {
   imageCheck?: boolean;
   /** Paint two takes and let you keep one (default off). */
   imageTwoTakes?: boolean;
+  /**
+   * Tell the narrator which phrases keep coming back (the VARIETY phrase
+   * line; default on). Debug switch for the audit 8 comparison.
+   */
+  varietyPhrases?: boolean;
 };
 
 export type CanonProgress = {

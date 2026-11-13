@@ -89,7 +89,8 @@ export function formatVarietyBlock(db: AppDatabase): string {
     lines.push('- Your last replies ended on a question to you. End this one on an action, an image, a sound or an open beat instead.');
   }
 
-  const motifs = repeatedMotifs(db);
+  // Off from Debug for the with/without comparison (audit 8, 11e.3).
+  const motifs = db.settings.varietyPhrases === false ? [] : repeatedMotifs(db);
 
   if (motifs.length > 0) {
     lines.push(`- These images and phrases keep coming back; leave them out this turn: ${motifs.map((motif) => `"${motif}"`).join(', ')}.`);

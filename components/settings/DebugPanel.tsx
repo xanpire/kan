@@ -1,6 +1,6 @@
 import { copyText } from '@/lib/rpg/storyControls';
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { ChevronDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react-native';
 
 import { router } from 'expo-router';
@@ -11,6 +11,7 @@ import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import {
   clearDebugLog,
   formatCost,
+  trackerPromptForCopy,
   turnCost,
   turnsForSlot,
   turnTokens,
@@ -69,11 +70,21 @@ function shortModel(model: string) {
   return model.includes('/') ? model.split('/').slice(1).join('/') : model;
 }
 
+/** Copies a block of text and says so (Copy buttons across the panel). */
+function useCopy() {
+  const { showToast } = useToast();
+  return async (text: string, what: string) => {
+    const ok = await copyText(text);
+    showToast(ok ? `${what} copied.` : 'Copy isn’t available here.', ok ? 'success' : 'error');
+  };
+}
+
 export function DebugPanel({ slotId }: { slotId?: string | null }) {
   const { turns: allTurns } = useDebugLog();
   // Only the open story: other stories' prompts and costs don't belong here.
   const turns = useMemo(() => turnsForSlot(allTurns, slotId), [allTurns, slotId]);
   const { showToast } = useToast();
+  const copy = useCopy();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
 
@@ -139,6 +150,7 @@ export function DebugPanel({ slotId }: { slotId?: string | null }) {
       ) : null}
 
       {open ? <SaveDoctor turns={turns} /> : null}
+      {open ? <VarietySwitch /> : null}
 
       {open ? (
         <View style={styles.body}>
@@ -156,15 +168,9 @@ export function DebugPanel({ slotId }: { slotId?: string | null }) {
                 turn={turn}
               />
               <CostBlock turn={turn} />
-              <StateBlock turn={turn} />
+              <StateBlock onCopy={copy} turn={turn} />
               <TrackerBlock turns={turns} />
-              <PromptBlock
-                onCopy={async (text) => {
-                  const ok = await copyText(text);
-                  showToast(ok ? 'Prompt copied.' : 'Copy isn’t available here.', ok ? 'success' : 'error');
-                }}
-                turn={turn}
-              />
+              <PromptBlock onCopy={(text) => void copy(text, 'Prompt')} turn={turn} />
 
               <View style={styles.footer}>
                 <Text style={type.rowMeta}>
@@ -271,6 +277,39 @@ function SaveDoctor({ turns }: { turns: DebugTurn[] }) {
         title="Export this session as a test"
       />
     </>
+  );
+}
+
+/**
+ * The VARIETY phrase line on or off for the open story (audit 11e.3), for
+ * section 8's check: the same ten actions played with and without it.
+ */
+function VarietySwitch() {
+  const { db, updateSettings } = useGame();
+  const on = db?.settings.varietyPhrases !== false;
+
+  return (
+    <ListRow
+      accessibilityLabel="Repeated-phrase line"
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      onPress={() => void updateSettings({ varietyPhrases: !on })}
+      meta={
+        on
+          ? 'On: the narrator is told which phrases keep coming back in its replies.'
+          : 'Off for this story: the narrator is not told which phrases repeat. The question-ending and already-decided lines stay.'
+      }
+      title="Repeated-phrase line"
+      trailing={
+        <Switch
+          onValueChange={(value) => void updateSettings({ varietyPhrases: value })}
+          thumbColor={colors.text}
+          trackColor={{ false: colors.surfaceSoft, true: colors.accent }}
+          value={on}
+          {...(Platform.OS === 'web' ? { activeThumbColor: colors.text } : {})}
+        />
+      }
+    />
   );
 }
 
@@ -442,11 +481,13 @@ const RESPONSE_MODE_LABEL = {
   plain: 'plain reply (JSON refused)',
 } as const;
 
-function StateBlock({ turn }: { turn: DebugTurn }) {
+function StateBlock({ turn, onCopy }: { turn: DebugTurn; onCopy: (text: string, what: string) => void }) {
   const [showRaw, setShowRaw] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [showWorld, setShowWorld] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
   const state = turn.state;
+  const trackerPrompt = state?.prompt ? trackerPromptForCopy(state.prompt) : '';
 
   return (
     <View style={styles.block}>
@@ -523,15 +564,32 @@ function StateBlock({ turn }: { turn: DebugTurn }) {
             {state.worldRaw !== undefined ? (
               <Toggle label="World reply" onPress={() => setShowWorld((value) => !value)} open={showWorld} />
             ) : null}
+            <Toggle label="Tracker prompt" onPress={() => setShowPrompt((value) => !value)} open={showPrompt} />
           </View>
           {state.worldAreas?.length ? (
             <Text style={type.rowMeta}>{`World call asked: ${state.worldAreas.join(', ')}`}</Text>
           ) : (
             <Text style={type.rowMeta}>No World call this turn.</Text>
           )}
-          {showDiff ? <CodeBox text={JSON.stringify(state.diff, null, 2)} /> : null}
-          {showRaw ? <CodeBox text={prettyJson(state.raw ?? '')} /> : null}
-          {showWorld ? <CodeBox text={prettyJson(state.worldRaw ?? '')} /> : null}
+          {showDiff ? (
+            <CopyableCode label="Applied diff" onCopy={onCopy} text={JSON.stringify(state.diff, null, 2)} />
+          ) : null}
+          {showRaw ? <CopyableCode label="Raw reply" onCopy={onCopy} text={prettyJson(state.raw ?? '')} /> : null}
+          {showWorld ? <CopyableCode label="World reply" onCopy={onCopy} text={prettyJson(state.worldRaw ?? '')} /> : null}
+          {showPrompt ? (
+            state.prompt ? (
+              <CopyableCode
+                label="Tracker prompt"
+                meta={`Core ${messageCount(state.prompt.core.length)}${
+                  state.prompt.world ? ` · World ${messageCount(state.prompt.world.length)}` : ' · no World call'
+                } · ${formatTokens(trackerPrompt.length)} ch`}
+                onCopy={onCopy}
+                text={trackerPrompt}
+              />
+            ) : (
+              <Text style={type.rowMeta}>Only the newest 5 turns keep the tracker's prompt (from v1.24.76 on).</Text>
+            )
+          ) : null}
         </>
       )}
     </View>
@@ -694,6 +752,39 @@ function Toggle({ label, open, onPress }: { label: string; open: boolean; onPres
   );
 }
 
+const messageCount = (count: number) => `${count} message${count === 1 ? '' : 's'}`;
+
+/** A code box with a Copy button above it. */
+function CopyableCode({
+  label,
+  text,
+  meta,
+  onCopy,
+}: {
+  label: string;
+  text: string;
+  meta?: string;
+  onCopy: (text: string, what: string) => void;
+}) {
+  return (
+    <View>
+      <View style={styles.blockHead}>
+        <Text style={[type.rowMeta, styles.flex]}>{meta ?? label}</Text>
+        <Pressable
+          accessibilityLabel={`Copy the ${label.toLowerCase()}`}
+          accessibilityRole="button"
+          onPress={() => onCopy(text, label)}
+          style={({ pressed }) => [styles.copy, pressed && styles.pressed]}
+        >
+          <Copy color={colors.textMuted} size={14} strokeWidth={2} />
+          <Text style={styles.copyLabel}>Copy</Text>
+        </Pressable>
+      </View>
+      <CodeBox text={text} />
+    </View>
+  );
+}
+
 function CodeBox({ text }: { text: string }) {
   return (
     <ScrollView nestedScrollEnabled style={styles.code}>
@@ -750,8 +841,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   stepButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
@@ -892,10 +983,11 @@ const styles = StyleSheet.create({
   },
   toggles: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
   },
   toggle: {
-    minHeight: 32,
+    minHeight: 44,
     paddingHorizontal: 12,
     justifyContent: 'center',
     borderRadius: radius.full,
@@ -918,7 +1010,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    minHeight: 32,
+    minHeight: 44,
+    minWidth: 44,
     paddingHorizontal: 10,
   },
   copyLabel: {
@@ -974,7 +1067,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.divider,
   },
   clear: {
-    minHeight: 36,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
     justifyContent: 'center',
   },
   clearLabel: {
