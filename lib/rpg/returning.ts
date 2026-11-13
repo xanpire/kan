@@ -46,9 +46,16 @@ const STOPWORDS = new Set([
 const TRAVELLER_ROLE =
   /\b(merchant|trader|peddler|courier|messenger|mercenary|ronin|wanderer|wandering|travell?ing|travell?er|bounty hunter|smuggler|performer|pilgrim|monk|caravan|drifter|sellsword|informant|spy|missing-nin|rogue)\b/i;
 
-const CANON_NAMES = new Set(
-  CANON_CAST.flatMap((entry) => [entry.name, ...entry.aliases]).map((name) => name.toLowerCase())
-);
+// Built on first use, not at load: canonCast.ts sits in an import cycle with
+// this file, so CANON_CAST may not exist yet while this module is loading.
+let canonNames: Set<string> | null = null;
+
+function isCanonName(name: string) {
+  canonNames ??= new Set(
+    CANON_CAST.flatMap((entry) => [entry.name, ...entry.aliases]).map((alias) => alias.toLowerCase())
+  );
+  return canonNames.has(name.toLowerCase());
+}
 
 export type ReturningOffer = {
   entity: EntityRecord;
@@ -115,7 +122,7 @@ export function isOriginalCharacter(entity: EntityRecord) {
   // A one-word alias ("Mei" for Mei Tsukada) is a shared given name, not proof
   // this is the canon person; their own name or a full alias is.
   return ![entity.name, ...entity.aliases.filter((alias) => alias.trim().includes(' '))].some((name) =>
-    CANON_NAMES.has(name.toLowerCase())
+    isCanonName(name)
   );
 }
 

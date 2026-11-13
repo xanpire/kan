@@ -15,7 +15,7 @@ mock.module('@react-native-async-storage/async-storage', () => ({
 import { DEFAULT_DATE, dateSortValue } from '../lib/rpg/calendar';
 import { normalizeDatabase } from '../lib/rpg/db';
 import { resolveCharacterRefs } from '../lib/rpg/entities';
-import { appendStoryMessage, storyMessagesSinceLastSummary } from '../lib/rpg/log';
+import { appendStoryMessage } from '../lib/rpg/log';
 import { applyStateStep, applySummaryJob, isJobValid, unsummarizedStory } from '../lib/rpg/memoryJobs';
 import { buildExtractionPrompt, buildNarrationPrompt, getRecentMessages, trackerPromptText } from '../lib/rpg/prompt';
 import { seedDatabase } from '../lib/rpg/seed';
@@ -329,7 +329,7 @@ describe('playing a flashback', () => {
     expect(memory.castIds).toContain(person(turn, 'Suzume').id);
     // Memory turns are never chapter material.
     expect(unsummarizedStory(turn).some((entry) => entry.flashback)).toBe(false);
-    expect(storyMessagesSinceLastSummary(turn)).toBe(storyMessagesSinceLastSummary(db) + 0);
+    expect(unsummarizedStory(turn).length).toBe(unsummarizedStory(db).length + 0);
   });
 
   test('the weather and the ambience follow the memory; the present’s held weather is untouched', () => {

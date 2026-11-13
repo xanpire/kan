@@ -108,3 +108,13 @@ self.addEventListener('message', (event) => {
 const outPath = path.resolve(__dirname, '../public/sw.js');
 fs.writeFileSync(outPath, sw);
 console.log(`sw.js generated with cache: ${cacheName} (app version: ${version})`);
+
+// The manifest's icons carry the same ?v= as the precache list above, so the
+// installed app's icons and the cached copies are the same URLs.
+const manifestPath = path.resolve(__dirname, '../public/manifest.webmanifest');
+const manifest = fs.readFileSync(manifestPath, 'utf8');
+const stamped = manifest.replace(/\?v=[0-9A-Za-z.\-]+/g, v);
+if (stamped !== manifest) {
+  fs.writeFileSync(manifestPath, stamped);
+  console.log(`manifest.webmanifest icons stamped ${v}`);
+}

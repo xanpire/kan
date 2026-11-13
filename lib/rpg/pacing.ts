@@ -1,7 +1,7 @@
 import { advanceSeconds, dateSortValue, paceCapSeconds, secondsBetween, setClock, shiftSeconds } from './calendar';
 import type { CalendarDate, ScenePace } from './types';
 
-const COMBAT = /\b(fight|fights|fighting|fought|battle|clash|clashes|strike|strikes|blade|blades|kunai|shuriken|parry|dodge|blood|jutsu|punch|kick|choke|chokes|choked|choking|strangle|opponent|enemy|ambush|skirmish|duel|cut|wound)\b/i;
+const COMBAT = /\b(fight|fights|fighting|fought|battle|clash|clashes|strike|strikes|blade|blades|kunai|shuriken|parry|dodge|blood|jutsu|punch|kick|choke|chokes|choked|choking|strangle|opponent|enemy|ambush|skirmish|duel|cut|wound)\b/gi;
 const CHASE = /\b(chase|chasing|pursuit|flee|fleeing|running|escape|escaped|hunt(ed|ing)?|track(ed|ing)?)\b/i;
 // Present tense too: the narrator writes "you walk", not "you walked".
 const TRAVEL = /\b(travel|travels|traveled|travelled|travelling|traveling|road|ride|rides|rode|riding|march|marches|marched|marching|journey|journeys|miles|border|trail|crossing|cross|crosses|sail|sails|sailed|sailing|walk|walks|walked|walking|hike|hikes|hiked)\b/i;
@@ -31,7 +31,9 @@ export function inferScenePace(text: string): ScenePace {
     return 'conversation';
   }
 
-  if (COMBAT.test(text)) {
+  // Two fighting words, as validateScenePace asks: one "cut", "blood" or
+  // "jutsu" in a quiet scene must not freeze the clock at the combat cap.
+  if ((text.match(COMBAT)?.length ?? 0) >= 2) {
     return 'combat';
   }
 

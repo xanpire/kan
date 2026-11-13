@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -548,11 +549,7 @@ export default function SettingsScreen() {
                 <View style={styles.linkRow}>
                   <Pressable
                     accessibilityRole="link"
-                    onPress={() =>
-                      void import('expo-web-browser').then((module) =>
-                        module.openBrowserAsync('https://openrouter.ai/keys')
-                      )
-                    }
+                    onPress={() => void Linking.openURL('https://openrouter.ai/keys')}
                     style={({ pressed }) => [styles.textLink, pressed && styles.pressed]}
                   >
                     <Text style={styles.textLinkLabel}>Get a key</Text>

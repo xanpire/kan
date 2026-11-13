@@ -16,7 +16,7 @@ mock.module('@react-native-async-storage/async-storage', () => ({
 
 import '../lib/rpg/db';
 import { DEFAULT_SETTINGS } from '../lib/rpg/defaults';
-import { loadAppModels, modelChoices, rememberAppModels, withAppModels } from '../lib/rpg/modelDefaults';
+import { loadAppModels, modelChoices, rememberAppModels, typedModelToSave, withAppModels } from '../lib/rpg/modelDefaults';
 import { seedDatabase } from '../lib/rpg/seed';
 
 describe('app-wide model choices', () => {
@@ -42,5 +42,14 @@ describe('app-wide model choices', () => {
   test('a broken stored value starts new stories on the defaults', async () => {
     store.set('kan.models.v1', '{nope');
     expect(await loadAppModels()).toEqual({});
+  });
+});
+
+describe('typing a model id (audit 11)', () => {
+  test('saves once, trimmed, only when it changed and is not blank', () => {
+    expect(typedModelToSave('  openai/gpt-x  ', 'google/gemini-3.8-flash')).toBe('openai/gpt-x');
+    expect(typedModelToSave('google/gemini-3.8-flash', 'google/gemini-3.8-flash')).toBeNull();
+    expect(typedModelToSave('   ', 'google/gemini-3.8-flash')).toBeNull();
+    expect(typedModelToSave('', 'google/gemini-3.8-flash')).toBeNull();
   });
 });

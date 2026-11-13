@@ -1,6 +1,11 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import { type PropsWithChildren } from 'react';
 
+import { APP_VERSION } from '@/lib/version';
+
+// The same ?v= the service worker precaches (scripts/generate-sw.js).
+const v = `?v=${APP_VERSION}`;
+
 const pageStyles = `
   html, body {
     background-color: #050505;
@@ -63,10 +68,10 @@ export default function Root({ children }: PropsWithChildren) {
         <meta content="yes" name="apple-mobile-web-app-capable" />
         <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style" />
         <meta content="Kan" name="apple-mobile-web-app-title" />
-        <link href="/manifest.webmanifest?v=1.3.2" rel="manifest" />
-        <link href="/apple-touch-icon.png?v=1.3.2" rel="apple-touch-icon" sizes="180x180" />
-        <link href="/icon-192.png?v=1.3.2" rel="icon" sizes="192x192" type="image/png" />
-        <link href="/icon-512.png?v=1.3.2" rel="icon" sizes="512x512" type="image/png" />
+        <link href={`/manifest.webmanifest${v}`} rel="manifest" />
+        <link href={`/apple-touch-icon.png${v}`} rel="apple-touch-icon" sizes="180x180" />
+        <link href={`/icon-192.png${v}`} rel="icon" sizes="192x192" type="image/png" />
+        <link href={`/icon-512.png${v}`} rel="icon" sizes="512x512" type="image/png" />
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: pageStyles }} />
       </head>

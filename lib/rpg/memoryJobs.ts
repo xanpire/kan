@@ -68,7 +68,6 @@ import {
   summarizeScene,
   summarizeTimeSkip,
 } from './services';
-import { storyMessagesSinceLastSummary } from './log';
 import { firstSentences, shortTitle } from './util';
 import { detectNarrationTime } from './timeparse';
 import type {
@@ -558,7 +557,7 @@ export function applyStateStep(
   const shouldSummarize =
     extraction?.imageWorthy === true ||
     sceneEnded ||
-    storyMessagesSinceLastSummary(next) >= next.settings.autoSummarizeThreshold;
+    unsummarizedStory(next).length >= next.settings.autoSummarizeThreshold;
 
   if (shouldSummarize) {
     const planned = queueSceneJob(next, turn.turnLogId, activeIds, sceneEnded ? 2 : MIN_SCENE_MESSAGES);

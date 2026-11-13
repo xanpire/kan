@@ -48,3 +48,13 @@ export async function rememberAppModels(patch: Partial<Settings>) {
 export function withAppModels(db: AppDatabase, models: ModelChoices): AppDatabase {
   return Object.keys(models).length > 0 ? { ...db, settings: { ...db.settings, ...models } } : db;
 }
+
+/**
+ * What a typed model id saves when the field is left (blur, Return, or the
+ * sheet closing): the trimmed id, or null when it is blank or unchanged.
+ * The field no longer saves the whole story on every keystroke.
+ */
+export function typedModelToSave(draft: string, current: string): string | null {
+  const id = draft.trim();
+  return id && id !== current ? id : null;
+}

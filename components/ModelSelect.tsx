@@ -19,6 +19,7 @@ import {
   fetchOpenRouterModels,
   type OpenRouterModelSummary,
 } from '@/lib/openrouter';
+import { typedModelToSave } from '@/lib/rpg/modelDefaults';
 
 type ModelSelectProps = {
   label: string;
@@ -35,6 +36,24 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  // The typed id is kept here and saved once, when the field is left or the
+  // sheet closes, instead of saving the whole story on every keystroke.
+  const [typed, setTyped] = useState(value);
+
+  const openPicker = () => {
+    setTyped(value);
+    setPickerVisible(true);
+  };
+
+  const saveTyped = () => {
+    const id = typedModelToSave(typed, value);
+    if (id) onChange(id);
+  };
+
+  const closePicker = () => {
+    saveTyped();
+    setPickerVisible(false);
+  };
 
   const loadModels = async () => {
     setLoading(true);
@@ -91,7 +110,7 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
         accessibilityHint={hint}
         accessibilityLabel={`${label} model: ${value}`}
         accessibilityRole="button"
-        onPress={() => setPickerVisible(true)}
+        onPress={openPicker}
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       >
         <Text style={styles.rowLabel}>{label}</Text>
@@ -103,14 +122,14 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
 
       <Modal
         animationType="slide"
-        onRequestClose={() => setPickerVisible(false)}
+        onRequestClose={closePicker}
         transparent
         visible={pickerVisible}
       >
         <View style={styles.overlay}>
           <Pressable
             accessibilityLabel="Close model picker"
-            onPress={() => setPickerVisible(false)}
+            onPress={closePicker}
             style={StyleSheet.absoluteFill}
           />
           <View
@@ -140,7 +159,7 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
                   accessibilityLabel="Close model picker"
                   accessibilityRole="button"
                   hitSlop={8}
-                  onPress={() => setPickerVisible(false)}
+                  onPress={closePicker}
                   style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
                 >
                   <X color={colors.textMuted} size={20} strokeWidth={2} />
@@ -167,11 +186,14 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
                 accessibilityLabel="Custom model ID"
                 autoCapitalize="none"
                 autoCorrect={false}
-                onChangeText={onChange}
+                onBlur={saveTyped}
+                onChangeText={setTyped}
+                onSubmitEditing={saveTyped}
                 placeholder="provider/model-id"
                 placeholderTextColor={colors.textDim}
+                returnKeyType="done"
                 style={styles.customInput}
-                value={value}
+                value={typed}
               />
             </View>
 
@@ -196,6 +218,7 @@ export function ModelSelect({ label, value, onChange, hint, kind = 'text' }: Mod
                     accessibilityRole="button"
                     key={model.id}
                     onPress={() => {
+                      setTyped(model.id);
                       onChange(model.id);
                       setPickerVisible(false);
                     }}

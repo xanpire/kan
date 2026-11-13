@@ -17,7 +17,8 @@ import { seedDatabase } from '../lib/rpg/seed';
 import { advanceSeconds, dateSortValue, daysBetween, daysInMonth, formatClock, paceCapSeconds, timeOfDayOf } from '../lib/rpg/calendar';
 import { applyEntityDiff, entityGroup, entityHints, mergeEntityPair, resolveCharacterRefs, resolveEntity } from '../lib/rpg/entities';
 import { learnFromCanon } from '../lib/rpg/names';
-import { appendStoryMessage, cloneDatabase, storyMessagesSinceLastSummary } from '../lib/rpg/log';
+import { appendStoryMessage, cloneDatabase } from '../lib/rpg/log';
+import { unsummarizedStory } from '../lib/rpg/memoryJobs';
 import { trimToSentence } from '../lib/rpg/util';
 import { convertStateBlock } from '../lib/rpg/stateBlock';
 import { buildExtractionPrompt, buildNarrationPrompt, splitNarrationAndDiff, streamingPreview, stripNarrationJson, trackerPromptText } from '../lib/rpg/prompt';
@@ -381,7 +382,7 @@ describe('summarize cadence', () => {
       db = appendStoryMessage(db, 'user', `msg ${i}`, 'm', 0, 0);
     }
 
-    const sinceBefore = storyMessagesSinceLastSummary(db);
+    const sinceBefore = unsummarizedStory(db).length;
     expect(sinceBefore).toBeGreaterThan(12);
 
     const now = Date.now();
@@ -401,7 +402,44 @@ describe('summarize cadence', () => {
       ],
     };
 
-    expect(storyMessagesSinceLastSummary(db)).toBe(0);
+    expect(unsummarizedStory(db).length).toBe(0);
+  });
+
+  test('messages written while a summary ran still count, whatever their wall-clock time', () => {
+    let db = loadSave();
+    db = { ...db, summaries: db.summaries.filter((summary) => summary.level !== 'chapter') };
+    const before = unsummarizedStory(db).length;
+
+    for (let i = 0; i < 6; i += 1) {
+      db = appendStoryMessage(db, 'user', `covered ${i}`, 'm', 0, 0);
+    }
+    const covered = unsummarizedStory(db).map((entry) => entry.id);
+    expect(covered.length).toBe(before + 6);
+
+    for (let i = 0; i < 3; i += 1) {
+      db = appendStoryMessage(db, 'user', `late ${i}`, 'm', 0, 0);
+    }
+
+    // The summary lists what it covers and was stamped after the late messages
+    // were written (they arrived while it ran); the old wall-clock count said 0.
+    db = {
+      ...db,
+      summaries: [
+        ...db.summaries,
+        {
+          id: 'summary_traced',
+          level: 'chapter' as const,
+          range: { fromEventId: '', toEventId: '', from: db.state.inStoryDate, to: db.state.inStoryDate },
+          text: 'A summary of the covered messages.',
+          tokenCount: 10,
+          eventIds: [],
+          sourceLogIds: covered,
+          createdAt: Date.now() + 60_000,
+        },
+      ],
+    };
+
+    expect(unsummarizedStory(db).map((entry) => entry.content)).toEqual(['late 0', 'late 1', 'late 2']);
   });
 });
 
@@ -1598,6 +1636,10 @@ describe('scene pacing and the clock', () => {
     expect(inferScenePace('Kan sleeps until the coals die down.')).toBe('downtime');
     expect(inferScenePace('Itachi says nothing and looks away.')).toBe('conversation');
     expect(inferScenePace('The Root hounds are hunting him through the trees.')).toBe('chase');
+    // One fighting word is not a fight: a quiet scene must not freeze the clock.
+    expect(inferScenePace('You wipe the blood from your sleeve and sit by the fire.')).toBe('conversation');
+    expect(inferScenePace('Itachi says the jutsu can wait.')).toBe('conversation');
+    expect(inferScenePace('You cut the bread and hand Itachi half.')).toBe('conversation');
   });
 
   test('combat caps time even if the narrator overreports', () => {
