@@ -777,6 +777,17 @@ export function scrubNameLeaks(db: AppDatabase, narration: string): { text: stri
 
       let out = piece.text;
 
+      // An appositive name ("The woman, Konan, does not…") goes with its
+      // commas instead of becoming "The woman, the woman with the paper
+      // flower," (audit 6b.3).
+      for (const swap of swaps) {
+        const appositive = new RegExp(`(\\p{Ll}[\\p{L}'’-]*),\\s+${escapeRegExp(swap.name)}(?:,(?=\\s)|(?=[.;:!?]))`, 'gu');
+        out = out.replace(appositive, (_whole, word: string) => {
+          if (!replaced.includes(swap.name)) replaced.push(swap.name);
+          return word;
+        });
+      }
+
       for (const swap of swaps) {
         const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(swap.name)}(?=$|[^\\p{L}\\p{N}])`, 'gu');
         out = out.replace(pattern, (_whole, lead: string, offset: number, all: string) => {

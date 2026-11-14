@@ -31,6 +31,20 @@ const SUZUME_ID = makeId('entity');
 const KAN_ID = makeId('entity');
 const FOREST_ID = makeId('entity');
 
+/**
+ * The opening as Kan remembers it: only what he knows at 10 PM on 1 Oct
+ * (audit 6b.1). Shown on the bond pages and in the Journal.
+ */
+export const OPENING_MEMORY =
+  'You wait alone in the rain-soaked forest outside Hidden Leaf, where Itachi sent you days ago after he told you what he meant to do, and you fought him and lost. He promised to explain everything once it was over. You do not know whether he went through with it, how it happened, or who died, Izumi included.';
+
+/** The opening's setup, for the narrator only (never shown: it gives the plan away). */
+export const OPENING_BRIEFING =
+  'Tonight the massacre has happened. Itachi is about to arrive and ask you to come with him and join the Akatsuki; he promised an explanation, but he will hold the truth back until you are far from the village.';
+
+/** The opening memory's text before v1.24.82, which told the player the plan. */
+export const LEGACY_OPENING_SUMMARY_START = 'You wait alone in the rain-soaked forest outside Hidden Leaf, where Itachi sent you days ago. Tonight the massacre has happened';
+
 export function seedDatabase(slotId: string, slotName: string): AppDatabase {
   const now = Date.now();
 
@@ -178,8 +192,8 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     chapter: 1,
     scene: 'The rain after',
     inStoryDate: DEFAULT_DATE,
-    summary:
-      'You wait alone in the rain-soaked forest outside Hidden Leaf, where Itachi sent you days ago. Tonight the massacre has happened, but you were already in the forest: you do not know whether Itachi went through with it, how it happened, or who died, Izumi included. Itachi is about to arrive and ask you to come with him and join the Akatsuki; he promised an explanation, but he will hold the truth back until you are far from the village.',
+    summary: OPENING_MEMORY,
+    narratorNote: OPENING_BRIEFING,
     importance: 5,
     tags: ['opening', 'itachi', 'massacre', 'izumi', 'rain', 'forest', 'akatsuki'],
     pinned: true,

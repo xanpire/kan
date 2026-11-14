@@ -70,6 +70,7 @@ import {
   timeOfDayOf,
 } from '@/lib/rpg/calendar';
 import { narrationSegments } from '@/lib/rpg/narrationText';
+import { scrubNameLeaks } from '@/lib/rpg/names';
 import { testOpenRouterKey } from '@/lib/openrouter';
 import { useReadingType } from '@/lib/reading';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
@@ -549,15 +550,18 @@ function PaintingStages({ stage }: { stage: PaintStage }) {
 }
 
 /** Kan's action and the reply as it streams. The only part of the screen that redraws while the narrator writes. */
-function LiveReply({ pendingAction, memory }: { pendingAction: string | null; memory: boolean }) {
+function LiveReply({ db, pendingAction, memory }: { db: AppDatabase; pendingAction: string | null; memory: boolean }) {
   const streamingText = useStreamingText();
   // Only finished paragraphs are shown, each fading in as it completes, so
   // the reply reads like it is being written (audit 11b).
-  const paragraphs = useMemo(() => {
+  const finished = useMemo(() => {
     const preview = streamingPreview(streamingText);
     const all = paragraphsOf(preview);
-    return /\n\s*\n\s*$/.test(preview) ? all : all.slice(0, -1);
+    return (/\n\s*\n\s*$/.test(preview) ? all : all.slice(0, -1)).join('\n\n');
   }, [streamingText]);
+  // A name Kan doesn't know never shows, even while the reply streams (audit
+  // 6b.3); worked out again only when a paragraph finishes.
+  const paragraphs = useMemo(() => (finished ? paragraphsOf(scrubNameLeaks(db, finished).text) : []), [db, finished]);
 
   return (
     <>
@@ -1602,7 +1606,7 @@ export default function StoryScreen() {
             </Fragment>
           ))}
 
-          {isNarrating ? <LiveReply memory={liveMemory} pendingAction={pendingAction} /> : null}
+          {isNarrating ? <LiveReply db={db} memory={liveMemory} pendingAction={pendingAction} /> : null}
 
           {openElsewhere ? (
             <ListCard>

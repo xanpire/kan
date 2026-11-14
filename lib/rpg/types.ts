@@ -812,6 +812,8 @@ export type EventRecord = {
    * major characters, and only when the scene mattered to them.
    */
   povs?: { entityId: string; text: string }[];
+  /** Setup only the narrator reads (the opening's plan); never shown in the UI. */
+  narratorNote?: string;
   createdAt: number;
 };
 

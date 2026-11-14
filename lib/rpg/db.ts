@@ -19,7 +19,7 @@ import { stripNarrationJson } from './prompt';
 import { CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from './canonData';
 import { dropBareNatureJutsu, normalizeJutsuNature } from './jutsu';
 import { dateSortValue, normalizeDate } from './calendar';
-import { GEOGRAPHY_LORE, seedDatabase } from './seed';
+import { GEOGRAPHY_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING, OPENING_MEMORY, seedDatabase } from './seed';
 import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
 import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
@@ -905,6 +905,23 @@ function migrateCanonV2(db: AppDatabase): AppDatabase {
   return next;
 }
 
+const MILESTONE_BY_ID = new Map(CANON_MILESTONES.map((milestone) => [milestone.id, milestone]));
+
+/**
+ * A fired milestone's event keeps the milestone's current wording, so a
+ * reworded description (audit 6b.2: Kan was placed at Izumi's funeral)
+ * reaches saves that fired it before.
+ */
+function refreshCanonEventText<T extends { tags: string[]; summary: string }>(event: T): T {
+  const tag = event.tags?.find((item) => item.startsWith('canon-'));
+  const milestone = tag ? MILESTONE_BY_ID.get(tag.slice('canon-'.length)) : undefined;
+
+  if (!milestone || typeof event.summary !== 'string' || !event.summary.startsWith(`${milestone.title}: `)) return event;
+
+  const summary = `${milestone.title}: ${milestone.description}`.slice(0, 240);
+  return summary === event.summary ? event : { ...event, summary };
+}
+
 export function normalizeDatabase(db: AppDatabase): AppDatabase {
   const migrated = migrateCanonV2(db);
   db = migrated;
@@ -980,7 +997,15 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       // People who arrive with a milestone (a birth, a revival) once it has happened.
       db.state?.canonProgress?.completed ?? []
     ),
-    events: Array.isArray(db.events) ? db.events : [],
+    // The opening memory told the player the plan (audit 6b.1): Kan's own
+    // memory now, with the setup kept for the narrator.
+    events: Array.isArray(db.events)
+      ? db.events.map((event) =>
+          typeof event.summary === 'string' && event.summary.startsWith(LEGACY_OPENING_SUMMARY_START)
+            ? { ...event, summary: OPENING_MEMORY, narratorNote: OPENING_BRIEFING }
+            : refreshCanonEventText(event)
+        )
+      : [],
     eventEntities: Array.isArray(db.eventEntities) ? db.eventEntities : [],
     bonds: Array.isArray(db.bonds)
       ? db.bonds.map((bond) => ({

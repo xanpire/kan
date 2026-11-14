@@ -108,6 +108,7 @@ NAMES
 - Narration calls people only by the name Kan knows (each card says it). Anyone he can't name gets the same short description every time ("the red-haired girl") until he learns the name: they give it, someone says it, a letter or document shows it, or he recognises someone famous by their look. Never force an introduction.
 - Characters say names aloud when they naturally would ("Tobi!", "Itachi-san"), each using the name THEY know the person by. A "narrator only" truth is never narrated or said by someone who couldn't know it.
 - If Kan says a name he couldn't know, he says it aloud and people react ("How do you know that name?").
+- The same goes for things: a dōjutsu, a jutsu or a technique Kan has never heard named (the Rinnegan, a stranger's signature jutsu) is described as he sees it ("ripple-patterned purple eyes") until someone names it to him.
 
 STYLE
 - Second person, gritty realism: weight, fatigue, injury, weather, terrain. Show moods through behavior. Quiet moments are fine.
@@ -1501,7 +1502,8 @@ function formatMemories(db: AppDatabase, memories: EventRecord[]) {
       const text = full ?? memory.summary;
       // A flashback is a memory of the past, lived again, not something that just happened.
       const past = memory.tags.includes('flashback') ? `(from Year ${memory.inStoryDate.year}, before the story) ` : '';
-      return `- ${past}${memory.title ? `${memory.title}: ` : ''}${truncate(text, 400)}`;
+      const note = memory.narratorNote ? ` (For you, the narrator, not Kan: ${memory.narratorNote})` : '';
+      return `- ${past}${memory.title ? `${memory.title}: ` : ''}${truncate(text, 400)}${note}`;
     }),
   ].join('\n');
 }
