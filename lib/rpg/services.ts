@@ -297,7 +297,7 @@ export function applyTurnDiff(
   next = applyClockTick(next, diff);
   // Temporary conditions run out; a long stretch of rest ends the "until rest" ones
   // (not in a compromised safehouse: Kan may not sleep there at all).
-  next = expireFacts(next, { rested: isRest(diff) && !restBlocked(next) });
+  next = expireFacts(next, { rested: isRest(diff) && !restBlocked(next), elapsedSeconds: diff.state?.elapsedSeconds ?? 0 });
   // After the clock: a bond the story set this turn cannot outlast canon.
   next = applyCanonEndgames(next);
 

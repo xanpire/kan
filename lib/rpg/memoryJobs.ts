@@ -407,6 +407,10 @@ export function applyStateStep(
   // A miss by the tracker no longer leaves the sky wrong: the prose's own
   // rain, snow or fog wins over the world's roll for this turn.
   next = applyWeather(next, extraction?.weather ?? weatherFromNarration(next, turn.narration));
+  // The sky still disagrees with what the reply shows (the tracker named
+  // other weather, or the scene's lock): the prose wins for this turn (audit 7.2).
+  const stillUnseen = weatherFromNarration(next, turn.narration);
+  if (stillUnseen) next = applyWeather(next, stillUnseen);
 
   // One piece of news per turn (or one catch-up report); nothing in the
   // world fires mid-fight. The allowance comes from the state the turn's

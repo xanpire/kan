@@ -148,6 +148,36 @@ describe('the weather matches the rain', () => {
     expect(['rain', 'downpour']).toContain(currentWeather(after).condition);
   });
 
+  test('rain with mist in it is rain, not fog (audit 7.2)', () => {
+    const base = seed();
+    const fog: AppDatabase = { ...base, state: { ...base.state, weather: { ...base.state.weather!, condition: 'fog', source: 'world' } } };
+    // Raining already: "the mist" over the stones does not turn it to fog.
+    expect(weatherFromNarration(base, 'Rain runs off the stones and the mist hangs low over the cistern.')).toBeUndefined();
+    // Fog held, rain in the prose: the rain wins.
+    expect(weatherFromNarration(fog, 'Rain runs off the stones and the mist hangs low.')).toBeTruthy();
+  });
+
+  test('the prose wins over the tracker when the two disagree (audit 7.2)', () => {
+    const after = play(seed(), '*You wait.*', 'The downpour keeps hammering the roof while you wait.', {
+      scene_pace: 'conversation',
+      characters_present: [],
+      weather: 'thick fog',
+    });
+    expect(['rain', 'downpour', 'storm']).toContain(currentWeather(after).condition);
+  });
+
+  test('the world does not roll new weather in a scene still going (audit 7.2)', () => {
+    let db = seed();
+    for (let turn = 0; turn < 6; turn += 1) {
+      db = play(db, '*You wait.*', 'You wait under the cedars. Two hours pass.', {
+        scene_pace: 'conversation',
+        characters_present: [],
+        time: { elapsed: 2, unit: 'hours', clock_time: null },
+      });
+    }
+    expect(currentWeather(db).condition).toBe('downpour');
+  });
+
   test('the World tracker is told to report weather that differs, not only changes', () => {
     const text = trackerPromptText(buildExtractionPrompt(seed(), '*You wait.*', 'The rain falls hard on the cedars.'));
     expect(text).toContain('differs from WEATHER NOW');

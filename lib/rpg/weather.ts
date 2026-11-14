@@ -447,6 +447,7 @@ export function weatherAt(seed: string, region: Region, date: CalendarDate): Wea
 /** How long story weather holds, and how long a scene keeps its weather. */
 const STORY_HOLD_HOURS = 8;
 const SCENE_HOLD_HOURS = 12;
+const SCENE_MAX_HOURS = 24;
 
 function hoursSince(from: CalendarDate, to: CalendarDate) {
   return secondsBetween(from, to) / 3600;
@@ -458,6 +459,9 @@ function lockHolds(lock: WeatherLock | undefined, db: Pick<AppDatabase, 'state'>
   const hours = hoursSince(lock.since, db.state.inStoryDate);
 
   if (hours < 0) return false;
+  // The world never rolls new weather in the middle of a scene that is still
+  // going (audit 7.2), up to a day.
+  if (lock.sceneSeq === db.state.sceneSeq && !db.state.sceneClosed && hours < SCENE_MAX_HOURS) return true;
   if (lock.source === 'story') return hours < STORY_HOLD_HOURS;
 
   return lock.sceneSeq === db.state.sceneSeq && hours < SCENE_HOLD_HOURS;
@@ -563,8 +567,10 @@ const PROSE_PATTERNS: [RegExp, WeatherCondition][] = [
   [/\bsleet\b/i, 'sleet'],
   [/\b(snow is falling|snow falls|snow fell|snowfall|snowing|falling snow|flurr(?:y|ies))\b/i, 'snow'],
   [/\b(drizzle|drizzling)\b/i, 'drizzle'],
-  [/\b(fog|thick mist|the mist)\b/i, 'fog'],
+  // Rain before fog: rainy prose often has "the mist" in it, and falling
+  // rain is the plainer fact (audit 7.2: a downpour was read as fog).
   [/\b(rain|raining|rainfall|rainwater)\b/i, 'rain'],
+  [/\b(fog|thick mist|the mist)\b/i, 'fog'],
 ];
 
 const FAMILY: Partial<Record<WeatherCondition, string>> = {
@@ -637,7 +643,8 @@ export function applyWeather(db: AppDatabase, reported: string | undefined): App
 
   if (lockHolds(lock, db, region)) {
     // Story weather that outlives its scene still holds; a world lock follows the scene.
-    return lock.sceneSeq === db.state.sceneSeq || lock.source === 'story'
+    // (A story lock with no scene yet, like the opening's downpour, takes this one.)
+    return lock.sceneSeq === db.state.sceneSeq || (lock.source === 'story' && lock.sceneSeq !== undefined)
       ? db
       : { ...db, state: { ...db.state, weather: { ...lock, sceneSeq: db.state.sceneSeq } } };
   }

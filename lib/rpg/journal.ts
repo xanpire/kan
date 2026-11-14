@@ -173,6 +173,17 @@ function aboutKan(db: AppDatabase, fact: FactRecord) {
 }
 
 /** Kan's wounds and passing conditions, as the player may see them (audit 10). */
+/**
+ * A passing state that should have ended (audit 7.1): an "until you rest"
+ * one more than two days old, or a condition with no length more than
+ * three. Injuries keep their own length.
+ */
+function staleCondition(fact: AppDatabase['facts'][number], today: AppDatabase['state']['inStoryDate']) {
+  if (fact.type !== 'condition' || fact.expiresAt) return false;
+  const age = daysBetween(fact.validFrom, today);
+  return fact.untilRest ? age > 2 : age > 3;
+}
+
 export function kanConditions(db: AppDatabase): KanCondition[] {
   const today = db.state.inStoryDate;
 
@@ -182,7 +193,8 @@ export function kanConditions(db: AppDatabase): KanCondition[] {
         fact.validTo === null &&
         (fact.type === 'injury' || fact.type === 'condition') &&
         aboutKan(db, fact) &&
-        (!fact.expiresAt || dateSortValue(fact.expiresAt) >= dateSortValue(today))
+        (!fact.expiresAt || dateSortValue(fact.expiresAt) >= dateSortValue(today)) &&
+        !staleCondition(fact, today)
     )
     .slice(-8)
     .reverse()

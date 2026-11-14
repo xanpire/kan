@@ -234,12 +234,18 @@ export function applyFactDiff(db: AppDatabase, fact: FactDiff): AppDatabase {
   return next;
 }
 
+const LONG_STRETCH_SECONDS = 2 * 86400;
+
 /**
  * Runs after a turn: temporary conditions run out (their date passed, or a
  * rest ended them), and a "does not know yet" about someone's death ends once
  * Kan knows.
  */
-export function expireFacts(db: AppDatabase, options: { rested: boolean }): AppDatabase {
+export function expireFacts(db: AppDatabase, options: { rested: boolean; elapsedSeconds?: number }): AppDatabase {
+  // A stretch of days (a time skip, a long journey) ends every passing state:
+  // nobody stays awake that long, and a condition with no length was a
+  // moment, not a month (audit 7.1).
+  const longStretch = (options.elapsedSeconds ?? 0) >= LONG_STRETCH_SECONDS;
   const now = db.state.inStoryDate;
   const nowValue = dateSortValue(now);
   let changed = false;
@@ -251,10 +257,11 @@ export function expireFacts(db: AppDatabase, options: { rested: boolean }): AppD
 
     const subject = fact.subjectEntityId ? db.entities.find((entity) => entity.id === fact.subjectEntityId) : undefined;
     const ran = fact.expiresAt !== undefined && dateSortValue(fact.expiresAt) <= nowValue;
-    const rested = options.rested && fact.untilRest === true;
+    const rested = (options.rested || longStretch) && fact.untilRest === true;
+    const passed = longStretch && fact.type === 'condition' && !fact.expiresAt;
     const learned = subject !== undefined && NOT_YET.test(fact.text) && fact.type === 'death' && kanKnowsDeath(db, subject);
 
-    if (ran || rested || learned) {
+    if (ran || rested || passed || learned) {
       changed = true;
       return { ...fact, validTo: now };
     }

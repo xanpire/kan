@@ -161,6 +161,47 @@ describe('Your condition', () => {
     expect(list[0].lasts).toBe('Until you rest');
     expect(list[1].lasts).toBe('About 3 days');
   });
+
+  test('passing states that should have ended drop off the list (audit 7.1)', () => {
+    const db = seed();
+    const today = db.state.inStoryDate;
+    const monthAgo = { ...today, month: today.month === 1 ? 12 : today.month - 1, year: today.month === 1 ? today.year - 1 : today.year };
+    const list = kanConditions(
+      withFacts(db, [
+        { text: 'A searing heat floods Kan’s eyes as Itachi speaks', type: 'condition', validFrom: monthAgo },
+        { text: 'Kan keeps his chakra suppressed', type: 'condition', untilRest: true, validFrom: monthAgo },
+        { text: 'Kan’s ribs are cracked', type: 'injury', validFrom: monthAgo },
+        { text: 'Kan is soaked', type: 'condition', untilRest: true },
+      ])
+    );
+    expect(list.map((item) => item.text)).toEqual(['You are soaked', 'Your ribs are cracked']);
+  });
+});
+
+import { expireFacts } from '../lib/rpg/facts';
+
+describe('a stretch of days ends passing states (audit 7.1)', () => {
+  test('a skip ends until-rest and length-less conditions, not lasting injuries', () => {
+    const db = seed();
+    const base = { subjectEntityId: db.entities.find((entity) => entity.name === 'Kan')!.id, whoKnows: [], validFrom: db.state.inStoryDate, validTo: null, confidence: 'confirmed' as const, sourceEventId: null };
+    const withThree = {
+      ...db,
+      facts: [
+        ...db.facts,
+        { ...base, id: 'f1', type: 'condition' as const, text: 'Sharingan active' },
+        { ...base, id: 'f2', type: 'condition' as const, text: 'Chakra suppressed', untilRest: true },
+        { ...base, id: 'f3', type: 'injury' as const, text: 'A scar on the cheek' },
+      ],
+    };
+    const after = expireFacts(withThree, { rested: false, elapsedSeconds: 26 * 86400 });
+    const active = (id: string) => after.facts.find((fact) => fact.id === id)?.validTo === null;
+    expect(active('f1')).toBe(false);
+    expect(active('f2')).toBe(false);
+    expect(active('f3')).toBe(true);
+    // An hour changes nothing.
+    const hour = expireFacts(withThree, { rested: false, elapsedSeconds: 3600 });
+    expect(hour.facts.filter((fact) => ['f1', 'f2', 'f3'].includes(fact.id)).every((fact) => fact.validTo === null)).toBe(true);
+  });
 });
 
 describe('What you carry: hand edits and pins', () => {
