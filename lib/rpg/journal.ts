@@ -224,3 +224,27 @@ export function hiddenGrudge(db: AppDatabase, thread: ThreadRecord) {
 
   return !bond || !grudgeKnown(bond.grudge);
 }
+
+const OFFER_THREAD = /^itachi['’]s offer\b/i;
+const OFFER_MILESTONE = 'kan-joins-akatsuki';
+
+/**
+ * The opening's quest "Itachi's offer: join Akatsuki" is in the save from the
+ * first turn, so the narrator can steer toward it, but Itachi has not offered
+ * anything yet. It stays off Kan's pages until the story has named the
+ * Akatsuki to him, or he has agreed to go.
+ */
+export function offerNotMadeYet(db: AppDatabase, thread: ThreadRecord) {
+  if (thread.sourceLogId || !OFFER_THREAD.test(thread.title.trim())) return false;
+
+  const progress = db.state.canonProgress;
+
+  if (progress?.engaged?.includes(OFFER_MILESTONE) || progress?.completed?.includes(OFFER_MILESTONE)) return false;
+
+  return !db.rawLog.some((entry) => entry.kind === 'story' && entry.role === 'assistant' && /\bakatsuki\b/i.test(entry.content));
+}
+
+/** A thread Kan can't know of yet: kept for the narrator, never shown. */
+export function hiddenThread(db: AppDatabase, thread: ThreadRecord) {
+  return hiddenGrudge(db, thread) || offerNotMadeYet(db, thread);
+}

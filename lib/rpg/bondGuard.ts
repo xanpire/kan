@@ -37,6 +37,7 @@ const SIDEWAYS_RUNG: Partial<Record<RelationshipStage, number>> = {
   enemy: 0,
   rival: 1,
   teammate: 2,
+  'former teammate': 2,
   partner: 2,
   mentor: 2,
   student: 2,

@@ -284,10 +284,13 @@ export const UNCLAIMED_LAND: Pt[][] = [
   [[66.5, 57.8], [68, 57.6], [68.2, 59], [66.8, 59.2]],
 ];
 
-/** Bridges drawn as lines: the Great Naruto Bridge, and Nagi to Ouza. */
-export const BRIDGES: Array<readonly [Pt, Pt]> = [
-  [[41.6, 55.2], [46, 55.5]],
-  [[74.5, 63.5], [75.8, 65]],
+/**
+ * Bridges drawn as lines: the Great Naruto Bridge, and Nagi to Ouza. A bridge
+ * with `builtBy` is drawn only once that canon milestone has happened.
+ */
+export const BRIDGES: Array<{ line: readonly [Pt, Pt]; builtBy?: string }> = [
+  { line: [[41.6, 55.2], [46, 55.5]], builtBy: 'land-of-waves' },
+  { line: [[74.5, 63.5], [75.8, 65]] },
 ];
 
 

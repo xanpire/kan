@@ -19,9 +19,20 @@ type ProfileField = 'role' | 'personality' | 'speechStyle' | 'appearance';
 type Disclosure = Partial<Record<ProfileField, string>> & {
   /** The milestone that lets Kan know the truth; null: only the story itself can tell him. */
   revealedBy: string | null;
+  /** The seed text being covered, for people seeded outside the canon cast (Itachi, in seed.ts). */
+  seeded?: Partial<Record<ProfileField, string>>;
 };
 
+/** Itachi's role in the opening seed (seed.ts): true from the first night, but Kan has not been told. */
+export const ITACHI_SEED_ROLE = 'Missing-nin · Akatsuki';
+
 const DISCLOSURES: Record<string, Disclosure> = {
+  // Until he tells you where he is taking you, he is who you knew in the Leaf.
+  'Itachi Uchiha': {
+    role: 'Hidden Leaf ANBU captain',
+    seeded: { role: ITACHI_SEED_ROLE },
+    revealedBy: 'kan-joins-akatsuki',
+  },
   Tobi: {
     role: 'Akatsuki · the masked man',
     personality: 'Impossible to read; you never know what he really wants.',
@@ -105,7 +116,7 @@ function revealed(db: AppDatabase, disclosure: Disclosure) {
 export function shownField(db: AppDatabase, entity: EntityRecord, field: ProfileField): string | undefined {
   const value = entity[field] ?? undefined;
   const disclosure = DISCLOSURES[entity.name];
-  const seeded = seedOf(entity.name)?.[field];
+  const seeded = disclosure?.seeded?.[field] ?? seedOf(entity.name)?.[field];
 
   if (!disclosure?.[field] || !value || value !== seeded || revealed(db, disclosure)) {
     return value;

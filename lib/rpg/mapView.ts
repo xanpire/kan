@@ -64,3 +64,32 @@ export function panBy(start: MapView, widthPx: number, dx: number, dy: number): 
   const scale = widthPx / start.span;
   return clampView({ ...start, cx: start.cx - dx / scale, cy: start.cy - dy / scale });
 }
+
+/**
+ * One step of a pinch: zooms by `scaleChange` around the fingers' midpoint
+ * (`focal`, px from the board's top-left) and, when the midpoint itself moved
+ * since the last step (`previous`), carries the board along with it. Each
+ * step starts from the window as it is now, so a pinch and a drag never
+ * fight over where the gesture began.
+ */
+export function pinchStep(
+  view: MapView,
+  scaleChange: number,
+  widthPx: number,
+  focal: { x: number; y: number },
+  previous: { x: number; y: number } | null
+): MapView {
+  if (!widthPx || !Number.isFinite(scaleChange) || scaleChange <= 0) return view;
+
+  const zoomed = zoomTo(view, view.span / scaleChange, widthPx, focal);
+
+  return previous ? panBy(zoomed, widthPx, focal.x - previous.x, focal.y - previous.y) : zoomed;
+}
+
+/**
+ * What the browser may do with a finger on the board: on the whole map a
+ * vertical drag scrolls the page past it; zoomed in, every drag is the map's.
+ */
+export function boardTouchAction(view: MapView): 'pan-y' | 'none' {
+  return view.span < WHOLE_MAP.span ? 'none' : 'pan-y';
+}

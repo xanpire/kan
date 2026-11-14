@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, G, Line, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
@@ -15,6 +15,7 @@ import { BRIDGES, UNCLAIMED_LAND, labelLayout, ringPath } from '@/lib/rpg/mapSha
 import {
   MAP_HEIGHT,
   MAP_PLACES,
+  isBuilt,
   placeKnown,
   placeNote,
   MAP_WIDTH,
@@ -47,7 +48,7 @@ import {
   whoKnows,
 } from '@/lib/rpg/safehouses';
 import type { Safehouse } from '@/lib/rpg/types';
-import { DOUBLE_TAP_SPAN, NAMES_SPAN, WHOLE_MAP, boardPoint, panBy, viewOrigin, zoomTo, type MapView } from '@/lib/rpg/mapView';
+import { DOUBLE_TAP_SPAN, NAMES_SPAN, WHOLE_MAP, boardPoint, boardTouchAction, panBy, pinchStep, viewOrigin, zoomTo, type MapView } from '@/lib/rpg/mapView';
 import { displayName } from '@/lib/rpg/names';
 
 type Selection = { kind: 'place'; id: string } | { kind: 'region'; id: Region };
@@ -107,7 +108,9 @@ function WorldBoard({
   // Pinch to zoom, drag to pan, double tap to look closer (audit 11a). Only
   // the window moves; the borders and coasts stay exactly as drawn.
   const [view, setView] = useState<MapView>(WHOLE_MAP);
-  const gestureStart = useRef<MapView>(WHOLE_MAP);
+  const viewRef = useRef<MapView>(WHOLE_MAP);
+  const boardRef = useRef<View>(null);
+  const pinchState = useRef<{ scale: number; focal: { x: number; y: number } | null }>({ scale: 1, focal: null });
   const zoomed = view.span < WHOLE_MAP.span;
   const named = view.span <= NAMES_SPAN;
   const here = currentRegion(db);
@@ -150,35 +153,76 @@ function WorldBoard({
     if (picked) onSelect(picked);
   };
 
+  /** The board's element (web only). */
+  const boardNode = () => (Platform.OS === 'web' ? (boardRef.current as unknown as HTMLElement | null) : null);
+  // The gesture library only sets touch-action when a gesture is switched on
+  // or off, so it is set here whenever the zoom crosses the whole map: a
+  // finger on the whole map scrolls the page, a finger on a zoomed map drags it.
+  const touchAction = boardTouchAction(view);
+  useEffect(() => {
+    // The board and the views the gesture library wraps inside it, down to the drawing.
+    for (let node = boardNode(); node && node.tagName.toLowerCase() !== 'svg'; node = node.firstElementChild as HTMLElement | null) {
+      node.style.touchAction = touchAction;
+    }
+  }, [touchAction, width]);
+
+  // Every step moves the window from where it is now (viewRef), so the pinch
+  // and the drag can't overwrite each other with a stale starting point.
+  const commit = (next: MapView) => {
+    viewRef.current = next;
+    setView(next);
+  };
+  const startPinch = () => {
+    pinchState.current = { scale: 1, focal: null };
+  };
   const pinch = Gesture.Pinch()
     .runOnJS(true)
-    .onBegin(() => {
-      gestureStart.current = view;
-    })
+    .onBegin(startPinch)
+    .onStart(startPinch)
     .onUpdate((event) => {
-      setView(zoomTo(gestureStart.current, gestureStart.current.span / event.scale, width, { x: event.focalX, y: event.focalY }));
+      const state = pinchState.current;
+
+      // A lifted finger moves the midpoint to the one left down: not a drag.
+      if (event.numberOfPointers < 2) {
+        state.focal = null;
+        state.scale = event.scale;
+        return;
+      }
+
+      // On the web the pinch's midpoint comes in page coordinates, not the board's.
+      const board = boardNode();
+      const rect = board?.getBoundingClientRect();
+      const focal = {
+        x: event.focalX - (rect ? rect.left + board!.clientLeft : 0),
+        y: event.focalY - (rect ? rect.top + board!.clientTop : 0),
+      };
+
+      commit(pinchStep(viewRef.current, event.scale / state.scale, width, focal, state.focal));
+      state.scale = event.scale;
+      state.focal = focal;
     });
-  // Panning only when zoomed in, so on the whole map a drag still scrolls the page.
+  // One finger drags the map only when zoomed in; on the whole map the page scrolls.
   const pan = Gesture.Pan()
     .runOnJS(true)
     .enabled(zoomed)
     .minDistance(8)
-    .averageTouches(true)
-    .onBegin(() => {
-      gestureStart.current = view;
-    })
-    .onUpdate((event) => {
-      if (gestureStart.current.span < WHOLE_MAP.span) {
-        setView(panBy(gestureStart.current, width, event.translationX, event.translationY));
+    .maxPointers(1)
+    .onChange((event) => {
+      if (viewRef.current.span < WHOLE_MAP.span) {
+        commit(panBy(viewRef.current, width, event.changeX, event.changeY));
       }
     });
+  // Two quick taps in one spot: a flick or the end of a pinch must not count as one.
   const doubleTap = Gesture.Tap()
     .runOnJS(true)
     .numberOfTaps(2)
+    .maxDistance(10)
+    .maxDuration(250)
+    .maxDelay(300)
     .onEnd((event) => {
-      setView((current) =>
-        zoomTo(current, current.span > DOUBLE_TAP_SPAN ? DOUBLE_TAP_SPAN : current.span / 2, width, { x: event.x, y: event.y })
-      );
+      const current = viewRef.current;
+
+      commit(zoomTo(current, current.span > DOUBLE_TAP_SPAN ? DOUBLE_TAP_SPAN : current.span / 2, width, { x: event.x, y: event.y }));
     });
   const tap = Gesture.Tap()
     .runOnJS(true)
@@ -189,9 +233,9 @@ function WorldBoard({
     selection?.kind === 'region' ? selection.id : selection?.kind === 'place' ? mapPlace(selection.id)?.region ?? null : null;
 
   return (
-    <View onLayout={onLayout} style={[styles.board, { height: height || 320 }]}>
+    <View onLayout={onLayout} ref={boardRef} style={[styles.board, { height: height || 320 }]}>
       {width > 0 ? (
-        <GestureDetector gesture={gestures}>
+        <GestureDetector gesture={gestures} touchAction={touchAction}>
         <View accessibilityHint="Tap a country or a place; pinch or double tap to zoom" accessibilityLabel="World map" accessible>
           <Svg height={height} viewBox={`${viewX} ${viewY} ${span} ${span}`} width={width}>
             <Rect fill={SEA} height={MAP_HEIGHT} width={MAP_WIDTH} x={0} y={0} />
@@ -229,7 +273,7 @@ function WorldBoard({
               />
             ))}
 
-            {BRIDGES.map(([from, to], index) => (
+            {BRIDGES.filter((bridge) => !bridge.builtBy || isBuilt(db, bridge.builtBy)).map(({ line: [from, to] }, index) => (
               <Line key={`bridge-${index}`} stroke="#5a5a60" strokeWidth={0.35} x1={from[0]} x2={to[0]} y1={from[1]} y2={to[1]} />
             ))}
 
@@ -337,7 +381,7 @@ function WorldBoard({
           accessibilityLabel="Show the whole map"
           accessibilityRole="button"
           hitSlop={8}
-          onPress={() => setView(WHOLE_MAP)}
+          onPress={() => commit(WHOLE_MAP)}
           style={styles.zoomButton}
         >
           <Text style={styles.zoomText}>Whole map</Text>

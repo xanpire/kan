@@ -1023,7 +1023,10 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       ? db.bonds.map((bond) => ({
           ...bond,
           relationship:
-            bond.relationship ??
+            // Team 3 were seeded as "teammate" though Kan left the team for ANBU.
+            (bond.relationship === 'teammate' && /^(deceased · )?former teammate\b/i.test(bond.status ?? '')
+              ? 'former teammate'
+              : bond.relationship) ??
             (bond.affinity >= 7
               ? 'close'
               : bond.affinity >= 4

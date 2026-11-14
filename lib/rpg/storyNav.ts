@@ -5,7 +5,7 @@
 
 import { companionsOf } from './companions';
 import { localizePlaceNames } from './glossary';
-import { hiddenGrudge } from './journal';
+import { hiddenThread } from './journal';
 import { displayName, scrubNameLeaks } from './names';
 import { dayLine, storyMarkers } from './storyMarkers';
 import type { AppDatabase, RawLogEntry } from './types';
@@ -103,7 +103,7 @@ export function whereYouLeftOff(db: AppDatabase, now = Date.now()): LeftOff | nu
     .pop();
 
   const threads = db.threads
-    .filter((thread) => thread.status === 'open' && !hiddenGrudge(db, thread))
+    .filter((thread) => thread.status === 'open' && !hiddenThread(db, thread))
     .reverse() // newest first among equals
     .sort((a, b) => b.importance - a.importance)
     .slice(0, 3)

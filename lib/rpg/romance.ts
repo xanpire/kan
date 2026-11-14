@@ -10,6 +10,8 @@ export type RelationshipStage =
   | 'old friend'
   | 'family'
   | 'teammate'
+  /** Served on a team with Kan once (Team 3, before ANBU); no longer on it. */
+  | 'former teammate'
   | 'partner'
   | 'mentor'
   | 'student'
@@ -33,6 +35,7 @@ export const RELATIONSHIP_STAGES: RelationshipStage[] = [
   'old friend',
   'family',
   'teammate',
+  'former teammate',
   'partner',
   'mentor',
   'student',
@@ -60,6 +63,10 @@ export function normalizeRelationship(value: string | undefined): RelationshipSt
 
   if (exact) {
     return exact;
+  }
+
+  if (lower.includes('teammate') && /\b(former|old|ex)\b/.test(lower)) {
+    return 'former teammate';
   }
 
   if (

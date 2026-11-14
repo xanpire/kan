@@ -12,7 +12,7 @@ import { companionsOf } from '@/lib/rpg/companions';
 import { useGame } from '@/lib/rpg/game';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { alwaysKept, isPinnedItem } from '@/lib/rpg/inventory';
-import { chapterDates, hiddenGrudge, kanConditions, memoryTitle, storyTimeline, type TimelineChapter, type TimelineEntry } from '@/lib/rpg/journal';
+import { chapterDates, hiddenThread, kanConditions, memoryTitle, storyTimeline, type TimelineChapter, type TimelineEntry } from '@/lib/rpg/journal';
 import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
 import { formatChange, formatRyo, purseFeel, purseOf } from '@/lib/rpg/money';
 import { displayName } from '@/lib/rpg/names';
@@ -195,7 +195,7 @@ function CarryCard({ db }: { db: AppDatabase }) {
 
 function NowView({ db }: { db: AppDatabase }) {
   // A grudge stays off the page until they have acted on it.
-  const open = db.threads.filter((thread) => thread.status === 'open' && !hiddenGrudge(db, thread));
+  const open = db.threads.filter((thread) => thread.status === 'open' && !hiddenThread(db, thread));
   const missions = open.filter((thread) => thread.type === 'quest');
   const goals = open.filter((thread) => thread.type === 'goal');
   const other = open.filter((thread) => thread.type !== 'quest' && thread.type !== 'goal');

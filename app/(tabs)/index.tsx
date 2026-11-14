@@ -69,7 +69,7 @@ import {
   formatStoryDate,
   timeOfDayOf,
 } from '@/lib/rpg/calendar';
-import { narrationSegments } from '@/lib/rpg/narrationText';
+import { narrationSegments, playerSegments } from '@/lib/rpg/narrationText';
 import { scrubNameLeaks } from '@/lib/rpg/names';
 import { testOpenRouterKey } from '@/lib/openrouter';
 import { useReadingType } from '@/lib/reading';
@@ -210,20 +210,20 @@ function NarrationParagraph({ text, memory }: { text: string; memory?: boolean }
   );
 }
 
-/** Renders Kan's turn with *actions* in italics and everything else plain. */
+/** Renders Kan's turn: "speech" plain, what he does or thinks in italics when a turn has both. */
 function PlayerText({ text, memory }: { text: string; memory?: boolean }) {
-  const parts = text.split(/(\*[^*]+\*)/g).filter(Boolean);
+  const parts = playerSegments(text);
   const reading = useReadingType();
 
   return (
     <Text style={[styles.playerText, reading.player, memory && styles.memoryProse]}>
       {parts.map((part, index) =>
-        part.startsWith('*') && part.endsWith('*') && part.length > 2 ? (
+        part.action ? (
           <Text key={index} style={styles.playerAction}>
-            {part.slice(1, -1)}
+            {part.text}
           </Text>
         ) : (
-          <Text key={index}>{part}</Text>
+          <Text key={index}>{part.text}</Text>
         )
       )}
     </Text>
@@ -772,18 +772,6 @@ const Composer = memo(
             style={({ pressed }) => [styles.markerButton, pressed && styles.pressed]}
           >
             <Text style={styles.markerLabel}>“</Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Insert action marker"
-            accessibilityRole="button"
-            onPress={() => insertMarker('*')}
-            style={({ pressed }) => [
-              styles.markerButton,
-              styles.markerTight,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.markerLabel}>*</Text>
           </Pressable>
           <TextInput
             accessibilityLabel="What do you do?"
@@ -2801,9 +2789,6 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  markerTight: {
-    marginLeft: -6,
   },
   markerLabel: {
     fontFamily: fonts.bold,

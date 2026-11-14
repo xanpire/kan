@@ -54,6 +54,10 @@ export type MapPlace = {
   secret?: { knownFrom?: string };
   /** The note says more than Kan knows: shown only once he has been there or this milestone happened. */
   noteFrom?: string;
+  /** The note names something only this milestone brings (a person Kan hasn't met): being there is not enough. */
+  noteNeeds?: string;
+  /** Does not exist until this canon milestone has happened: not on the map, whatever the story says. */
+  builtBy?: string;
   /** A place inside another (a shrine in the Leaf): listed under it, drawn with it. */
   parent?: string;
   /** No known location: never drawn, listed apart (x and y are unused). */
@@ -63,14 +67,17 @@ export type MapPlace = {
   note?: string;
 };
 
+/** The Great Naruto Bridge is finished, and named, when Team 7's mission in the Land of Waves ends. */
+export const NARUTO_BRIDGE_BUILT_BY = 'land-of-waves';
+
 export const MAP_PLACES: MapPlace[] = [
   // The Land of Fire.
   { id: 'leaf', name: 'Hidden Leaf Village', region: 'fire', x: 41, y: 33.5, kind: 'village', match: /\b(hidden leaf|konoha(gakure)?|leaf village)\b/i, short: 'Leaf' },
-  { id: 'uchiha-district', name: 'Uchiha district', region: 'fire', x: 41, y: 33.5, kind: 'ruin', parent: 'leaf', match: /\buchiha (district|compound|quarter)\b/i, note: 'Your clan’s streets, empty since the massacre.' },
+  { id: 'uchiha-district', name: 'Uchiha district', region: 'fire', x: 41, y: 33.5, kind: 'ruin', parent: 'leaf', match: /\buchiha (district|compound|quarter)\b/i, note: 'Your clan’s streets, behind their own wall at the village’s edge.' },
   { id: 'naka-shrine', name: 'Naka Shrine', region: 'fire', x: 41, y: 33.5, kind: 'shrine', parent: 'leaf', match: /\bnaka shrine\b/i, note: 'The Uchiha stone tablet lies beneath it.' },
   { id: 'naka-river', name: 'Naka River', region: 'fire', x: 41, y: 33.5, kind: 'place', parent: 'leaf', match: /\bnaka river\b/i },
   { id: 'mask-shrine', name: 'Uzumaki mask shrine', region: 'fire', x: 41, y: 33.5, kind: 'shrine', parent: 'leaf', match: /\b(uzumaki )?mask shrine\b/i, note: 'Kept by the Uzumaki since Uzushio fell, on the edge of the Leaf.' },
-  { id: 'valley-end', name: 'Valley of the End', region: 'fire', x: 43.05, y: 24.15, kind: 'place', match: /\bvalley of the end\b/i, note: 'On the Land of Fire’s northern border with the Sound.' },
+  { id: 'valley-end', name: 'Valley of the End', region: 'fire', x: 43.05, y: 24.15, kind: 'place', match: /\bvalley of the end\b/i, note: 'On the Land of Fire’s northern border.' },
   { id: 'tanzaku', name: 'Tanzaku Town', region: 'fire', x: 37.6, y: 38.6, kind: 'place', match: /\btanzaku\b/i },
   { id: 'fire-temple', name: 'Fire Temple', region: 'fire', x: 51, y: 31.5, kind: 'shrine', match: /\bfire temple\b/i },
   // The west: Wind, Rivers, Rain, Grass, Birds and Silence.
@@ -79,8 +86,8 @@ export const MAP_PLACES: MapPlace[] = [
   { id: 'ceramic', name: 'Ceramic Village', region: 'wind', x: 26.8, y: 49.6, kind: 'place', match: /\bceramic village\b/i, note: 'A potters’ village in the mountains where Wind meets Rivers.' },
   { id: 'valley-village', name: 'Hidden Valley Village', region: 'rivers', x: 32.5, y: 41.9, kind: 'village', match: /\b(hidden valley|tanigakure|village hidden in the vale)\b/i },
   { id: 'artisans', name: 'Artisans Village', region: 'rivers', x: 34.7, y: 47.4, kind: 'place', match: /\bartisans'? village\b/i, },
-  { id: 'rain', name: 'Hidden Rain Village', region: 'rain', x: 25.1, y: 29.2, kind: 'village', match: /\b(hidden rain|amegakure)\b/i, short: 'Rain', note: 'The Akatsuki’s stronghold, in the tower.' },
-  { id: 'grass', name: 'Hidden Grass Village', region: 'grass', x: 25.75, y: 26.25, kind: 'village', nameAt: 'right', match: /\b(hidden grass|kusagakure)\b/i, note: 'Where Karin is from.' },
+  { id: 'rain', name: 'Hidden Rain Village', region: 'rain', x: 25.1, y: 29.2, kind: 'village', match: /\b(hidden rain|amegakure)\b/i, short: 'Rain', noteFrom: 'kan-joins-akatsuki', note: 'The Akatsuki’s stronghold, in the tower.' },
+  { id: 'grass', name: 'Hidden Grass Village', region: 'grass', x: 25.75, y: 26.25, kind: 'village', nameAt: 'right', match: /\b(hidden grass|kusagakure)\b/i, noteNeeds: 'karin-meets', note: 'Where Karin is from.' },
   { id: 'tenchi-bridge', name: 'Tenchi Bridge', region: 'grass', x: 27.6, y: 28.3, kind: 'place', nameAt: 'right', match: /\btenchi bridge\b/i },
   { id: 'hozuki-castle', name: 'Hōzuki Castle', region: 'grass', x: 25.75, y: 26.25, kind: 'place', parent: 'grass', match: /\b(h[oō]zuki castle|blood prison)\b/i, note: 'The Blood Prison. Said to stand by the sea, though Grass has no coast.' },
   { id: 'hidden-rock', name: 'Hidden Rock Village', region: 'birds', x: 15.5, y: 28.6, kind: 'village', match: /\b(hidden rock|ishigakure)\b/i, note: 'A small village between Earth and Wind, in the Land of Birds.' },
@@ -102,7 +109,7 @@ export const MAP_PLACES: MapPlace[] = [
   { id: 'mist', name: 'Hidden Mist Village', region: 'water', x: 79, y: 37.5, kind: 'village', nameAt: 'above', match: /\b(hidden mist|kirigakure)\b/i, short: 'Mist' },
   { id: 'nadeshiko', name: 'Nadeshiko Village', region: 'water', x: 88.5, y: 46, kind: 'place', match: /\bnadeshiko\b/i, note: 'An island village of women shinobi near the Land of Water.' },
   { id: 'waves', name: 'Land of Waves', region: 'waves', x: 39.3, y: 55.2, kind: 'place', nameAt: 'above', match: /\b(land of waves|wave country|tazuna)\b/i, note: 'A small island south of the Leaf, lapped by gentle waves; famous for its mangroves.' },
-  { id: 'naruto-bridge', name: 'Great Naruto Bridge', region: 'waves', x: 43.8, y: 55.35, kind: 'place', nameAt: 'right', match: /\bgreat naruto bridge\b/i },
+  { id: 'naruto-bridge', name: 'Great Naruto Bridge', region: 'waves', x: 43.8, y: 55.35, kind: 'place', nameAt: 'right', builtBy: NARUTO_BRIDGE_BUILT_BY, match: /\bgreat naruto bridge\b/i, note: 'Joins the Land of Waves to the mainland.' },
   // The anime-only south.
   { id: 'tea-fishing', name: 'Fishing village of the Land of Tea', region: 'tea', x: 44.7, y: 67.2, kind: 'place', match: /\b(land of tea|tea country)\b.*\bfishing village\b|\bfishing village\b.*\b(land of tea|tea country)\b/i },
   { id: 'degarashi', name: 'Degarashi Port', region: 'tea', x: 46.7, y: 75.3, kind: 'place', match: /\bdegarashi\b/i },
@@ -137,6 +144,11 @@ function happened(db: AppDatabase, milestoneId: string) {
   return Boolean(db.state.canonProgress?.completed?.includes(milestoneId) && db.events.some((event) => event.id === `event_canon_${milestoneId}`));
 }
 
+/** Whether something built during the story stands yet (the Great Naruto Bridge). */
+export function isBuilt(db: AppDatabase, milestoneId: string) {
+  return happened(db, milestoneId);
+}
+
 /** The story has named this place to Kan (in a reply). */
 function named(db: AppDatabase, place: MapPlace) {
   return db.rawLog.some((entry) => entry.kind === 'story' && entry.role === 'assistant' && place.match.test(localizePlaceNames(entry.content)));
@@ -144,6 +156,7 @@ function named(db: AppDatabase, place: MapPlace) {
 
 /** Is this place on Kan's map yet? (audit 6b.2) */
 export function placeKnown(db: AppDatabase, place: MapPlace, visits?: Map<string, unknown>): boolean {
+  if (place.builtBy && !happened(db, place.builtBy)) return false;
   if (!place.secret) return true;
   if ((visits ?? placeVisits(db)).has(place.id)) return true;
   if (place.secret.knownFrom && happened(db, place.secret.knownFrom)) return true;
@@ -153,6 +166,7 @@ export function placeKnown(db: AppDatabase, place: MapPlace, visits?: Map<string
 /** Its note, or null while the note says more than Kan knows. */
 export function placeNote(db: AppDatabase, place: MapPlace, visits?: Map<string, unknown>): string | null {
   if (!place.note) return null;
+  if (place.noteNeeds) return happened(db, place.noteNeeds) ? place.note : null;
   if (!place.noteFrom && !place.secret) return place.note;
   if ((visits ?? placeVisits(db)).has(place.id)) return place.note;
   if (place.noteFrom && happened(db, place.noteFrom)) return place.note;

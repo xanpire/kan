@@ -14,7 +14,9 @@ export default function TabsLayout() {
   const exportDue = db ? turnsSinceExport(db) >= EXPORT_REMINDER_TURNS : false;
 
   return (
+    // Back goes to the screen you came from (a bond page back to Kan), not always to the Story tab.
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: colors.background },

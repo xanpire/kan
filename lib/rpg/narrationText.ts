@@ -36,3 +36,42 @@ export function narrationSegments(paragraph: string): NarrationSegment[] {
 
   return out;
 }
+
+/**
+ * How Kan's own turn is drawn. Only "quoted text" is speech; everything else
+ * is what he does or thinks. When a turn has both, the speech stays plain and
+ * the rest is dim italics; a turn with no speech at all is left plain, since
+ * there is nothing to tell apart. Asterisks from older turns still mark
+ * actions and are never shown.
+ */
+export function playerSegments(text: string): NarrationSegment[] {
+  const out: NarrationSegment[] = [];
+  const push = (piece: string, action: boolean) => {
+    if (!piece) return;
+    const last = out[out.length - 1];
+    if (last && last.action === action) last.text += piece;
+    else out.push({ text: piece, action });
+  };
+  const hasSpeech = /"[^"\n]*"|“[^”\n]*”/.test(text);
+
+  for (const part of text.split(ACTION_SPAN)) {
+    if (!part) continue;
+
+    const starred = part.length > 2 && part.startsWith('*') && part.endsWith('*');
+    const body = starred ? part.slice(1, -1) : part;
+
+    if (!starred && !hasSpeech) {
+      push(body, false);
+      continue;
+    }
+
+    for (const piece of body.split(QUOTE)) {
+      if (!piece) continue;
+      const quoted = /^["“]/.test(piece);
+      // Whitespace between two pieces takes the style of what came before it.
+      push(piece, piece.trim().length > 0 ? !quoted : (out[out.length - 1]?.action ?? false));
+    }
+  }
+
+  return out;
+}
