@@ -76,7 +76,7 @@ import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { streamingPreview } from '@/lib/rpg/prompt';
 import { REDO_WINDOW_MS, useGame, useStreamingText } from '@/lib/rpg/game';
 import { dragInTurnedFrame, turnByDefault, turnedBox } from '@/lib/rpg/viewerTurn';
-import { loadDraft, saveDraft } from '@/lib/rpg/draft';
+import { loadDraft, saveDraft, takePendingAction } from '@/lib/rpg/draft';
 import { companionsOf } from '@/lib/rpg/companions';
 import { useToast } from '@/components/Toast';
 import { downloadImage } from '@/lib/rpg/file';
@@ -642,7 +642,10 @@ const Composer = memo(
       }
 
       draftSlotRef.current = slotId;
-      setInput(loadDraft(slotId));
+      // A reload while the narrator was thinking: the action comes back (audit 5.6).
+      const lastPlayer = [...(db?.rawLog ?? [])].reverse().find((entry) => entry.role === 'user')?.content;
+      setInput(loadDraft(slotId) || takePendingAction(slotId, lastPlayer));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [slotId]);
 
     useEffect(() => {
@@ -1333,6 +1336,9 @@ export default function StoryScreen() {
           void redoLastUndo().then((done) => {
             if (!done) {
               showToast('That turn can’t come back now.', 'info');
+            } else if (action) {
+              // The turn is back, so the action in the box would be sent twice (audit 10.2).
+              composerRef.current?.clearIf(action.trim());
             }
           });
         },

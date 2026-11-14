@@ -62,6 +62,7 @@ import { foldSpending } from './spending';
 import { rememberAppModels } from './modelDefaults';
 import { describeCallError, isTransientError, streamChatCompletion, type StreamResult } from '../openrouter';
 import { extractTurnDiff } from './services';
+import { clearPendingAction, savePendingAction } from './draft';
 import { appendStoryMessage, cloneDatabase, getLastExchange, pushSnapshot, restoreLastSnapshot } from './log';
 import { markAlive, markDeceased } from './deaths';
 import { endCompanion, setCompanion } from './companions';
@@ -917,6 +918,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setStreamingText('');
       setPendingAction(action);
       setError(null);
+      // Kept until the turn ends, so a reload mid-reply never loses it (audit 5.6).
+      savePendingAction(current.meta.slotId, action);
       let debugTurnId: string | null = null;
       let narratorRecorded = false;
 
@@ -1118,6 +1121,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           failDebugTurn(debugTurnId, message);
         }
       } finally {
+        clearPendingAction(current.meta.slotId);
         setIsNarrating(false);
         setStreamingText('');
         setPendingAction(null);
