@@ -104,16 +104,37 @@ function playMemory(db: AppDatabase, input: string, narration: string, block: Re
   return { ...applyStateStep(next, diff, { turnLogId, userMessage: input, narration }, new Set()), prompt };
 }
 
-describe('the eighteen flashbacks', () => {
-  test('numbered 1-18 with unique ids, all before the story begins', () => {
-    expect(FLASHBACKS).toHaveLength(18);
-    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(18);
-    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(18)].map((_, i) => i + 1));
+describe('the twenty-one flashbacks', () => {
+  test('numbered 1-21 with unique ids, all before the story begins', () => {
+    expect(FLASHBACKS).toHaveLength(21);
+    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(21);
+    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(21)].map((_, i) => i + 1));
 
     for (const record of FLASHBACKS) {
       expect(dateSortValue(record.date)).toBeLessThan(dateSortValue(DEFAULT_DATE));
       expect(record.fixed.length).toBeGreaterThan(0);
       expect(record.memoryLine.length).toBeGreaterThan(10);
+    }
+  });
+
+  test('Hana’s, Izumi’s and the vultures’ flashbacks (decided 14 Nov 2026)', () => {
+    const db = quietSave();
+    const hana = FLASHBACK_BY_ID['the-long-night'];
+    const izumi = FLASHBACK_BY_ID['her-dream'];
+    const vultures = FLASHBACK_BY_ID['the-three-vultures'];
+    expect(kanAgeAt(db, hana.date)).toBe(11);
+    expect(hana.number).toBe(FLASHBACK_BY_ID['hanas-dogs'].number + 1);
+    expect(hana.cast).toEqual(['Hana Inuzuka', 'Tsume Inuzuka']);
+    expect(kanAgeAt(db, izumi.date)).toBe(12);
+    expect(izumi.date).toMatchObject({ month: 8, day: 14 });
+    expect(izumi.cast).toEqual(['Izumi Uchiha', 'Hazuki Uchiha']);
+    expect(izumi.hidden?.join(' ')).toContain('Long Dream');
+    // Izumi's birthday moved here from the Academy.
+    expect(FLASHBACK_BY_ID['the-academy'].triggers.dates).toBeUndefined();
+    expect(vultures.cast).toContain('Itachi Uchiha');
+    expect(kanAgeAt(db, vultures.date)).toBe(12);
+    for (const name of [...hana.cast, ...izumi.cast]) {
+      expect(db.entities.some((entity) => entity.name === name)).toBe(true);
     }
   });
 
