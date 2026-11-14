@@ -117,3 +117,11 @@ describe("Kan's Roman nose (decided 14 Nov 2026)", () => {
     expect(prompt).toContain("Kan's profile: copy the exact shape of his nose");
   });
 });
+
+describe("Kan's vultures in images (14 Nov 2026)", () => {
+  test('a scene with his vultures gets their look', () => {
+    const prompt = buildSceneImagePrompt(withReply(seed()), [], 'Kan sends Okuri off with the letter.');
+    expect(prompt).toContain('bearded vultures');
+    expect(buildSceneImagePrompt(withReply(seed()), [], 'Kan waits.')).not.toContain('bearded vultures');
+  });
+});

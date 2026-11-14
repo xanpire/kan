@@ -112,3 +112,31 @@ describe("Kan's starting jutsu, vultures and eyes (decided 14 Nov 2026)", () => 
     expect(kanEyeReference(withEyes, 'Kan catches him in Sky Burial')).toBe('mangekyo');
   });
 });
+
+import { regionName, riceFieldsNameLine } from '../lib/rpg/geography';
+import { ensureCanonCast } from '../lib/rpg/canonCast';
+
+describe('era accuracy and canon dates (14 Nov 2026)', () => {
+  test('the Rice Fields are the Land of Sound only once the Sound has risen', () => {
+    const db = seed();
+    expect(regionName('rice', db)).toBe('the Land of Rice Fields');
+    expect(riceFieldsNameLine(db)).toContain('never call it the Land of Sound');
+    expect(narrator(db)).toContain('PLACE NAMES NOW');
+    const risen = { ...db, state: { ...db.state, canonProgress: { ...db.state.canonProgress!, completed: [...(db.state.canonProgress?.completed ?? []), 'otogakure-grows'] } } };
+    expect(regionName('rice', risen)).toBe('the Land of Sound');
+  });
+
+  test("Karin's birthday is 20 June and Anko is 24 in Part 1, old saves corrected", () => {
+    const db = seed();
+    const karin = db.entities.find((entity) => entity.name === 'Karin')!;
+    expect(karin.birthday).toEqual({ month: 6, day: 20 });
+    const old = ensureCanonCast(
+      db.entities.map((entity) =>
+        entity.name === 'Karin' ? { ...entity, birthday: { month: 3, day: 30 } } : entity.name === 'Anko Mitarashi' ? { ...entity, birthYear: -11 } : entity
+      ),
+      () => 'x'
+    );
+    expect(old.find((entity) => entity.name === 'Karin')!.birthday).toEqual({ month: 6, day: 20 });
+    expect(old.find((entity) => entity.name === 'Anko Mitarashi')!.birthYear).toBe(-7);
+  });
+});

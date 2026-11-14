@@ -41,8 +41,8 @@ export const REGION_NAME: Record<Region, string> = {
   grass: 'the Land of Grass',
   waterfall: 'the Land of Waterfalls',
   'hot-water': 'the Land of Hot Water',
-  // The old Land of Rice Fields: Orochimaru's Sound rules it now. The id stays 'rice' so old saves still match.
-  rice: 'the Land of Sound',
+  // The Land of Rice Fields until Orochimaru's Sound rises there (regionName); the id stays 'rice'.
+  rice: 'the Land of Rice Fields',
   waves: 'the Land of Waves',
   rivers: 'the Land of Rivers',
   wind: 'the Land of Wind',
@@ -59,6 +59,26 @@ export const REGION_NAME: Record<Region, string> = {
   tea: 'the Land of Tea',
   sea: 'the Land of the Sea',
 };
+
+/** The milestone after which the Land of Rice Fields is called the Land of Sound (era accuracy, 14 Nov 2026). */
+export const SOUND_RISES = 'otogakure-grows';
+
+/** Orochimaru's Sound has risen in the Land of Rice Fields. */
+export function soundHasRisen(db: Pick<AppDatabase, 'state'> | null | undefined) {
+  return Boolean(db?.state.canonProgress?.completed?.includes(SOUND_RISES));
+}
+
+/** A region's name as it is at this point in the story: nothing is named ahead of its time. */
+export function regionName(region: Region, db: Pick<AppDatabase, 'state'> | null | undefined): string {
+  return region === 'rice' && soundHasRisen(db) ? 'the Land of Sound' : REGION_NAME[region];
+}
+
+/** For the narrator: which name the Rice Fields go by now. */
+export function riceFieldsNameLine(db: Pick<AppDatabase, 'state'>): string {
+  return soundHasRisen(db)
+    ? 'PLACE NAMES NOW: the old Land of Rice Fields is the Land of Sound now, Orochimaru’s; many still say Rice Fields.'
+    : 'PLACE NAMES NOW: the Land of Rice Fields is called only that; Orochimaru’s Hidden Sound has not risen there yet, so never call it the Land of Sound.';
+}
 
 // Earliest match in the text wins, so "a teahouse in the Rain, three days
 // from the Leaf" is the Rain.

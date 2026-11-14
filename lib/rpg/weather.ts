@@ -16,7 +16,7 @@
 // it does to travel, tracking, footing and mood.
 
 import { daysFromCivil, civilFromDays, secondsBetween, timeOfDayOf } from './calendar';
-import { REGION_NAME, currentRegion, type Region } from './geography';
+import { REGION_NAME, currentRegion, regionName, type Region } from './geography';
 import { locationKindOf } from './encounters';
 import type { AppDatabase, CalendarDate, SceneModeName, WeatherCondition, WeatherLock } from './types';
 import { hashText } from './util';
@@ -683,7 +683,7 @@ export function formatWeatherLine(db: AppDatabase, mode: SceneModeName = 'normal
   const climateNote = CLIMATES[now.region].note;
   const indoors = locationKindOf(db) === 'structure';
   const phrase = now.text ? `${weatherPhrase(now)} (as the story has it: ${now.text})` : weatherPhrase(now);
-  const head = `WEATHER (${REGION_NAME[now.region]}, ${now.seasonLabel}${climateNote ? `; ${climateNote}` : ''}): ${indoors ? `outside, ${phrase}` : phrase}.`;
+  const head = `WEATHER (${regionName(now.region, db)}, ${now.seasonLabel}${climateNote ? `; ${climateNote}` : ''}): ${indoors ? `outside, ${phrase}` : phrase}.`;
   const keep = 'Keep it the same through this scene unless the story changes it.';
 
   if (mode === 'conversation') {
@@ -710,7 +710,7 @@ export function formatWeatherLine(db: AppDatabase, mode: SceneModeName = 'normal
 export function formatWeatherTracking(db: AppDatabase): string {
   const now = currentWeather(db);
 
-  return `WEATHER NOW\n${weatherPhrase(now)} (${REGION_NAME[now.region]}, ${now.seasonLabel})`;
+  return `WEATHER NOW\n${weatherPhrase(now)} (${regionName(now.region, db)}, ${now.seasonLabel})`;
 }
 
 /** "Rain · late autumn" for the map and the status sheet. */

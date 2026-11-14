@@ -178,7 +178,7 @@ export const REGION_SHAPES: Record<Region, RegionShape> = {
     rings: [ring(C.iron, rev(B.ironGraveyard))],
   },
   rice: {
-    x: 43.5, y: 20.5, rx: 1.4, ry: 0.9, label: 'Land of Sound', labelX: 43.2, labelY: 22.2, size: 'small',
+    x: 43.5, y: 20.5, rx: 1.4, ry: 0.9, label: 'Rice Fields', labelX: 43.2, labelY: 22.2, size: 'small',
     rings: [ring(B.graveyardSound, B.soundHot, rev(B.soundFire))],
   },
   'hot-water': {
@@ -314,6 +314,11 @@ export type LabelLine = {
  * baseline on the label point. The map draws these; `scripts/map.test.ts`
  * measures them against the outlines.
  */
+/** The Rice Fields are the Land of Sound only once the Sound has risen (era accuracy, 14 Nov 2026). */
+export function shapeInEra(region: string, shape: RegionShape, soundRisen: boolean): RegionShape {
+  return region === 'rice' && soundRisen ? { ...shape, label: 'Land of Sound', nameLines: undefined } : shape;
+}
+
 export function labelLayout(shape: RegionShape): LabelLine[] {
   const size = LABEL_SIZE[shape.size ?? 'small'];
   const large = shape.size === 'large';

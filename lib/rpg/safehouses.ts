@@ -26,7 +26,7 @@ import { plantSeed, seedsOf } from './consequences';
 import { isDeceased, kanKnowsDeath } from './deaths';
 import { grudgeKnown } from './disclosure';
 import { resolveEntity } from './entities';
-import { REGION_NAME, isRegion, regionOf, type Region } from './geography';
+import { REGION_NAME, isRegion, regionName, regionOf, type Region } from './geography';
 import { localizePlaceNames } from './glossary';
 import { makeId } from './id';
 import { placeIdOf } from './mapData';
@@ -1021,8 +1021,8 @@ function shortDate(date: CalendarDate) {
   return `${formatDayMonth(date)}, year ${date.year}`;
 }
 
-function regionWords(house: Safehouse) {
-  return isRegion(house.region) ? REGION_NAME[house.region] : null;
+function regionWords(house: Safehouse, db?: AppDatabase) {
+  return isRegion(house.region) ? regionName(house.region, db) : null;
 }
 
 function ago(days: number) {
@@ -1125,7 +1125,7 @@ export function formatSafehouseLine(db: AppDatabase, userMessage: string): strin
   const heading = headingTo(db, userMessage);
 
   if (heading) {
-    const where = [localizePlaceNames(heading.place), regionWords(heading)].filter(Boolean).join(', ');
+    const where = [localizePlaceNames(heading.place), regionWords(heading, db)].filter(Boolean).join(', ');
     return [
       `SAFEHOUSE (where you are heading): ${heading.name} (${where}), ${kindLabel(heading)}, last there ${shortDate(heading.lastVisit)}.`,
       ...houseFacts(db, heading, false).filter((part) => !part.startsWith('You have not been here')),
@@ -1144,7 +1144,7 @@ export function placesLine(db: AppDatabase): string {
     .sort((a, b) => dateSortValue(b.lastVisit) - dateSortValue(a.lastVisit))
     .slice(0, 4)
     .map((house) => {
-      const region = regionWords(house);
+      const region = regionWords(house, db);
       return `${house.name}${region && !norm(house.name).includes(norm(region)) ? ` (${region})` : ''}`;
     });
 

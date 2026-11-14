@@ -25,7 +25,7 @@ import { isCombatPace } from './canon';
 import { castWithCompanions } from './companions';
 import { encounterRisk, locationKindOf } from './encounters';
 import { resolveEntity } from './entities';
-import { REGION_NAME, regionOf, travelDaysBetween, type Region } from './geography';
+import { REGION_NAME, regionName, regionOf, travelDaysBetween, type Region } from './geography';
 import { makeId } from './id';
 import { LEAF_START_REASON, VILLAGE_NAME, bingoListings, formatRyo, territoryHere, territoryOf } from './reputation';
 import { hashText, playerTurnCount } from './util';
@@ -503,7 +503,7 @@ export function formatRenownBlock(db: AppDatabase): string {
     const name = localEpithet(db)?.epithet.name;
 
     lines.push(
-      `TALK OF YOU (optional; only if people here would gossip): someone at an inn, teahouse, market or checkpoint talks about a thing you did ${ago(rumour.daysAgo)}${rumour.from ? ` in ${REGION_NAME[rumour.from]}` : ''}: ${rumour.deed.text}. ${DISTORTION[rumour.level]}${name ? ` They call you "${name}".` : ''} They do not know they are talking to you unless they recognize you.`
+      `TALK OF YOU (optional; only if people here would gossip): someone at an inn, teahouse, market or checkpoint talks about a thing you did ${ago(rumour.daysAgo)}${rumour.from ? ` in ${regionName(rumour.from, db)}` : ''}: ${rumour.deed.text}. ${DISTORTION[rumour.level]}${name ? ` They call you "${name}".` : ''} They do not know they are talking to you unless they recognize you.`
     );
   }
 

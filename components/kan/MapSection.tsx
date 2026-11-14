@@ -9,9 +9,9 @@ import { WeatherIcon } from '@/components/WeatherIcon';
 import { colors, fonts, mapColors, radius, spacing, type } from '@/constants/theme';
 import { dateSortValue, formatDayMonth } from '@/lib/rpg/calendar';
 import { useGame } from '@/lib/rpg/game';
-import { REGION_NAME, currentRegion, type Region } from '@/lib/rpg/geography';
+import { REGION_NAME, currentRegion, soundHasRisen, type Region } from '@/lib/rpg/geography';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
-import { BRIDGES, UNCLAIMED_LAND, labelLayout, ringPath } from '@/lib/rpg/mapShapes';
+import { BRIDGES, UNCLAIMED_LAND, labelLayout, ringPath, shapeInEra } from '@/lib/rpg/mapShapes';
 import {
   MAP_HEIGHT,
   MAP_PLACES,
@@ -278,7 +278,7 @@ function WorldBoard({
             ))}
 
             {REGIONS.map((region) => {
-              const shape = REGION_SHAPES[region];
+              const shape = shapeInEra(region, REGION_SHAPES[region], soundHasRisen(db));
               const count = peopleByRegion.get(region);
               const large = shape.size === 'large';
               const lines = labelLayout(shape);
@@ -434,7 +434,7 @@ function SelectedCard({ db, selection, people }: { db: AppDatabase; selection: S
   const here = currentRegion(db);
   const place = selection.kind === 'place' ? mapPlace(selection.id) : null;
   const region: Region | null = place ? place.region : selection.kind === 'region' ? selection.id : null;
-  const title = place ? place.name : region ? regionLabel(region) : 'Somewhere';
+  const title = place ? place.name : region ? regionLabel(region, db) : 'Somewhere';
   const estimate = travelEstimate(db, region);
   const children = place ? MAP_PLACES.filter((child) => child.parent === place.id) : [];
   const regionPlaces = !place && region ? TOP_PLACES.filter((item) => item.region === region && placeKnown(db, item, visits)) : [];
@@ -473,7 +473,7 @@ function SelectedCard({ db, selection, people }: { db: AppDatabase; selection: S
             ) : undefined
           }
           meta={[
-            place && region ? regionLabel(region) : null,
+            place && region ? regionLabel(region, db) : null,
             region
               ? condition
                 ? `${CONDITION_INFO[condition].short}, ${seasonLabel(region, db.state.inStoryDate)}`
@@ -563,7 +563,7 @@ function placeMeta(db: AppDatabase, house: Safehouse, here: boolean) {
 
   return [
     kindLabel(house),
-    house.region ? regionLabel(house.region as Region) : null,
+    house.region ? regionLabel(house.region as Region, db) : null,
     here ? 'You are here' : `Last there ${dateLine(house.lastVisit)}`,
     until ? (overdue ? 'Paid time ran out' : `Paid until ${dateLine(until)}`) : null,
     knownCompromised(house) ? 'Found' : null,
@@ -631,7 +631,7 @@ function PlacesList({ db }: { db: AppDatabase }) {
                 key={house.id}
                 meta={[
                   house.ended ? `${END_LABEL[house.ended.reason]} ${dateLine(house.ended.on)}` : null,
-                  house.region ? regionLabel(house.region as Region) : null,
+                  house.region ? regionLabel(house.region as Region, db) : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -688,7 +688,7 @@ export function MapSection() {
               <WeatherIcon color={colors.accentTint} condition={weather.condition} night={weather.night} size={16} />
             </View>
           }
-          meta={`${regionLabel(here)} · ${CONDITION_INFO[weather.condition].short}, ${weather.seasonLabel}`}
+          meta={`${regionLabel(here, db)} · ${CONDITION_INFO[weather.condition].short}, ${weather.seasonLabel}`}
           title={localizePlaceNames(db.state.location)}
         />
         {withYou.length > 0 ? (
@@ -743,7 +743,7 @@ export function MapSection() {
           {visibleRoad.map((stop, index) => (
             <ListRow
               key={`${stop.date.year}-${stop.date.month}-${stop.date.day}-${stop.date.hour}-${stop.date.minute}-${index}`}
-              meta={`${dateLine(stop.date)}${stop.region ? ` · ${regionLabel(stop.region as Region)}` : ''}`}
+              meta={`${dateLine(stop.date)}${stop.region ? ` · ${regionLabel(stop.region as Region, db)}` : ''}`}
               title={localizePlaceNames(stop.place)}
             />
           ))}
@@ -768,7 +768,7 @@ export function MapSection() {
           <Text style={styles.legend}>What you were told or last saw. It may not be true any more.</Text>
           {[...byRegion.entries()].map(([region, entries]) => (
             <View key={region} style={styles.group}>
-              <Text style={styles.groupLabel}>{regionLabel(region)}</Text>
+              <Text style={styles.groupLabel}>{regionLabel(region, db)}</Text>
               <PersonRows entries={entries.slice(0, 12)} />
             </View>
           ))}

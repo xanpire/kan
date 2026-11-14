@@ -15,6 +15,7 @@ import { companionsOf } from './companions';
 import { isDeceased, kanKnowsDeath } from './deaths';
 import {
   REGION_NAME,
+  regionName,
   currentRegion,
   isRegion,
   regionOf,
@@ -404,6 +405,6 @@ function whereaboutsFromTags(entity: EntityRecord): Region | null {
   return whereaboutsRegion({ ...entity, whereabouts: undefined, lastSeenAt: undefined, role: undefined });
 }
 
-export function regionLabel(region: Region | null) {
-  return region ? REGION_NAME[region].replace(/^the /, 'The ') : 'Off the map';
+export function regionLabel(region: Region | null, db?: Pick<AppDatabase, 'state'> | null) {
+  return region ? regionName(region, db).replace(/^the /, 'The ') : 'Off the map';
 }

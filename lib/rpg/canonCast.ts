@@ -378,7 +378,8 @@ const BASE_CAST: CastEntry[] = [
     name: 'Anko Mitarashi',
     aliases: ['Anko'],
     birthday: { month: 10, day: 24 },
-    birthYear: -11,
+    // 24 in Part 1 (checked 14 Nov 2026).
+    birthYear: -7,
     role: 'Leaf special jonin · Orochimaru’s former student',
     personality: 'Bold, wild, scarred by her old master.',
     speechStyle: 'Teasing and aggressive.',
@@ -432,7 +433,8 @@ const BASE_CAST: CastEntry[] = [
   {
     name: 'Karin',
     aliases: ['Karin Uzumaki'],
-    birthday: { month: 3, day: 30 },
+    // Canon: 20 June (checked 14 Nov 2026).
+    birthday: { month: 6, day: 20 },
     birthYear: 4,
     role: 'Uzumaki sensor',
     personality: 'Sharp-tongued, guarded, secretly sentimental.',
@@ -1253,12 +1255,20 @@ const BIRTHDAY_FIXES: Record<string, { from: { month: number; day: number }; to:
   'Anko Mitarashi': { from: { month: 10, day: 27 }, to: { month: 10, day: 24 } },
   Kimimaro: { from: { month: 6, day: 2 }, to: { month: 6, day: 15 } },
   'Killer Bee': { from: { month: 6, day: 23 }, to: { month: 5, day: 15 } },
+  Karin: { from: { month: 3, day: 30 }, to: { month: 6, day: 20 } },
+};
+
+/** Birth years corrected against canon (14 Nov 2026), for older saves. */
+const BIRTH_YEAR_FIXES: Record<string, { from: number; to: number }> = {
+  'Anko Mitarashi': { from: -11, to: -7 },
 };
 
 /** Birthdays the app chose because canon gives none (the seed's people included). */
-const INVENTED_BIRTHDAYS = new Set(['Izumi Uchiha']);
+const INVENTED_BIRTHDAYS = new Set(['Izumi Uchiha', 'Hazuki Uchiha']);
 
 function fixBirthday(entity: EntityRecord): EntityRecord {
+  const yearFix = BIRTH_YEAR_FIXES[entity.name];
+  if (yearFix && entity.birthYear === yearFix.from) entity = { ...entity, birthYear: yearFix.to };
   const fix = BIRTHDAY_FIXES[entity.name];
 
   if (fix && entity.birthday && entity.birthday.month === fix.from.month && entity.birthday.day === fix.from.day) {

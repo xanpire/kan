@@ -1,6 +1,7 @@
 import { isScratchedProtector } from './inventory';
 import { kanProtectorPlace } from './kanLook';
 import { kanPowerLines } from './kanPowers';
+import { riceFieldsNameLine } from './geography';
 import { advanceSeconds, calculateAge, dateSortValue, daysBetween, entityAge, formatClock, formatDate } from './calendar';
 import { paceMinimumSeconds } from './pacing';
 import { normalizeJutsuNature } from './jutsu';
@@ -828,6 +829,7 @@ function formatState(db: AppDatabase) {
     'CURRENT STATE',
     `Date: ${formatDate(state.inStoryDate)}`,
     `Location: ${truncate(state.location, 100)}`,
+    riceFieldsNameLine(db),
     `Kan's mood: ${truncate(state.mood, 60)}`,
     `World: ${truncate(state.worldDescription, 220)}`,
     `Jutsu: ${truncate(state.jutsu.slice(-10).join(', '), 240) || 'none'}`,

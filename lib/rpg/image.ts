@@ -19,6 +19,7 @@ import {
   SCRATCHED_PROTECTOR_LINE,
   type KanOutfit,
 } from './kanLook';
+import { KAN_VULTURE_LOOK } from './kanPowers';
 import type { PlannedReference } from './referencePlan';
 import { flashbackImageNote, kanAgeAt, latestReplyIsFlashback } from './flashbacks';
 import { entityAge, timeOfDayOf } from './calendar';
@@ -687,6 +688,11 @@ export function buildSceneImagePrompt(
 
   if (looks.length > 0) {
     lines.push(`How the others look: ${looks.join(' | ')}.`);
+  }
+
+  // Kan's vultures, when the scene has them (decided 14 Nov 2026).
+  if (/\b(vultures?|okuri|h[oō]muri|tomurai)\b/i.test(sceneText)) {
+    lines.push(`Kan's vultures: ${KAN_VULTURE_LOOK}`);
   }
 
   // 5. Reference labels, short, identity only.
