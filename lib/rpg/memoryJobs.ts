@@ -55,6 +55,7 @@ import { mentionsEntity } from './characterRefs';
 import { buildIndices } from './db';
 import { makeId } from './id';
 import { paceOfTurn, resolveTurnClock } from './pacing';
+import { recordTrialMission } from './akatsukiTrial';
 import { CONVERSATION_MODE_MINIMUM_SECONDS, applySceneBeat, cleanFightOptions } from './sceneMode';
 import { resolveEntity } from './entities';
 import { applyNameStep, displayName, nameLeaks, scrubNameLeaks } from './names';
@@ -334,6 +335,8 @@ export function applyStateStep(
   const effectiveDiff: TurnDiff = merged;
 
   let next = applyTurnDiff(latest, effectiveDiff, { events });
+  // A mission of Kan's Akatsuki trial that ended this turn (audit 8).
+  next = recordTrialMission(next, extraction?.trialMission);
 
   // No tracker reply: people the prose shows join the scene cast, but only
   // people Kan has already met (the fallback never meets anyone new). Nobody

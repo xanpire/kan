@@ -318,6 +318,7 @@ describe('load keeps every GameState field (audit 3.4)', () => {
       sceneMode: { current: 'normal', exchangeStreak: 0, partners: [] },
       sceneSeq: 3,
       sceneClosed: true,
+      akatsukiTrial: { since: date, missions: [{ title: 'Watch the border post', importance: 2, outcome: 'well' }] },
       post: { letters: [] },
       reputation: db.state.reputation ?? {},
       yearly: { knownBirthdays: [], offered: {} },

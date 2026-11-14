@@ -175,7 +175,7 @@ describe('8. canon milestones complete at the right moment', () => {
     db = play(db, '"Sure," you tell Itachi.', { characters_present: ['itachi-uchiha'], canon_engaged: ['kan-joins-akatsuki'] });
 
     expect(db.state.canonProgress?.engaged).toContain('kan-joins-akatsuki');
-    expect(db.facts.some((item) => item.text.includes('You joined the Akatsuki'))).toBe(false);
+    expect(db.facts.some((item) => item.text.includes('You went into the Akatsuki'))).toBe(false);
     expect(db.threads.some((thread) => thread.title === 'Prove yourself to the Akatsuki')).toBe(false);
 
     db = play(db, 'Pain hands you the cloak. "Kakuzu will be your partner."', {
@@ -184,7 +184,7 @@ describe('8. canon milestones complete at the right moment', () => {
       canon_completed: ['kan-joins-akatsuki'],
     });
 
-    const joined = fact(db, 'You joined the Akatsuki')!;
+    const joined = fact(db, 'You went into the Akatsuki')!;
     expect(joined.validFrom).toEqual(db.state.inStoryDate);
     expect(joined.subjectEntityId).toBe(person(db, 'Kan').id);
     expect(joined.whoKnows).toEqual(
@@ -192,8 +192,9 @@ describe('8. canon milestones complete at the right moment', () => {
     );
 
     const thread = db.threads.find((item) => item.title === 'Prove yourself to the Akatsuki')!;
-    expect(thread.participants).toEqual(['Kan', 'Kakuzu']);
-    expect(thread.participantIds).toContain(person(db, 'Kakuzu').id);
+    // On trial (audit 8): Itachi's word, not Kakuzu's partnership, yet.
+    expect(thread.participants).toEqual(['Kan', 'Itachi Uchiha']);
+    expect(thread.participantIds).toContain(person(db, 'Itachi Uchiha').id);
     expect(dateSortValue(thread.openedAt)).toBe(dateSortValue(db.state.inStoryDate));
   });
 });

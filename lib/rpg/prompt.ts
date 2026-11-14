@@ -39,6 +39,7 @@ import { REANIMATED_LOOK, isDeceased, isReanimated, kanKnowsDeath } from './deat
 import { canonRoleAhead, canonSurvivalLine } from './canonRoles';
 import { FULL_CARD_LIMIT } from './sceneLimits';
 import { formatTimeSkipLine } from './timeSkip';
+import { formatTrialLine, formatTrialTracking, trialActive } from './akatsukiTrial';
 import { resolveEntity } from './entities';
 import { alsoKnownAs, displayName, identitiesOf, identityLine, kanKnowsLine, kanKnowsName, labelOf, narratorName } from './names';
 import { companionsOf, daysTogether, formatTogether } from './companions';
@@ -88,6 +89,7 @@ CORE
 - Kan carries only what CURRENT STATE lists under Inventory: never give him a weapon, tool or item he does not have, and when he uses one up or loses it, show it.
 - Kan's money is the Purse in CURRENT STATE. He can never pay more than he has; when he is short, the seller says so. Whenever money changes hands for Kan (he pays, is paid, finds, wins, loses or is robbed), say how much in ryō, at believable prices. Someone else may pay for him. ${PRICE_GUIDE}
 - Characters have the age, rank, and knowledge they would have on the current date, and goals of their own: they can refuse, lie, or leave. Canon power levels hold, with no power creep or nerfing. Trust and love are earned.
+- A fight needs a reason that someone in the scene would really have: a threat, an order, a grudge, a betrayal, Kan's own attack. Never start one to fill a beat. Someone who has just agreed to join, obey or follow is not attacked for it; a test of a new ally is spoken, set as a task, or watched, not a blow out of nowhere.
 ${KAN_FATE_RULE}
 - The supplied state, characters, bonds, facts, threads, summaries, and memories are truth, and win over canon where they differ. Characters know only the secrets they learned in this story. Open threads are binding: never change a mission's goal, destination, or allies unless Kan does.
 
@@ -177,7 +179,7 @@ const WORLD_AREA_RULES: Record<WorldArea, string> = {
   enemies: `NAME & ENEMIES: reputation, bounty_seen, epithet, grudges, consequences, and consequences_returned follow the rules under REPUTATION & GRUDGES; otherwise [] (epithet null).`,
   lives: `LIVES: life_events: {character_id, event} for something that happened in a person's own life away from you that this turn reveals as true (a promotion, an injury, a move, a new team, a wedding; their letter, or they tell you); event in a few words, third person without their name ("was promoted to jonin"); otherwise []. birthdays_learned: ids of people whose birthday you learn on the page this turn (they say it, someone tells you); otherwise [].`,
   abilities: `ABILITIES: natures_gained when you learn one of your own chakra natures (source "innate") or take one with Thousand Souls (source "thousand-souls", from = whose chakra); abilities_changed when one of your abilities awakens or changes stage (name "Sharingan" stage "1 tomoe"/"2 tomoe"/"3 tomoe"; "Mangekyō Sharingan" "awakened"; "Susanoo" "ribcage"/"full body"...). Otherwise [].`,
-  canon: `CANON: canon_engaged / canon_completed / canon_passed / news_relayed use ids exactly as listed under CANON TRACKING, only when that id's rule is met; otherwise []. A catch-up report can relay several listed news ids in one turn.`,
+  canon: `CANON: canon_engaged / canon_completed / canon_passed / news_relayed use ids exactly as listed under CANON TRACKING, only when that id's rule is met; otherwise []. A catch-up report can relay several listed news ids in one turn. trial_mission is null unless an AKATSUKI TRIAL line below says how to set it.`,
   weather: `WEATHER: weather: a few words for the sky the reply shows, whenever it differs from WEATHER NOW or changes it. If the reply describes rain, a downpour, drizzle, snow, sleet, fog, a storm, strong wind or a clear sky that WEATHER NOW does not say, set weather to it (\"heavy rain\", \"fog rolling in\"), even if it was already falling before this turn; when rain or snow stops, say so (\"the rain stops\"). Null only when the reply shows no weather or the same as WEATHER NOW. The Rain and the Mist as places are not weather.`,
   flashback: `FLASHBACK: flashback is null unless a FLASHBACK, MEMORY or THIS TURN IS A MEMORY line below says how to set it.`,
 };
@@ -359,6 +361,7 @@ export function buildNarrationPrompt(
       formatFlashbackReturn(db),
       `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Location type: ${locationKindOf(db)}.`,
       formatSceneModeLine(db, sceneMode),
+      formatTrialLine(db),
       formatTimeSkipLine(db, userMessage, sceneMode.mode === 'fight' || isCombatPace(db.state.scenePace)),
       `YOU (KAN) DO OR SAY:\n${userMessage}`,
     ]
@@ -477,7 +480,7 @@ export function worldAreasForTurn(db: AppDatabase, userMessage: string, assistan
   }
   if (yearlyOffer(db) || words('lives') || words('letters')) areas.add('lives');
   if (words('abilities')) areas.add('abilities');
-  if (formatCanonTracking(db)) areas.add('canon');
+  if (formatCanonTracking(db) || trialActive(db)) areas.add('canon');
 
   return WORLD_AREAS.filter((area) => areas.has(area));
 }
@@ -557,6 +560,7 @@ export function buildExtractionPrompt(
     has('weather') ? formatWeatherTracking(memoryView ?? db) : '',
     has('flashback') ? flashbackLines.join('\n') : '',
     has('canon') ? formatCanonTracking(db) : '',
+    has('canon') ? formatTrialTracking(db) : '',
     has('letters') ? formatLetterTracking(db) : '',
     has('safehouse') ? formatSafehouseTracking(db) : '',
     has('lives') ? theDay : '',

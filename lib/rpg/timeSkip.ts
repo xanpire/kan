@@ -15,6 +15,7 @@
 // and reach Kan through the catch-up news report.
 
 import { advanceSeconds, dateSortValue, monthName, secondsBetween, SECONDS_PER_DAY } from './calendar';
+import { trialSkipLimit } from './akatsukiTrial';
 import { CANON_MILESTONES } from './canonData';
 import type { AppDatabase, CalendarDate } from './types';
 
@@ -137,6 +138,13 @@ export function skipLimit(db: AppDatabase, asked: number) {
       limit = Math.max(SECONDS_PER_DAY, dayBefore);
       stopsFor = beat.title;
     }
+  }
+
+  // Kan's Akatsuki trial: a skip never runs past the acceptance (audit 8).
+  const trial = trialSkipLimit(db);
+  if (trial !== null && trial < limit) {
+    limit = trial;
+    stopsFor = 'You earn your ring';
   }
 
   return { seconds: limit, stopsFor };

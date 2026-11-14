@@ -250,7 +250,8 @@ export const FAME: Record<string, { level: FameLevel; from?: string }[]> = {
  * "Survive Kakuzu" can never show a name Kan hasn't heard.
  */
 export const INTRODUCED_AT: Record<string, string[]> = {
-  'kan-joins-akatsuki': ['Pain', 'Kakuzu'],
+  'kan-joins-akatsuki': ['Pain'],
+  'kan-accepted-akatsuki': ['Kakuzu'],
 };
 
 /**

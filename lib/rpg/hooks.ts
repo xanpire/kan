@@ -44,9 +44,9 @@ export const STORY_HOOKS: StoryHook[] = [
     type: 'goal',
     importance: 4,
     participants: ['Kan', 'Kakuzu'],
-    opensWhen: { milestone: 'kan-joins-akatsuki' },
+    opensWhen: { milestone: 'kan-accepted-akatsuki' },
     // Completed (Pain names the partner), not only engaged.
-    knows: ['kan-joins-akatsuki'],
+    knows: ['kan-accepted-akatsuki'],
     resolvesWhen: { milestone: 'roster-completes' },
   },
   {

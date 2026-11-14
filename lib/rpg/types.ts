@@ -152,6 +152,8 @@ export type GameState = {
   sceneSeq?: number;
   /** The last applied turn ended its scene: the next turn opens a new one. */
   sceneClosed?: boolean;
+  /** Kan's trial in the Akatsuki: the missions he finished before the ring (audit 8). */
+  akatsukiTrial?: { since: CalendarDate; missions: TrialMission[] };
   /** Personal letters to and from Kan (see letters.ts). */
   post?: PostState;
   /** Bingo books and Akatsuki standing (see reputation.ts). */
@@ -869,6 +871,14 @@ export type BondRecord = {
   updatedInStoryDate: CalendarDate;
 };
 
+/** A mission Kan finished during his Akatsuki trial (akatsukiTrial.ts). */
+export type TrialMission = {
+  title: string;
+  importance: 1 | 2 | 3 | 4 | 5;
+  outcome: 'well' | 'mixed' | 'badly';
+  on?: CalendarDate;
+};
+
 export type FactRecord = {
   id: string;
   /** Who the fact is about. Always set for new facts (Kan when nobody else). */
@@ -945,7 +955,7 @@ export type LoreCondition = {
   flag?: LoreFlag;
 };
 
-export type LoreFlag = 'hasSharingan' | 'hasMangekyo' | 'knowsIzumiDead' | 'headbandScratched' | 'joinedAkatsuki' | 'inRomance';
+export type LoreFlag = 'hasSharingan' | 'hasMangekyo' | 'knowsIzumiDead' | 'headbandScratched' | 'joinedAkatsuki' | 'akatsukiTrialOpen' | 'inRomance';
 
 export type SummaryRecord = {
   id: string;
@@ -1345,6 +1355,8 @@ export type TurnDiff = {
   namesTold?: { entityId?: string; character: string; name: string; toldTo: string[] }[];
   /** Villages whose bingo-book entry on Kan he saw or was told of this turn. */
   bountySeen?: VillageFaction[];
+  /** A mission of Kan's Akatsuki trial that ended this turn. */
+  trialMission?: TrialMission;
   /** Grudges started, acted on, settled or forgiven this turn. */
   grudges?: {
     entityId?: string;

@@ -308,6 +308,17 @@ export const TURN_STATE_SCHEMA = object({
     reason: nullableString,
   }),
   bounty_seen: { type: 'array', items: { type: 'string', enum: [...VILLAGE_FACTIONS] } },
+  // A mission of Kan's Akatsuki trial that ended this turn (akatsukiTrial.ts).
+  trial_mission: {
+    type: ['object', 'null'],
+    properties: {
+      title: { type: 'string' },
+      importance: { type: 'number' },
+      outcome: { type: 'string', enum: ['well', 'mixed', 'badly'] },
+    },
+    required: ['title', 'importance', 'outcome'],
+    additionalProperties: false,
+  },
   // A name the prose calls Kan by, and whose name it is.
   epithet: {
     type: ['object', 'null'],
@@ -354,7 +365,7 @@ export const WORLD_AREA_FIELDS: Record<WorldArea, readonly string[]> = {
   enemies: ['reputation', 'bounty_seen', 'epithet', 'consequences', 'consequences_returned', 'grudges'],
   lives: ['life_events', 'birthdays_learned'],
   abilities: ['natures_gained', 'abilities_changed'],
-  canon: ['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed'],
+  canon: ['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed', 'trial_mission'],
   weather: ['weather'],
   flashback: ['flashback'],
 };

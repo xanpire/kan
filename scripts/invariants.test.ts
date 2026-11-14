@@ -227,7 +227,7 @@ describe('Session 1: quick actions use only what Kan has (audit 8)', () => {
 });
 
 describe('Session 1: names in what the Journal shows (audit 11d)', () => {
-  test('the joining introduces Pain and Kakuzu', () => {
+  test('the cloak introduces Pain; the ring introduces Kakuzu (audit 8)', () => {
     const base = seed();
     const progress = base.state.canonProgress!;
     const db = { ...base, state: { ...base.state, canonProgress: { ...progress, active: ['kan-joins-akatsuki'], engaged: [...progress.engaged, 'kan-joins-akatsuki'] } } };
@@ -235,9 +235,19 @@ describe('Session 1: names in what the Journal shows (audit 11d)', () => {
       characters_present: ['pain', 'kakuzu'],
       canon_completed: ['kan-joins-akatsuki'],
     });
-    expect(displayName(result.db, person(result.db, 'Kakuzu'))).toBe('Kakuzu');
-    expect(result.db.threads.some((thread) => thread.title === 'Survive Kakuzu' && thread.status === 'open')).toBe(true);
+    expect(displayName(result.db, person(result.db, 'Pain'))).toBe('Pain');
+    expect(displayName(result.db, person(result.db, 'Kakuzu'))).not.toBe('Kakuzu');
+    expect(result.db.threads.some((thread) => thread.title === 'Survive Kakuzu')).toBe(false);
     expect(result.events.filter((event) => event.kind === 'violation')).toEqual([]);
+
+    const p2 = result.db.state.canonProgress!;
+    const onTrial = { ...result.db, state: { ...result.db.state, canonProgress: { ...p2, active: ['kan-accepted-akatsuki'], engaged: [...p2.engaged, 'kan-accepted-akatsuki'] } } };
+    const accepted = play(onTrial, '*I take the ring.*', 'The pierced man drops a ring in your palm and names your partner.', {
+      characters_present: ['pain', 'kakuzu'],
+      canon_completed: ['kan-accepted-akatsuki'],
+    });
+    expect(displayName(accepted.db, person(accepted.db, 'Kakuzu'))).toBe('Kakuzu');
+    expect(accepted.db.threads.some((thread) => thread.title === 'Survive Kakuzu' && thread.status === 'open')).toBe(true);
   });
 
   test('a thread the tracker writes with a name Kan does not know shows the label', () => {

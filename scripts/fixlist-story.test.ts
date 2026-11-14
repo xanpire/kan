@@ -173,6 +173,9 @@ describe('28. story hooks', () => {
     expect(thread(underway(db, 'kan-joins-akatsuki'), 'Survive Kakuzu')).toBeUndefined();
     expect(thread(play(underway(db, 'kan-joins-akatsuki'), 'You follow Itachi west.', { characters_present: ['itachi-uchiha'] }), 'Survive Kakuzu')).toBeUndefined();
     db = play(underway(db, 'kan-joins-akatsuki'), 'Pain hands you the cloak.', { characters_present: ['pain', 'kakuzu'], canon_completed: ['kan-joins-akatsuki'] });
+    // The cloak is the trial, not the partnership (audit 8).
+    expect(thread(db, 'Survive Kakuzu')).toBeUndefined();
+    db = play(underway(db, 'kan-accepted-akatsuki'), 'Pain gives you your ring.', { characters_present: ['pain', 'kakuzu'], canon_completed: ['kan-accepted-akatsuki'] });
     expect(thread(db, 'Survive Kakuzu')?.participantIds).toContain(db.entities.find((e) => e.name === 'Kakuzu')!.id);
 
     db = play(underway(db, 'shisui-truth'), 'Itachi tells you about the river.', { characters_present: ['itachi-uchiha'], canon_completed: ['shisui-truth'] });

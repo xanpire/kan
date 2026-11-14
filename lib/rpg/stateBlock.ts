@@ -182,6 +182,13 @@ export function convertStateBlock(
     diff.bountySeen = [...new Set(seen)];
   }
 
+  const trial = block.trial_mission as { title?: unknown; importance?: unknown; outcome?: unknown } | null | undefined;
+  if (trial && typeof trial === 'object' && typeof trial.title === 'string' && trial.title.trim()) {
+    const outcome = trial.outcome === 'well' || trial.outcome === 'mixed' || trial.outcome === 'badly' ? trial.outcome : null;
+    const importance = Math.max(1, Math.min(5, Math.round(Number(trial.importance) || 0))) as 1 | 2 | 3 | 4 | 5;
+    if (outcome && Number(trial.importance) > 0) diff.trialMission = { title: trial.title.trim().slice(0, 80), importance, outcome };
+  }
+
   if (Array.isArray(block.life_events)) {
     const events = block.life_events
       .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')

@@ -86,7 +86,7 @@ describe('the two schemas', () => {
     const schema = worldStateSchema(['weather', 'letters']);
     expect(Object.keys(schema.properties).sort()).toEqual(['letters_received', 'letters_sent', 'weather']);
     expect(schema.required.sort()).toEqual(['letters_received', 'letters_sent', 'weather']);
-    expect(fieldsOf(['canon'])).toEqual(['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed']);
+    expect(fieldsOf(['canon'])).toEqual(['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed', 'trial_mission']);
     expect(WORLD_AREAS.length).toBe(8);
   });
 });

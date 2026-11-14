@@ -905,6 +905,18 @@ function migrateCanonV2(db: AppDatabase): AppDatabase {
   return next;
 }
 
+/**
+ * A save that joined the Akatsuki before the trial existed (v1.24.86) was
+ * paired with Kakuzu at once: it keeps that, as already accepted.
+ */
+function acceptedBeforeTrial(db: AppDatabase): AppDatabase {
+  const progress = db.state.canonProgress;
+  if (!progress?.completed.includes('kan-joins-akatsuki') || progress.completed.includes('kan-accepted-akatsuki')) return db;
+  if (!db.facts.some((fact) => fact.validTo === null && fact.text === 'Pain paired you with Kakuzu.')) return db;
+
+  return { ...db, state: { ...db.state, canonProgress: { ...progress, completed: [...progress.completed, 'kan-accepted-akatsuki'] } } };
+}
+
 const MILESTONE_BY_ID = new Map(CANON_MILESTONES.map((milestone) => [milestone.id, milestone]));
 
 /**
@@ -1078,7 +1090,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(normalized)))));
+  const withDeaths = ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(acceptedBeforeTrial(normalized))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;
@@ -1291,6 +1303,9 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     safehouses: normalizeSafehouses(state.safehouses),
     purse: normalizePurse(state.purse),
     namesVersion: typeof state.namesVersion === 'number' ? state.namesVersion : undefined,
+    ...(state.akatsukiTrial && Array.isArray(state.akatsukiTrial.missions)
+      ? { akatsukiTrial: { since: normalizeDate(state.akatsukiTrial.since, seeded.inStoryDate), missions: state.akatsukiTrial.missions.filter((mission) => mission && typeof mission.title === 'string') } }
+      : {}),
   };
 }
 

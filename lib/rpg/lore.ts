@@ -2,6 +2,7 @@
 // "you have no Sharingan" note ends when it awakens, "Itachi holds back the
 // truth" ends once he has explained, and so on.
 
+import { trialOpen } from './akatsukiTrial';
 import { kanKnowsDeath } from './deaths';
 import type { AppDatabase, LoreCondition, LoreFlag, LoreRecord } from './types';
 
@@ -23,6 +24,8 @@ export const LORE_FLAGS: Record<LoreFlag, (db: AppDatabase) => boolean> = {
     const progress = db.state.canonProgress;
     return Boolean(progress?.completed.includes('kan-joins-akatsuki'));
   },
+  // Kan's Akatsuki trial has a mission done well (or ran its two months).
+  akatsukiTrialOpen: (db) => trialOpen(db),
   // Someone living is your romantic interest or lover.
   inRomance: (db) =>
     db.bonds.some((bond) => {
