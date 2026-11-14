@@ -5,11 +5,14 @@
 
 import { completeChat, type CallUsage } from '../openrouter';
 import { loadModelLists, modelSeesImages } from './modelCheck';
+import { kanProtectorScratched } from './kanLook';
 import type { AppDatabase } from './types';
 
 export type ImageCheck = {
   rolesOk: boolean;
   extraPeople: boolean;
+  /** false: Kan's protector is shown whole though it is scratched (audit 11c.1). */
+  protectorOk?: boolean;
   note: string;
   usage: CallUsage;
   model: string;
@@ -25,19 +28,20 @@ export function imageCheckModel(db: Pick<AppDatabase, 'settings'>) {
 }
 
 /** Reads the check's JSON, forgiving code fences and stray prose. */
-export function parseImageCheck(text: string): { rolesOk: boolean; extraPeople: boolean; note: string } | null {
+export function parseImageCheck(text: string): { rolesOk: boolean; extraPeople: boolean; protectorOk?: boolean; note: string } | null {
   const match = /\{[\s\S]*\}/.exec(text);
 
   if (!match) return null;
 
   try {
-    const value = JSON.parse(match[0]) as { roles_ok?: unknown; extra_people?: unknown; note?: unknown };
+    const value = JSON.parse(match[0]) as { roles_ok?: unknown; extra_people?: unknown; protector_ok?: unknown; note?: unknown };
 
     if (typeof value.roles_ok !== 'boolean') return null;
 
     return {
       rolesOk: value.roles_ok,
       extraPeople: value.extra_people === true,
+      ...(value.protector_ok === false ? { protectorOk: false } : {}),
       note: typeof value.note === 'string' ? value.note.slice(0, 300) : '',
     };
   } catch {
@@ -61,6 +65,7 @@ export async function checkSceneImage(
 ): Promise<ImageCheck | null> {
   const model = imageCheckModel(db);
   const actor = actorOf(action);
+  const scratched = kanProtectorScratched(db);
 
   // A model that cannot see images would answer "fine" without looking.
   const lists = await loadModelLists().catch(() => null);
@@ -77,7 +82,9 @@ export async function checkSceneImage(
       messages: [
         {
           role: 'user',
-          content: `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "note": "what is wrong, in one short sentence" }`,
+          content: scratched
+            ? `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? If Kan's forehead protector is visible, is the Leaf symbol on it crossed by a horizontal scratch? Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "protector_ok": true|false (true when the scratch shows or the protector is not visible), "note": "what is wrong, in one short sentence" }`
+            : `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "note": "what is wrong, in one short sentence" }`,
           images: [image],
         },
       ],
@@ -99,7 +106,12 @@ export async function checkSceneImage(
 }
 
 /** A sharper actor rule for the retry, from what the check saw. */
-export function sharperActorRule(action: string, check: Pick<ImageCheck, 'note' | 'extraPeople' | 'rolesOk'>) {
+/** The check found something worth one repaint: reversed roles, or a scratched protector drawn whole. */
+export function checkWantsRepaint(check: Pick<ImageCheck, 'rolesOk' | 'protectorOk'> | null) {
+  return Boolean(check && (!check.rolesOk || check.protectorOk === false));
+}
+
+export function sharperActorRule(action: string, check: Pick<ImageCheck, 'note' | 'extraPeople' | 'rolesOk' | 'protectorOk'>) {
   const actor = actorOf(action);
 
   return [
@@ -107,6 +119,7 @@ export function sharperActorRule(action: string, check: Pick<ImageCheck, 'note' 
       ? `CORRECTION: a previous attempt got the roles wrong${check.note ? ` (${check.note.replace(/\.$/, '')})` : ''}. ${actor} is the one DOING the action; the others receive it. Draw it exactly that way round.`
       : '',
     check.extraPeople ? 'CORRECTION: a previous attempt added people who are not in the ACTION. Draw only the people the ACTION names.' : '',
+    check.protectorOk === false ? 'CORRECTION: a previous attempt drew Kan\'s forehead protector whole. The Leaf symbol on it is crossed by one deep horizontal scratch.' : '',
   ]
     .filter(Boolean)
     .join('\n');

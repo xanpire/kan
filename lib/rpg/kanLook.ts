@@ -88,7 +88,16 @@ export function kanOutfit(db: AppDatabase): KanOutfit {
  * (soaked, bloodied, Sharingan active), his wounds and passing conditions,
  * and a scratched forehead protector. Null when there is nothing to add.
  */
-export function kanRightNow(db: AppDatabase): string | null {
+/** The scratched protector, as the image model and the check are told it (audit 11c.1). */
+export const SCRATCHED_PROTECTOR_LINE =
+  "Kan's forehead protector: a deep horizontal scratch cut straight through the Leaf symbol (a rogue ninja's mark); never draw the plate whole, whatever the face sheet shows.";
+
+/** Kan carries a scratched forehead protector. */
+export function kanProtectorScratched(db: Pick<AppDatabase, 'state'>) {
+  return db.state.inventory.some(isScratchedProtector);
+}
+
+export function kanRightNow(db: AppDatabase, options: { protectorSaid?: boolean } = {}): string | null {
   const kan = kanEntity(db);
   const today = dateSortValue(db.state.inStoryDate);
   const bits: string[] = [];
@@ -110,7 +119,7 @@ export function kanRightNow(db: AppDatabase): string | null {
 
   bits.push(...conditions);
 
-  if (db.state.inventory.some(isScratchedProtector) && !bits.some((bit) => /protector|headband/i.test(bit))) {
+  if (!options.protectorSaid && kanProtectorScratched(db) && !bits.some((bit) => /protector|headband/i.test(bit))) {
     bits.push('his forehead protector has a deep scratch cut straight through the Leaf symbol');
   }
 

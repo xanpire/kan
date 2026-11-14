@@ -33,7 +33,7 @@ import {
   shotTypeOf,
 } from '../lib/rpg/imageDirection';
 import { packPeopleReferences } from '../lib/rpg/castSheet';
-import { parseImageCheck, sharperActorRule } from '../lib/rpg/imageCheck';
+import { checkWantsRepaint, parseImageCheck, sharperActorRule } from '../lib/rpg/imageCheck';
 import { planReferences } from '../lib/rpg/referencePlan';
 import { currentRegion } from '../lib/rpg/geography';
 import type { AppDatabase, JutsuRecord, RawLogEntry } from '../lib/rpg/types';
@@ -291,6 +291,12 @@ describe('the swapped-roles check', () => {
       note: 'Kan is the one choked.',
     });
     expect(parseImageCheck('no idea')).toBeNull();
+    // Audit 11c.1: a scratched protector drawn whole is worth one repaint.
+    const whole = parseImageCheck('{"roles_ok": true, "extra_people": false, "protector_ok": false, "note": "plate is whole"}')!;
+    expect(whole.protectorOk).toBe(false);
+    expect(checkWantsRepaint(whole)).toBe(true);
+    expect(checkWantsRepaint(parseImageCheck('{"roles_ok": true, "extra_people": true, "note": ""}'))).toBe(false);
+    expect(sharperActorRule('Kan waits.', whole)).toContain('horizontal scratch');
     const rule = sharperActorRule('Kan chokes a Stone ninja.', { rolesOk: false, extraPeople: true, note: 'Kan is the one choked.' });
     expect(rule).toContain('Kan is the one DOING the action');
     expect(rule).toContain('only the people the ACTION names');

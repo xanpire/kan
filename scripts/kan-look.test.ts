@@ -17,7 +17,7 @@ import { seedDatabase } from '../lib/rpg/seed';
 import { buildSceneImagePrompt, directorContext } from '../lib/rpg/image';
 import { buildPortraitPrompt, portraitSignature, wearsAkatsukiCloak } from '../lib/rpg/portrait';
 import { kanLookAt } from '../lib/rpg/flashbacks';
-import { KAN_EYES, kanAgeLine, kanEntity, kanOutfit, kanRightNow, migrateKanEyes } from '../lib/rpg/kanLook';
+import { KAN_EYES, kanAgeLine, kanEntity, kanOutfit, kanRightNow, migrateKanEyes, SCRATCHED_PROTECTOR_LINE } from '../lib/rpg/kanLook';
 import type { AppDatabase, FactRecord, RawLogEntry } from '../lib/rpg/types';
 
 const seed = () => normalizeDatabase(seedDatabase('slot_look', 'Look'));
@@ -98,6 +98,15 @@ describe('Kan right now', () => {
     const prompt = buildSceneImagePrompt(withReply(db), [], 'Kan waits.');
     expect(prompt).toContain('Kan right now:');
     expect(directorContext(withReply(db))).toContain('Kan right now:');
+  });
+
+  test('a scratched protector is among the first lines about Kan, said once (audit 11c.1)', () => {
+    const db = owning(seed(), 'Scratched Hidden Leaf forehead protector');
+    const prompt = buildSceneImagePrompt(withReply(db), [{ kind: 'face', uri: 'data:f' }], 'Kan waits.');
+    const scratch = prompt.indexOf(SCRATCHED_PROTECTOR_LINE);
+    expect(scratch).toBeGreaterThan(-1);
+    expect(scratch).toBeLessThan(prompt.indexOf('Kan is '));
+    expect(prompt.match(/scratch/gi)!.length).toBe(1); // said once, not again in "Kan right now"
   });
 
   test('nothing to add is no line', () => {

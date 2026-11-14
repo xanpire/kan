@@ -20,7 +20,7 @@ import {
   ENSEMBLE_CAST_LIMIT,
   SCENE_CAST_LIMIT,
 } from './image';
-import { checkSceneImage, imageCheckEnabled, sharperActorRule, type ImageCheck } from './imageCheck';
+import { checkSceneImage, imageCheckEnabled, sharperActorRule, type ImageCheck, checkWantsRepaint } from './imageCheck';
 import { wantsEnsemble, type ShotChip } from './imageDirection';
 import { loadImage, toDataUri } from './imageStore';
 import { kanOutfit } from './kanLook';
@@ -180,7 +180,7 @@ export async function paintScene({
       turnId,
       takes: images.map((image, index) => ({
         dataUri: image,
-        meta: metaFor(prompt, Boolean(checks[index] && (!checks[index]!.rolesOk || checks[index]!.extraPeople))),
+        meta: metaFor(prompt, Boolean(checks[index] && (checkWantsRepaint(checks[index]) || checks[index]!.extraPeople))),
       })),
     };
   }
@@ -194,22 +194,23 @@ export async function paintScene({
   const firstCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, first, action, undefined, checkFailed));
   recordCheck(turnId, apiKey, firstCheck);
 
-  // Only reversed roles are worth a second image; extra people are flagged.
-  if (!firstCheck || firstCheck.rolesOk) {
+  // Only reversed roles, or a scratched protector drawn whole, are worth a
+  // second image (once); extra people are flagged.
+  if (!checkWantsRepaint(firstCheck)) {
     return {
       turnId,
       takes: [{ dataUri: first, meta: metaFor(prompt, Boolean(firstCheck?.extraPeople)) }],
     };
   }
 
-  const retryPrompt = `${prompt}\n${sharperActorRule(action, firstCheck)}`;
+  const retryPrompt = `${prompt}\n${sharperActorRule(action, firstCheck!)}`;
 
   try {
     const second = await makeOne(retryPrompt);
     const secondCheck = await (onStage?.('checking'), checkSceneImage(apiKey, db, second, action, undefined, checkFailed));
     recordCheck(turnId, apiKey, secondCheck);
 
-    if (!secondCheck || secondCheck.rolesOk) {
+    if (!checkWantsRepaint(secondCheck)) {
       return {
         turnId,
         takes: [{ dataUri: second, meta: metaFor(retryPrompt, Boolean(secondCheck?.extraPeople)) }],
@@ -217,7 +218,7 @@ export async function paintScene({
     }
 
     // Both wrong: keep the one with fewer problems, flagged.
-    const keepSecond = !secondCheck.extraPeople && firstCheck.extraPeople;
+    const keepSecond = !secondCheck!.extraPeople && firstCheck!.extraPeople;
     return {
       turnId,
       takes: [

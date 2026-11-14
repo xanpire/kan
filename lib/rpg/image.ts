@@ -4,7 +4,7 @@ import { displayName } from './names';
 import { mentionsEntity } from './characterRefs';
 import { localizePlaceNames } from './glossary';
 import { completeChat, type CallUsage } from '../openrouter';
-import { KAN_HAIR_AND_EYES, kanAgeLine, kanAgeNow, kanOutfit, kanRightNow, type KanOutfit } from './kanLook';
+import { KAN_HAIR_AND_EYES, kanAgeLine, kanAgeNow, kanOutfit, kanProtectorScratched, kanRightNow, SCRATCHED_PROTECTOR_LINE, type KanOutfit } from './kanLook';
 import type { PlannedReference } from './referencePlan';
 import { flashbackImageNote, kanAgeAt, latestReplyIsFlashback } from './flashbacks';
 import { entityAge, timeOfDayOf } from './calendar';
@@ -637,7 +637,13 @@ export function buildSceneImagePrompt(
     if (placeLook) lines.push(`This place looks like: ${placeLook.replace(/\.$/, '')}.`);
   }
 
-  // Kan's look.
+  // Kan's look. A scratched protector first: the face sheet shows it whole,
+  // and the model follows the sheet unless told early (audit 11c.1).
+  const scratched = !memoryNote && kanProtectorScratched(db);
+  if (scratched) {
+    lines.push(SCRATCHED_PROTECTOR_LINE);
+  }
+
   if (!hasFace) {
     lines.push(KAN_LOOK);
   }
@@ -658,7 +664,7 @@ export function buildSceneImagePrompt(
       lines.push(`Kan currently wears ${currentOutfit}.`);
     }
 
-    const now = kanRightNow(db);
+    const now = kanRightNow(db, { protectorSaid: scratched });
     if (now) lines.push(now);
   }
 
