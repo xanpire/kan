@@ -248,7 +248,7 @@ describe('provider preference (audit 5.5, decided by Xan)', () => {
     const bodies: Record<string, unknown>[] = [];
     globalThis.fetch = recordingFetch(bodies, false);
     await completeChat({ ...request, model: 'deepseek/deepseek-v4.1-flash-1017', jsonSchema: { name: 's', schema: { type: 'object' } } });
-    expect(bodies[0].provider).toEqual({ order: ['deepseek'], allow_fallbacks: true, require_parameters: true });
+    expect(bodies[0].provider).toEqual({ order: ['morph'], allow_fallbacks: true, require_parameters: true });
   });
 
   test('a model with no preference is left to OpenRouter', async () => {

@@ -22,12 +22,15 @@ export const DEFAULT_SETTINGS: Settings = {
  * - Gemini through Vertex: Session 1's slow replies (29 to 36 s) all came
  *   through AI Studio, the fast ones (9 to 20 s) through Vertex.
  * - The tracker on one provider, so its repeated prompt can hit the cache
- *   (Session 1: every call went elsewhere; cached on 2 turns of 10). DeepSeek
- *   serves the 1017 snapshot itself and caches automatically.
+ *   (Session 1: every call went elsewhere; cached on 2 turns of 10). Morph:
+ *   the tracker sends `require_parameters` for its strict schema, which rules
+ *   DeepSeek's own endpoint out, so all 34 of Session 2's state calls went to
+ *   Morph anyway (audit 5.5b; cached 16 of 17, Core 7 to 46 s). If Morph
+ *   stays slow, look for another strict-schema provider of the same model.
  */
 export const PROVIDER_ORDER: Record<string, string[]> = {
   'google/gemini-3.8-flash': ['google-vertex'],
-  'deepseek/deepseek-v4.1-flash-1017': ['deepseek'],
+  'deepseek/deepseek-v4.1-flash-1017': ['morph'],
 };
 
 /** The OpenRouter `provider` routing for a model, or undefined to leave it to OpenRouter. */
