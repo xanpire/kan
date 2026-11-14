@@ -76,6 +76,11 @@ describe('a skip stops before something personal (audit 4.4)', () => {
     const db = seed();
     expect(formatTimeSkipLine(db, '*I train for three months.*', false)).toContain('TIME SKIP');
     expect(formatTimeSkipLine(db, '*I train for three months.*', true)).toContain('not now');
+    // Audit 4.13: the end date, a time of day that suits the scene, present tense.
+    const line = formatTimeSkipLine(db, '*I train for three months.*', false);
+    expect(line).toMatch(/ending on Year \d+, \w+ \d+|It ends on Year \d+, \w+ \d+/);
+    expect(line).toContain('time of day');
+    expect(line).toContain('present tense');
     const text = buildNarrationPrompt(db, '*I train with Itachi for three months.*').messages[1].content;
     expect(text).toContain('TIME SKIP');
   });

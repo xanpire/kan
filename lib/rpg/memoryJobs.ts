@@ -54,7 +54,7 @@ import { daysBetween, secondsBetween, shiftDatesAfter, shiftSeconds } from './ca
 import { mentionsEntity } from './characterRefs';
 import { buildIndices } from './db';
 import { makeId } from './id';
-import { inferScenePace, resolveTurnClock, validateScenePace } from './pacing';
+import { paceOfTurn, resolveTurnClock } from './pacing';
 import { CONVERSATION_MODE_MINIMUM_SECONDS, applySceneBeat, cleanFightOptions } from './sceneMode';
 import { resolveEntity } from './entities';
 import { applyNameStep, displayName, nameLeaks, scrubNameLeaks } from './names';
@@ -287,9 +287,14 @@ export function applyStateStep(
     ? preferPlayerJutsuNames(latest, stateReply, turn.userMessage)
     : fallbackDiffFromProse(latest, turn);
   const beforeDate = latest.state.inStoryDate;
-  const parsedTime = detectNarrationTime(turn.narration, beforeDate);
+  const parsedTime = detectNarrationTime(turn.narration, beforeDate, { action: turn.userMessage });
   const reportedSeconds = extraction?.state?.elapsedSeconds ?? 0;
-  const pace = validateScenePace(extraction?.state?.scenePace, turn.narration) ?? inferScenePace(turn.narration);
+  const pace = paceOfTurn(
+    extraction?.state?.scenePace,
+    turn.narration,
+    extraction ? { fightOptions: extraction.fightOptions?.length ?? 0, jutsuUsed: extraction.jutsuUsed?.length ?? 0 } : undefined,
+    parsedTime.sleptNight
+  );
   const sceneEnded = extraction?.scene?.ended ?? false;
   // The mode the reply was narrated in (set when it was saved).
   const modeUsed = latest.rawLog.find((entry) => entry.id === turn.turnLogId)?.sceneMode;

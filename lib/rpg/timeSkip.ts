@@ -14,7 +14,7 @@
 // World events inside the skip happen as usual (advanceCanon fires them all)
 // and reach Kan through the catch-up news report.
 
-import { advanceSeconds, dateSortValue, secondsBetween, SECONDS_PER_DAY } from './calendar';
+import { advanceSeconds, dateSortValue, monthName, secondsBetween, SECONDS_PER_DAY } from './calendar';
 import { CANON_MILESTONES } from './canonData';
 import type { AppDatabase, CalendarDate } from './types';
 
@@ -193,11 +193,16 @@ export function formatTimeSkipLine(db: AppDatabase, input: string, fighting: boo
   const { seconds, stopsFor } = skipLimit(db, asked);
   const until = advanceSeconds(db.state.inStoryDate, seconds);
 
+  const endsOn = `Year ${until.year}, ${monthName(until.month)} ${until.day}`;
+
   return [
     `TIME SKIP: Kan asked for about ${describeSpan(asked)} to pass. Compress the stretch into this one reply: what he does, how it changes him, the few moments that matter. Say plainly how long passed, and end at the first moment that needs him.`,
     stopsFor
-      ? `It can run only ${describeSpan(seconds)} (to about Year ${until.year}, month ${until.month}): something of his own is about to begin, so end there and say that only ${describeSpan(seconds)} passed.`
-      : `It runs up to about Year ${until.year}, month ${until.month}.`,
+      ? `It can run only ${describeSpan(seconds)}, ending on ${endsOn}: something of his own is about to begin, so end there and say that only ${describeSpan(seconds)} passed.`
+      : `It ends on ${endsOn}.`,
+    // Audit 4.13 (decided by Xan): the skip lands at whatever time of day suits the scene.
+    'Open the scene it lands in at whatever time of day suits that scene and the story (a grey morning, after dusk, the middle of the night), and say that time of day in the prose.',
+    'Write it in the present tense, as always.',
     'The world went on meanwhile, but its news reaches him only through people, letters and birds, as always.',
   ].join(' ');
 }

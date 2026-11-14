@@ -45,7 +45,13 @@ const NUMBER_WORDS: Record<string, number> = {
   ten: 10,
   eleven: 11,
   twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
   fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
   twenty: 20,
   thirty: 30,
   forty: 40,
@@ -72,8 +78,19 @@ const UNIT_SECONDS: Record<string, number> = {
   years: 31536000,
 };
 
+// "thirty-six", "twenty one": tens and a unit read as one number (Session 2,
+// audit 4.11: "thirty-six hours" was read as "six hours").
+const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70 };
+const UNITS_WORDS = 'one|two|three|four|five|six|seven|eight|nine';
+const COMPOUND_NUMBER = `(?:${Object.keys(TENS).join('|')})[-\\s](?:${UNITS_WORDS})`;
+
 function countValue(raw: string): number {
   const lower = raw.toLowerCase();
+  const compound = /^(\w+)[-\s](\w+)$/.exec(lower);
+
+  if (compound && TENS[compound[1]] !== undefined && NUMBER_WORDS[compound[2]] !== undefined) {
+    return TENS[compound[1]] + NUMBER_WORDS[compound[2]];
+  }
 
   if (NUMBER_WORDS[lower] !== undefined) {
     return NUMBER_WORDS[lower];
@@ -153,7 +170,7 @@ function periodEventClock(text: string): ClockReading | undefined {
   };
 
   collect(/\b(?:it is|it's|it was|now)\s+(?:already\s+)?(morning|noon|midday|afternoon|evening|night|midnight|dawn|dusk)\b(?!\s+(?:when|before|after|by))/gi);
-  collect(/\b(dawn|daybreak|sunrise|dusk|sunset|nightfall|first light)\s+(?:broke|breaks|is breaking|settles?|settled|falls?|fell|came|comes|arrives?|arrived)\b/gi);
+  collect(/\b(dawn|daybreak|sunrise|dusk|sunset|nightfall|first light)\s+(?:broke|breaks|is breaking|has broken|had broken|has come|had come|settles?|settled|falls?|fell|came|comes|arrives?|arrived)\b/gi);
   collect(/\b(morning|evening|night|noon|midday|darkness)\s+(?:came|comes|fell|falls|settled|settles|arrives?|arrived)\b/gi);
   collect(/\bthe sun\s+(?:rises|rose|is rising|comes up|came up)\b/gi, 'dawn');
   collect(/\bthe sun\s+(?:sets|set|is setting|goes down|went down|sinks|sank)\b/gi, 'dusk');
@@ -215,6 +232,16 @@ function arrivalPeriod(text: string): ClockReading | undefined {
 
   for (const sentence of arrivalSentences(text)) {
     const shaded = pattern.exec(sentence);
+    if (shaded) return shadedHour(shaded[1], shaded[2]);
+  }
+
+  // "It is early morning of the third of October when the border stone
+  // passes beneath you": the time of day the journey ends on (audit 4.11).
+  const itIsWhen = new RegExp(`\\b(?:it is|it's|it was)\\s+(?:already\\s+)?(?:the\\s+)?${SHADED_PERIOD}\\b[^.!?]*?\\bwhen\\b`, 'i');
+
+  for (const sentence of sentencesOf(text).reverse()) {
+    if (NOT_YET.test(sentence)) continue;
+    const shaded = itIsWhen.exec(sentence);
     if (shaded) return shadedHour(shaded[1], shaded[2]);
   }
 
@@ -302,7 +329,11 @@ export function stripSpeech(text: string): string {
 
 // Reads narration into elapsed clock time. Deliberately conservative: only
 // clear elapsed phrasing counts, and explicit clocks/dates always win.
-export function detectNarrationTime(rawText: string, current: CalendarDate): ParsedTime {
+export function detectNarrationTime(
+  rawText: string,
+  current: CalendarDate,
+  options: { action?: string } = {}
+): ParsedTime {
   const text = rawText ? stripSpeech(rawText) : '';
 
   if (!text.trim()) {
@@ -317,7 +348,7 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
   const sleptNight =
     /\b(a|one)\s+(good\s+|full\s+|long\s+)?night'?s?\s+(sleep|rest)\b|\bslept\s+(through\s+the\s+night|until\s+(dawn|morning|sunrise))\b/i.test(
       text
-    );
+    ) || nightSlept(text, current, options.action);
 
   if (/\b(a\s+)?(short\s+rest|nap)\b|\bdosed\s+off\b/i.test(text)) {
     elapsedSeconds = Math.max(elapsedSeconds, 30 * 60);
@@ -342,7 +373,7 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
   // Up to two words may sit between the number and the unit ("two relentless
   // hours", "three long, cold days"), but never another number or unit, so
   // "a few more days" reads as a few, not one.
-  const numbers = `${Object.keys(NUMBER_WORDS).join('|')}|\\d+`;
+  const numbers = `${COMPOUND_NUMBER}|${Object.keys(NUMBER_WORDS).join('|')}|\\d+`;
   const units = Object.keys(UNIT_SECONDS).join('|');
   const unitPattern = new RegExp(
     `\\b(${numbers})\\s+(?:(?!(?:${numbers}|${units})\\b)[a-z'-]+,?\\s+){0,2}(${units})\\b`,
@@ -350,6 +381,7 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
   );
 
   let match: RegExpExecArray | null;
+  const spans: Array<{ start: number; end: number; seconds: number; unitSeconds: number }> = [];
 
   while ((match = unitPattern.exec(text)) !== null) {
     const amount = countValue(match[1]);
@@ -365,9 +397,27 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
     const elapsedMarker = AFTER_MARKER.test(after) || BEFORE_MARKER.test(before) || /\bafter\s+$/.test(before);
 
     if (elapsedMarker && !notNow && amount > 0 && unitSeconds > 0) {
-      elapsedSeconds = Math.max(elapsedSeconds, amount * unitSeconds);
+      spans.push({ start: match.index, end: match.index + match[0].length, seconds: amount * unitSeconds, unitSeconds });
     }
   }
+
+  // Two lengths for the same span, side by side ("nearly two full days—
+  // thirty-six hours"): the exact one (the smaller unit) stands, the rounded
+  // one goes (audit 4.11).
+  const dropped = new Set<number>();
+  for (let index = 1; index < spans.length; index += 1) {
+    const a = spans[index - 1];
+    const b = spans[index];
+    const gap = text.slice(a.end, b.start);
+
+    if (/^\s*(?:—|–|--|-|,|\(|:|;|or)\s*$/.test(gap) && a.unitSeconds !== b.unitSeconds) {
+      dropped.add(a.unitSeconds > b.unitSeconds ? index - 1 : index);
+    }
+  }
+
+  spans.forEach((span, index) => {
+    if (!dropped.has(index)) elapsedSeconds = Math.max(elapsedSeconds, span.seconds);
+  });
 
   // "An hour passes", "a day goes by": the number is "a"/"an", already above
   // when the verb follows; this also catches "hours pass" with no number.
@@ -411,6 +461,29 @@ export function detectNarrationTime(rawText: string, current: CalendarDate): Par
     ...(landing ? { landing } : {}),
     ...sleep,
   };
+}
+
+// The night passing and Kan waking (Session 2, audit 4.10: "Eight hours pass
+// in the freezing dark… When your eyes open, dawn has broken").
+const NIGHT_PASSES = /\b(sleep|sleeps|slept|sleeping|asleep|doze|dozes|dozed|drift off|drifts off|drifted off|hours pass|hours passed|the night passes|the night passed)\b/i;
+const WAKES = /\b(your eyes open|you wake|you woke|you awaken|you awake|wake to|dawn has broken|dawn had broken|dawn breaks|dawn broke|morning has come|morning comes)\b/i;
+const MORNING_WORDS = /\b(dawn|daybreak|sunrise|first light|morning|wake|woke|awaken|eyes open)\b/i;
+// "I sleep until morning", "get some sleep", "rest for the night".
+const ACTION_SLEEPS = /\b(sleep|rest)\b[^.!?]*\b(until|till|through)\s+(the\s+)?(morning|dawn|sunrise|first light|night)\b|\b(sleep|rest)\s+(for\s+)?the\s+night\b|\bget\s+some\s+sleep\b|\bgo\s+to\s+sleep\b|\bturn\s+in\s+for\s+the\s+night\b/i;
+
+/**
+ * A night's sleep told without the stock phrase: only when it is evening or
+ * night now (a nap in the afternoon is not a night), and either the prose
+ * shows the night passing and Kan waking, or Kan said he sleeps until morning
+ * and the prose wakes him.
+ */
+function nightSlept(text: string, current: CalendarDate, action: string | undefined) {
+  const evening = current.hour >= 18 || current.hour < 5;
+
+  if (!evening) return false;
+  if (NIGHT_PASSES.test(text) && WAKES.test(text)) return true;
+
+  return Boolean(action && ACTION_SLEEPS.test(stripSpeech(action)) && MORNING_WORDS.test(text));
 }
 
 // Words right after the duration that mean it passed: "two hours later", "three months pass".

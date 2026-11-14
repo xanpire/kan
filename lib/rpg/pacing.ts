@@ -1,4 +1,5 @@
 import { advanceSeconds, dateSortValue, paceCapSeconds, secondsBetween, setClock, shiftSeconds } from './calendar';
+import { stripSpeech } from './timeparse';
 import type { CalendarDate, ScenePace } from './types';
 
 const COMBAT = /\b(fight|fights|fighting|fought|battle|clash|clashes|strike|strikes|blade|blades|kunai|shuriken|parry|dodge|blood|jutsu|punch|kick|choke|chokes|choked|choking|strangle|opponent|enemy|ambush|skirmish|duel|cut|wound)\b/gi;
@@ -15,13 +16,47 @@ const FIGHTING = /\b(ambush(?:es|ed)?|attack(?:s|ed)?|strikes?|struck|lunges?|lu
  * fight (several fighting words) is combat, whatever calmer pace was given.
  * Only ever moves toward combat, so a fight is never skipped as travel.
  */
-export function validateScenePace(given: ScenePace | undefined, narration: string): ScenePace | undefined {
+export function validateScenePace(
+  given: ScenePace | undefined,
+  narration: string,
+  /** What the tracker reported of a fight this turn; absent when unknown. */
+  signals?: { fightOptions?: number; jutsuUsed?: number }
+): ScenePace | undefined {
   if (!given || given === 'combat' || given === 'chase') {
     return given;
   }
 
-  const hits = narration.match(FIGHTING)?.length ?? 0;
-  return hits >= 2 ? 'combat' : given;
+  // Only the narration counts: a story told in speech ("Danzō ambushed him…
+  // the elders would fight over what remained") is not a fight (audit 4.12).
+  const hits = stripSpeech(narration).match(FIGHTING)?.length ?? 0;
+
+  if (hits < 2) {
+    return given;
+  }
+
+  // The tracker said conversation and reported no fight at all (no moves to
+  // offer, no jutsu): trust it. Travel and downtime are still overridden, so
+  // a real fight is never skipped as a journey or a rest.
+  if (given === 'conversation' && signals && !signals.fightOptions && !signals.jutsuUsed) {
+    return given;
+  }
+
+  return 'combat';
+}
+
+/**
+ * The pace a turn is clocked at: the tracker's, checked against the prose,
+ * or read from the prose when it gave none. A night Kan slept through is
+ * downtime whatever pace the tracker gave (audit 4.10).
+ */
+export function paceOfTurn(
+  given: ScenePace | undefined,
+  narration: string,
+  signals: { fightOptions?: number; jutsuUsed?: number } | undefined,
+  sleptNight: boolean | undefined
+): ScenePace {
+  const pace = validateScenePace(given, narration, signals) ?? inferScenePace(narration);
+  return sleptNight && (pace === 'conversation' || pace === 'travel') ? 'downtime' : pace;
 }
 
 // Fallback when the narrator forgets scene_pace. Order matters: combat and
@@ -100,7 +135,49 @@ export function resolveElapsedSeconds(options: {
   sceneEnded: boolean;
 }) {
   const desired = Math.max(0, options.reportedSeconds, options.detectedSeconds);
+  const frozen = (options.pace === 'combat' || options.pace === 'chase') && !options.sceneEnded;
+
+  // The tracker and the prose agree on how long it took (within 25%): the
+  // pace was the tracker's guess, the length is not (audit 4.10: a night's
+  // sleep reported as "conversation" was cut to an hour). A fight still
+  // cannot skip time.
+  // Up to a day: enough for a night or a long talk, never a leap of days
+  // under the wrong pace (a skip the player asked for has its own path).
+  if (!frozen && lengthsAgree(options.reportedSeconds, options.detectedSeconds)) {
+    return Math.min(desired, Math.max(paceCapSeconds(options.pace, options.sceneEnded), AGREED_LENGTH_CAP_SECONDS));
+  }
+
   return Math.min(desired, paceCapSeconds(options.pace, options.sceneEnded));
+}
+
+const AGREED_LENGTH_CAP_SECONDS = 86400;
+
+function lengthsAgree(reported: number, detected: number) {
+  return reported > 0 && detected > 0 && Math.abs(reported - detected) <= Math.max(reported, detected) * 0.25;
+}
+
+/**
+ * The tracker and the prose disagree on how long it took, and the prose names
+ * the time of day it ends at: the length that lands nearer that time wins
+ * (audit 4.11: 36 hours vs "two days", ending "early morning").
+ */
+function lengthNearerNamedTime(
+  current: CalendarDate,
+  reported: number,
+  detected: number,
+  named: { hour: number; minute: number } | undefined
+) {
+  if (!named || reported <= 0 || detected <= 0 || lengthsAgree(reported, detected)) {
+    return undefined;
+  }
+
+  const offBy = (seconds: number) => {
+    const end = advanceSeconds(current, seconds);
+    const diff = Math.abs(end.hour * 60 + end.minute - (named.hour * 60 + named.minute));
+    return Math.min(diff, 1440 - diff);
+  };
+
+  return offBy(reported) <= offBy(detected) ? reported : detected;
 }
 
 /** Longer than this needs two sources to agree, or a skip the player asked for (audit 4.5). */
@@ -251,21 +328,20 @@ export function resolveTurnClock(options: {
   const { current, pace, sceneEnded } = options;
   const frozen = (pace === 'combat' || pace === 'chase') && !sceneEnded;
   const minimumSeconds = options.minimumSeconds ?? paceMinimumSeconds(pace);
+  const nearer = lengthNearerNamedTime(
+    current,
+    options.reportedSeconds,
+    options.detected.elapsedSeconds,
+    options.detected.arrival ?? options.detected.landing
+  );
+  const lengths = nearer
+    ? { reportedSeconds: nearer, detectedSeconds: nearer }
+    : { reportedSeconds: options.reportedSeconds, detectedSeconds: options.detected.elapsedSeconds };
   const storySeconds = options.skipSeconds
     ? options.skipSeconds
     : options.proseOnly
-      ? resolveElapsedSeconds({
-          reportedSeconds: options.reportedSeconds,
-          detectedSeconds: options.detected.elapsedSeconds,
-          pace,
-          sceneEnded,
-        })
-      : guardLongJump({
-        reportedSeconds: options.reportedSeconds,
-        detectedSeconds: options.detected.elapsedSeconds,
-        pace,
-        sceneEnded,
-      });
+      ? resolveElapsedSeconds({ ...lengths, pace, sceneEnded })
+      : guardLongJump({ ...lengths, pace, sceneEnded });
   const now = dateSortValue(current);
   let target = advanceSeconds(current, storySeconds);
   let storyTimed = storySeconds > 0;
@@ -319,16 +395,19 @@ export function resolveTurnClock(options: {
     // lands on morning. The tracker's clock_time only when the prose names
     // none (audit 4.8).
     if (options.skipSeconds && !options.detected.clock) {
-      const landing = options.detected.landing ?? options.reportedClock;
+      // Neither names one: keep the time of day the skip started at, never
+      // midnight (audit 4.13).
+      const landing = options.detected.landing ??
+        options.reportedClock ?? { hour: current.hour, minute: current.minute };
 
       if (landing) {
-        // The occurrence of that hour nearest to where the skip's length ends.
+        // That hour on the date the skip ends on (the narrator is told the
+        // date, audit 4.13); the day after only if that is not ahead of now.
         const end = advanceSeconds(current, options.skipSeconds);
         const sameDay = { ...end, hour: landing.hour, minute: landing.minute, second: 0 };
-        const nearest = [-86400, 0, 86400]
+        const nearest = [0, 86400]
           .map((shift) => shiftSeconds(sameDay, shift))
-          .filter((candidate) => dateSortValue(candidate) > now)
-          .sort((a, b) => Math.abs(secondsBetween(end, a)) - Math.abs(secondsBetween(end, b)))[0];
+          .find((candidate) => dateSortValue(candidate) > now);
 
         if (nearest) {
           target = nearest;
@@ -337,10 +416,21 @@ export function resolveTurnClock(options: {
       }
     }
 
-    if (options.detected.sleptNight && !frozen && !options.detected.clock) {
-      const morning = advanceSeconds(current, secondsUntilMorning(current));
+    // A night's sleep lands in the morning: on the hour the prose wakes Kan
+    // at when it names a morning one ("dawn has broken"), otherwise at 7.
+    const wake = options.detected.clock && options.detected.clock.hour >= 4 && options.detected.clock.hour <= 11
+      ? options.detected.clock
+      : undefined;
 
-      if (dateSortValue(morning) > dateSortValue(target)) {
+    if (options.detected.sleptNight && !frozen && (!options.detected.clock || wake)) {
+      let morning = advanceSeconds(current, secondsUntilMorning(current));
+
+      if (wake) {
+        morning = { ...morning, hour: wake.hour, minute: wake.minute, second: 0 };
+        if (dateSortValue(morning) <= now) morning = shiftSeconds(morning, 86400);
+      }
+
+      if (dateSortValue(morning) > dateSortValue(target) || (wake && secondsBetween(current, target) < 4 * 3600)) {
         target = morning;
       }
 

@@ -28,7 +28,7 @@ import { placeIdOf } from './mapData';
 import { localizePlaceNames } from './glossary';
 import { conditionFromText } from './weather';
 import { regionOf } from './geography';
-import { inferScenePace, resolveTurnClock, validateScenePace } from './pacing';
+import { paceOfTurn, resolveTurnClock } from './pacing';
 import { detectNarrationTime } from './timeparse';
 import { CONVERSATION_MODE_MINIMUM_SECONDS, applySceneBeat, cleanFightOptions } from './sceneMode';
 import { buildIndices } from './db';
@@ -599,8 +599,13 @@ export function applyFlashbackTurn(
   if (!playing) return { db: latest };
 
   const { record, active } = playing;
-  const parsedTime = detectNarrationTime(turn.narration, active.date);
-  const pace = validateScenePace(extraction?.state?.scenePace, turn.narration) ?? inferScenePace(turn.narration);
+  const parsedTime = detectNarrationTime(turn.narration, active.date, { action: turn.userMessage });
+  const pace = paceOfTurn(
+    extraction?.state?.scenePace,
+    turn.narration,
+    extraction ? { fightOptions: extraction.fightOptions?.length ?? 0, jutsuUsed: extraction.jutsuUsed?.length ?? 0 } : undefined,
+    parsedTime.sleptNight
+  );
   const sceneEnded = extraction?.scene?.ended ?? false;
   const entry = latest.rawLog.find((item) => item.id === turn.turnLogId);
   const modeUsed = entry?.sceneMode;

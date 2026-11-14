@@ -98,8 +98,11 @@ describe('a skip lands on the prose time of day (audit 4.8)', () => {
 
     for (const reportedClock of [undefined, { hour: 0, minute: 0 }]) {
       const after = land(SKIP, start, { pace: 'downtime', reportedSeconds: skip, reportedClock, skipSeconds: skip });
+      // The skip's length ends at 23:55 on 30 Oct. Since audit 4.13 the
+      // narrator is told that end date and the skip lands on it (it was the
+      // nearest morning, 31 Oct, before).
       expect(after.month).toBe(10);
-      expect(after.day).toBe(31);
+      expect(after.day).toBe(30);
       expect(after.hour).toBe(8);
     }
   });
