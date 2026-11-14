@@ -21,12 +21,12 @@ import {
   SCENE_CAST_LIMIT,
 } from './image';
 import { checkSceneImage, imageCheckEnabled, sharperActorRule, type ImageCheck, checkWantsRepaint } from './imageCheck';
-import { wantsEnsemble, type ShotChip } from './imageDirection';
+import { isScaleShot, wantsEnsemble, type ShotChip } from './imageDirection';
 import { loadImage, toDataUri } from './imageStore';
 import { kanOutfit } from './kanLook';
 import { placeKeyOf, placeLookOf } from './placeLooks';
 import { wearsAkatsukiCloak } from './portrait';
-import { faceDroppedWarning, loadKanReferenceImages, planReferences, type PlannedReference } from './referenceImages';
+import { faceDroppedWarning, loadKanReferenceImages, planReferences, wantsProfileReference, type PlannedReference } from './referenceImages';
 import type { AppDatabase, SceneImageMeta } from './types';
 
 export type PaintedTake = { dataUri: string; meta: SceneImageMeta };
@@ -109,7 +109,9 @@ export async function paintScene({
       ref: person.image,
     }))
   );
-  const people = await packPeopleReferences(loaded, personReferenceSlots(caps.maxReferences, sheets));
+  // His profile (the nose) only where his face shows up close (14 Nov 2026).
+  const withProfile = wantsProfileReference(ensemble || isScaleShot(shotType));
+  const people = await packPeopleReferences(loaded, personReferenceSlots(caps.maxReferences, sheets, withProfile));
 
   // Which stored image each sent reference came from, for the image's record.
   const refOf = new Map<string, string>();
@@ -124,6 +126,7 @@ export async function paintScene({
   const plan = planReferences(
     [
       { kind: 'face', uri: kanRefs.face },
+      ...(withProfile ? [{ kind: 'profile' as const, uri: kanRefs.profile }] : []),
       ...(sheets ? [{ kind: 'outfit' as const, uri: kanRefs.outfit }] : []),
       ...people,
       ...(placeLoaded ? [{ kind: 'place' as const, uri: placeLoaded, name: db.state.location }] : []),

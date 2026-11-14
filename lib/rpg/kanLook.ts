@@ -13,13 +13,50 @@ export const KAN_HAIR = 'black spiky hair';
 /** Hair and eyes together, for prompts: "black spiky hair and brown eyes". */
 export const KAN_HAIR_AND_EYES = `${KAN_HAIR} and ${KAN_EYES}`;
 
-/** His base look on the narrator card (new stories; old saves are migrated). */
-export const KAN_APPEARANCE = `Lean teenage shinobi with ${KAN_HAIR}, watchful ${KAN_EYES}, wearing a plain black high-collared shinobi outfit with bandage-wrapped forearms. No ANBU gear.`;
+/**
+ * Decided by Xan (14 Nov 2026): almost a Roman nose. The face sheet has it
+ * right, but nothing named it, so outside a clean profile the image model
+ * fell back to a small, inward-curving anime nose.
+ */
+export const KAN_NOSE =
+  'a long Roman nose: a high bridge with a gentle outward arch, subtle and not hooked, and a tip that points forward; never a small, upturned or inward-curving anime nose';
+/** For short descriptions (the narrator card). */
+export const KAN_NOSE_SHORT = 'a long, gently arched Roman nose';
 
-/** Old saves said "dark watchful eyes": the eye colour now matches every image. */
+/** Decided by Xan (14 Nov 2026): Kan wears boots, never sandals, in every era. */
+export const KAN_BOOTS = 'black boots';
+
+/**
+ * His two outfits in words (decided 14 Nov 2026). Before the Akatsuki his
+ * Leaf protector is worn at the waist on the cloth belt, plate on his left
+ * (the knot is on his right), never on his forehead. With the cloak: bare
+ * chest under it, the same trousers and boots, no protector anywhere.
+ */
+export const KAN_BLACK_OUTFIT =
+  'a plain black high-collared shinobi top, bandage-wrapped forearms, a black cloth belt knotted on his right hip with his Hidden Leaf protector worn on it, the metal plate at his left hip (never on his forehead), loose black trousers and black boots';
+export const KAN_AKATSUKI_OUTFIT =
+  'the Akatsuki cloak (black with red clouds, high collar) over a bare chest, bandage-wrapped forearms, the same loose black trousers and black boots; no Leaf protector anywhere on him';
+/** Image models default to shinobi sandals: said once, as the only negative. */
+export const KAN_NO_SANDALS = 'Kan wears boots, never sandals.';
+
+/** His base look on the narrator card (new stories; old saves are migrated). */
+export const KAN_APPEARANCE = `Lean teenage shinobi with ${KAN_HAIR}, watchful ${KAN_EYES} and ${KAN_NOSE_SHORT}, wearing a plain black high-collared shinobi top with bandage-wrapped forearms, a cloth belt with his Leaf protector's plate at his left hip, black trousers and ${KAN_BOOTS}. No ANBU gear.`;
+
+/**
+ * Old saves said "dark watchful eyes", had no nose, and described the outfit
+ * without the belt and boots: brought up to the current look.
+ */
 export function migrateKanEyes(appearance: string | undefined): string | undefined {
   if (!appearance) return appearance;
-  return appearance.replace(/\bdark watchful eyes\b/i, `watchful ${KAN_EYES}`).replace(/\bblack hair\b/i, KAN_HAIR);
+  let next = appearance.replace(/\bdark watchful eyes\b/i, `watchful ${KAN_EYES}`).replace(/\bblack hair\b/i, KAN_HAIR);
+  if (!/\bnose\b/i.test(next)) next = next.replace(`watchful ${KAN_EYES}`, `watchful ${KAN_EYES} and ${KAN_NOSE_SHORT}`);
+  if (/plain black high-collared shinobi outfit with bandage-wrapped forearms\./i.test(next)) {
+    next = next.replace(
+      /plain black high-collared shinobi outfit with bandage-wrapped forearms\./i,
+      `plain black high-collared shinobi top with bandage-wrapped forearms, a cloth belt with his Leaf protector's plate at his left hip, black trousers and ${KAN_BOOTS}.`
+    );
+  }
+  return next;
 }
 
 export function kanEntity(db: Pick<AppDatabase, 'entities'>): EntityRecord | undefined {
@@ -86,11 +123,16 @@ export function kanOutfit(db: AppDatabase): KanOutfit {
 /**
  * How Kan looks at this moment, for scene images: his look from the tracker
  * (soaked, bloodied, Sharingan active), his wounds and passing conditions,
- * and a scratched forehead protector. Null when there is nothing to add.
+ * and a scratched protector at his waist. Null when there is nothing to add.
  */
 /** The scratched protector, as the image model and the check are told it (audit 11c.1). */
 export const SCRATCHED_PROTECTOR_LINE =
-  "Kan's forehead protector: a deep horizontal scratch cut straight through the Leaf symbol (a rogue ninja's mark); never draw the plate whole, whatever the face sheet shows.";
+  "Kan's Leaf protector, worn on his belt with the plate at his left hip: a deep horizontal scratch cut straight through the Leaf symbol (a rogue ninja's mark); never draw the plate whole, and never on his forehead.";
+
+/** Where the protector is, for images and the check: at the waist before the cloak, out of sight after. */
+export function kanProtectorPlace(db: AppDatabase): 'waist' | 'hidden' {
+  return kanOutfit(db).sheet === 'akatsuki' ? 'hidden' : 'waist';
+}
 
 /** Kan carries a scratched forehead protector. */
 export function kanProtectorScratched(db: Pick<AppDatabase, 'state'>) {
@@ -119,8 +161,13 @@ export function kanRightNow(db: AppDatabase, options: { protectorSaid?: boolean 
 
   bits.push(...conditions);
 
-  if (!options.protectorSaid && kanProtectorScratched(db) && !bits.some((bit) => /protector|headband/i.test(bit))) {
-    bits.push('his forehead protector has a deep scratch cut straight through the Leaf symbol');
+  if (
+    !options.protectorSaid &&
+    kanProtectorScratched(db) &&
+    kanProtectorPlace(db) === 'waist' &&
+    !bits.some((bit) => /protector|headband/i.test(bit))
+  ) {
+    bits.push('the Leaf protector at his left hip has a deep scratch cut straight through the Leaf symbol');
   }
 
   if (bits.length === 0) return null;

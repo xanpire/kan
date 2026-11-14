@@ -55,7 +55,7 @@ describe("Kan's eyes are brown, in one place (audit 11c, decided by Xan)", () =>
 
   test('an old save is migrated', () => {
     expect(migrateKanEyes('Lean teenage shinobi with black hair, dark watchful eyes, wearing black.')).toBe(
-      'Lean teenage shinobi with black spiky hair, watchful brown eyes, wearing black.'
+      'Lean teenage shinobi with black spiky hair, watchful brown eyes and a long, gently arched Roman nose, wearing black.'
     );
     const old = seed();
     const raw = { ...old, entities: old.entities.map((e) => (e.name === 'Kan' ? { ...e, appearance: 'Lean, dark watchful eyes' } : e)) };

@@ -1,4 +1,5 @@
 import { KAN_APPEARANCE, migrateKanEyes } from './kanLook';
+import { migrateProtectorName } from './inventory';
 import { normalizePlaceLooks } from './placeLooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAppModels, withAppModels } from './modelDefaults';
@@ -1227,7 +1228,7 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     mood: state.mood ?? seeded.mood,
     worldDescription: state.worldDescription ?? seeded.worldDescription,
     jutsu: Array.isArray(state.jutsu) ? state.jutsu : [...seeded.jutsu],
-    inventory: Array.isArray(state.inventory) ? state.inventory : [...seeded.inventory],
+    inventory: Array.isArray(state.inventory) ? state.inventory.map(migrateProtectorName) : [...seeded.inventory],
     ...(Array.isArray(state.pinnedItems)
       ? { pinnedItems: state.pinnedItems.filter((item: unknown): item is string => typeof item === 'string').slice(0, 40) }
       : {}),

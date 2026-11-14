@@ -5,13 +5,13 @@
 
 import { completeChat, type CallUsage } from '../openrouter';
 import { loadModelLists, modelSeesImages } from './modelCheck';
-import { kanProtectorScratched } from './kanLook';
+import { kanProtectorPlace, kanProtectorScratched } from './kanLook';
 import type { AppDatabase } from './types';
 
 export type ImageCheck = {
   rolesOk: boolean;
   extraPeople: boolean;
-  /** false: Kan's protector is shown whole though it is scratched (audit 11c.1). */
+  /** false: Kan's protector is on his forehead, drawn whole though scratched, or on him with the cloak (audit 11c.1, 14 Nov 2026). */
   protectorOk?: boolean;
   note: string;
   usage: CallUsage;
@@ -65,7 +65,7 @@ export async function checkSceneImage(
 ): Promise<ImageCheck | null> {
   const model = imageCheckModel(db);
   const actor = actorOf(action);
-  const scratched = kanProtectorScratched(db);
+  const protectorQuestion = protectorCheckQuestion(kanProtectorPlace(db), kanProtectorScratched(db));
 
   // A model that cannot see images would answer "fine" without looking.
   const lists = await loadModelLists().catch(() => null);
@@ -82,9 +82,7 @@ export async function checkSceneImage(
       messages: [
         {
           role: 'user',
-          content: scratched
-            ? `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? If Kan's forehead protector is visible, is the Leaf symbol on it crossed by a horizontal scratch? Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "protector_ok": true|false (true when the scratch shows or the protector is not visible), "note": "what is wrong, in one short sentence" }`
-            : `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "note": "what is wrong, in one short sentence" }`,
+          content: `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? ${protectorQuestion} Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "protector_ok": true|false, "note": "what is wrong, in one short sentence" }`,
           images: [image],
         },
       ],
@@ -105,8 +103,22 @@ export async function checkSceneImage(
   }
 }
 
+/**
+ * What the check asks about Kan's Leaf protector (14 Nov 2026): never on his
+ * forehead; at his waist before the cloak (scratched once he scratched it);
+ * out of sight with the cloak.
+ */
+export function protectorCheckQuestion(place: 'waist' | 'hidden', scratched: boolean): string {
+  if (place === 'hidden') {
+    return 'Kan (in the Akatsuki cloak) must wear no Leaf forehead protector at all, on his forehead or anywhere else. protector_ok: false if one is drawn on him.';
+  }
+  return scratched
+    ? "Kan's Leaf protector belongs on his belt at his left hip, never on his forehead, with a horizontal scratch through the Leaf symbol. protector_ok: false if it is on his forehead or drawn whole; true when it is right or not visible."
+    : "Kan's Leaf protector belongs on his belt at his left hip, never on his forehead. protector_ok: false if it is on his forehead; true when it is at his waist or not visible.";
+}
+
 /** A sharper actor rule for the retry, from what the check saw. */
-/** The check found something worth one repaint: reversed roles, or a scratched protector drawn whole. */
+/** The check found something worth one repaint: reversed roles, or the protector wrong. */
 export function checkWantsRepaint(check: Pick<ImageCheck, 'rolesOk' | 'protectorOk'> | null) {
   return Boolean(check && (!check.rolesOk || check.protectorOk === false));
 }
@@ -119,7 +131,9 @@ export function sharperActorRule(action: string, check: Pick<ImageCheck, 'note' 
       ? `CORRECTION: a previous attempt got the roles wrong${check.note ? ` (${check.note.replace(/\.$/, '')})` : ''}. ${actor} is the one DOING the action; the others receive it. Draw it exactly that way round.`
       : '',
     check.extraPeople ? 'CORRECTION: a previous attempt added people who are not in the ACTION. Draw only the people the ACTION names.' : '',
-    check.protectorOk === false ? 'CORRECTION: a previous attempt drew Kan\'s forehead protector whole. The Leaf symbol on it is crossed by one deep horizontal scratch.' : '',
+    check.protectorOk === false
+      ? `CORRECTION: a previous attempt got Kan's Leaf protector wrong${check.note ? ` (${check.note.replace(/\.$/, '')})` : ''}. It is never on his forehead: before the Akatsuki it hangs on his belt at his left hip (scratched through once he scratched it); with the cloak it is not on him at all.`
+      : '',
   ]
     .filter(Boolean)
     .join('\n');

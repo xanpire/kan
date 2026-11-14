@@ -1,4 +1,5 @@
 import { isScratchedProtector } from './inventory';
+import { kanProtectorPlace } from './kanLook';
 import { advanceSeconds, calculateAge, dateSortValue, daysBetween, entityAge, formatClock, formatDate } from './calendar';
 import { paceMinimumSeconds } from './pacing';
 import { normalizeJutsuNature } from './jutsu';
@@ -774,13 +775,24 @@ export const KAN_HISTORY =
 /**
  * The forehead protector (decided by Xan, Session 1 audit 6.22): Kan carries
  * his own unscratched one; scratching it is his own act, early on, perhaps
- * at Itachi's urging. Nobody hands him one already scratched.
+ * at Itachi's urging. Nobody hands him one already scratched. Where he wears
+ * it (14 Nov 2026): at the waist on his cloth belt, plate at his left hip,
+ * never on his forehead; once he wears the Akatsuki cloak it is out of sight,
+ * kept in a pouch or his pack.
  */
 export function kanProtectorLine(db: AppDatabase) {
-  return db.state.inventory.some(isScratchedProtector)
+  const scratched = db.state.inventory.some(isScratchedProtector);
+  const which = scratched
     ? 'Forehead protector: his own Hidden Leaf one, scratched through by his own hand.'
     : 'Forehead protector: his own Hidden Leaf one, still unscratched. Scratching it is his own act (Itachi may encourage it), never something done for him, and nobody hands him a protector already scratched.';
+  const where = kanProtectorPlace(db) === 'hidden'
+    ? 'He no longer wears it: under the Akatsuki cloak he is bare-chested, and the protector stays out of sight in a pouch or his pack. Never describe it on him.'
+    : 'He never wears it on his forehead: it is tied at his waist as part of his cloth belt, the plate at his left hip, the knot on his right.';
+  return `${which} ${where} ${KAN_FEET_LINE}`;
 }
+
+/** Decided by Xan (14 Nov 2026): boots in every era. */
+export const KAN_FEET_LINE = 'Kan wears boots, never sandals; never mention sandals on him.';
 
 function formatCharacterSheet(db: AppDatabase) {
   const player = db.state.player;

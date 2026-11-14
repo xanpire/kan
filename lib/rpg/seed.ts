@@ -612,7 +612,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       id: makeId('lore'),
       keywords: ['headband', 'forehead protector', 'protector', 'leaf', 'village', 'itachi', 'scratch'],
       priority: 4,
-      text: 'Your Hidden Leaf forehead protector is still whole: you have not cut your tie to the village. Early on, once you are away from the Leaf, Itachi may show you the line through his own and quietly encourage you to do the same. You decide whether and when; never do it for you.',
+      text: 'Your Hidden Leaf headband (forehead protector) is still whole: you have not cut your tie to the village. Early on, once you are away from the Leaf, Itachi may show you the line through his own and quietly encourage you to do the same. You decide whether and when; never do it for you.',
       enabled: true,
       hidden: true,
       activeUntil: { flag: 'headbandScratched' },
@@ -695,7 +695,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       worldDescription: 'The Hidden Leaf still carries the scars of the Nine-Tails attack. Tonight the rain is heavy, and the forest around the village is silent.',
       jutsu: ['Shinobi taijutsu', 'Thousand Souls'],
       inventory: [
-        'Hidden Leaf forehead protector',
+        'Hidden Leaf headband',
         'Kunai pouch (6 kunai)',
         'Shuriken (10)',
         'Ninja wire',

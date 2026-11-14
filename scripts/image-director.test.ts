@@ -296,7 +296,7 @@ describe('the swapped-roles check', () => {
     expect(whole.protectorOk).toBe(false);
     expect(checkWantsRepaint(whole)).toBe(true);
     expect(checkWantsRepaint(parseImageCheck('{"roles_ok": true, "extra_people": true, "note": ""}'))).toBe(false);
-    expect(sharperActorRule('Kan waits.', whole)).toContain('horizontal scratch');
+    expect(sharperActorRule('Kan waits.', whole)).toContain('never on his forehead');
     const rule = sharperActorRule('Kan chokes a Stone ninja.', { rolesOk: false, extraPeople: true, note: 'Kan is the one choked.' });
     expect(rule).toContain('Kan is the one DOING the action');
     expect(rule).toContain('only the people the ACTION names');

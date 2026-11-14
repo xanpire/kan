@@ -1,5 +1,6 @@
 import { calculateAge } from './calendar';
-import { KAN_HAIR_AND_EYES, kanOutfit } from './kanLook';
+import { KAN_AKATSUKI_OUTFIT, KAN_BLACK_OUTFIT, KAN_HAIR_AND_EYES, KAN_NOSE, kanOutfit } from './kanLook';
+import { KAN_PROFILE_LABEL } from './image';
 import { locationKindOf } from './encounters';
 import { localizePlaceNames } from './glossary';
 import type { PlannedReference } from './referencePlan';
@@ -143,8 +144,8 @@ export function buildPortraitPrompt(
 ) {
   const outfit =
     signature.outfit === 'akatsuki'
-      ? 'the Akatsuki cloak (black with red clouds)'
-      : 'the plain black shinobi outfit, no Akatsuki cloak';
+      ? KAN_AKATSUKI_OUTFIT
+      : `the plain black shinobi outfit, no Akatsuki cloak: ${KAN_BLACK_OUTFIT}`;
   const lines = [
     'Character portrait of Kan, a shinobi from the Naruto world. Dark cinematic anime illustration.',
     'Visual image only. No words, letters, numbers, captions, logos, watermarks or readable text anywhere.',
@@ -155,8 +156,10 @@ export function buildPortraitPrompt(
 
     if (reference.kind === 'face') {
       lines.push(
-        `Reference image ${n}: Kan's face sheet. Match his face exactly: ${KAN_HAIR_AND_EYES}, facial structure, hairline.`
+        `Reference image ${n}: Kan's face sheet. Match his face exactly: ${KAN_HAIR_AND_EYES}, facial structure, hairline, and ${KAN_NOSE}.`
       );
+    } else if (reference.kind === 'profile') {
+      lines.push(`Reference image ${n}: ${KAN_PROFILE_LABEL}`);
     } else if (reference.kind === 'outfit') {
       lines.push(
         `Reference image ${n}: the outfit he wears now (${outfit}), shown without a person. Dress him in exactly this.`
@@ -169,7 +172,7 @@ export function buildPortraitPrompt(
   });
 
   if (!references.some((reference) => reference.kind === 'face')) {
-    lines.push(`Kan has ${KAN_HAIR_AND_EYES}, and a lean, guarded face.`);
+    lines.push(`Kan has ${KAN_HAIR_AND_EYES}, ${KAN_NOSE}, and a lean, guarded face.`);
   }
 
   lines.push(

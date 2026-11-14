@@ -115,15 +115,15 @@ describe('24-26. clock, numbers, places, gear', () => {
     expect(text).toContain('GEOGRAPHY');
     expect(text).toContain('the Land of Grass is NORTH of Rain');
     expect(db.state.inventory).toContain('Kunai pouch (6 kunai)');
-    expect(db.state.inventory).toContain('Hidden Leaf forehead protector');
+    expect(db.state.inventory).toContain('Hidden Leaf headband');
   });
 
   test('the headband note lasts until you scratch it', () => {
     let db = seed();
-    const note = db.loreEntries.find((lore) => lore.text.startsWith('Your Hidden Leaf forehead protector'))!;
+    const note = db.loreEntries.find((lore) => lore.text.startsWith('Your Hidden Leaf headband'))!;
     expect(loreActive(db, note)).toBe(true);
     db = play(db, 'You draw the kunai across the leaf.', {
-      inventory_removed: ['Hidden Leaf forehead protector'],
+      inventory_removed: ['Hidden Leaf headband'],
       inventory_added: ['Hidden Leaf forehead protector (scratched through)'],
     });
     expect(loreActive(db, note)).toBe(false);

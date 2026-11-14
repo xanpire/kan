@@ -14,7 +14,7 @@ describe("Kan's reference sheets keep their slots (audit 11c)", () => {
 
   test('the cloak swaps outfit and alternate', () => {
     const refs = pickKanReferences(['data:image/jpeg;base64,F', 'data:image/jpeg;base64,B', 'data:image/jpeg;base64,C'], true);
-    expect(refs).toEqual({ face: 'data:image/jpeg;base64,F', outfit: 'data:image/jpeg;base64,C', alternate: 'data:image/jpeg;base64,B' });
+    expect(refs).toEqual({ face: 'data:image/jpeg;base64,F', outfit: 'data:image/jpeg;base64,C', alternate: 'data:image/jpeg;base64,B', profile: '' });
   });
 
   test('a plain URL is not image data', () => {

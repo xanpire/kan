@@ -58,7 +58,7 @@ describe('the forehead protector (6.21, 6.22)', () => {
   test('carving it on the page changes the pinned item, even when the tracker misses it', () => {
     const narration = 'You draw the kunai across the plate, and the Leaf’s spiral splits under a single deep line. Itachi watches without a word.';
     const db = play(seed(), '*I scratch my forehead protector.*', narration, { characters_present: ['itachi-uchiha'] });
-    expect(db.state.inventory.filter((item) => /forehead protector/i.test(item))).toEqual(['Hidden Leaf forehead protector, scratched through']);
+    expect(db.state.inventory.filter((item) => /headband/i.test(item))).toEqual(['Hidden Leaf headband, scratched through']);
     expect(LORE_FLAGS.headbandScratched(db)).toBe(true);
     expect(narratorText(db)).toContain('scratched through by his own hand');
   });

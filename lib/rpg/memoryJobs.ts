@@ -359,7 +359,7 @@ export function applyStateStep(
   const scratched = scratchProtectorFromProse(next.state.inventory, turn.narration);
   if (scratched) {
     next = { ...next, state: { ...next.state, inventory: scratched } };
-    events.push({ kind: 'fallback', text: 'Your forehead protector is scratched through (read from the prose).' });
+    events.push({ kind: 'fallback', text: 'Your Leaf headband is scratched through (read from the prose).' });
   }
 
   // Someone Kan had not seen in a long time is here again.

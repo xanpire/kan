@@ -3,10 +3,11 @@ import { Asset } from 'expo-asset';
 const kanFaceSheet = require('../../assets/images/kan-face-sheet.jpg');
 const kanOutfitBlack = require('../../assets/images/kan-outfit-black.jpg');
 const kanOutfitAkatsuki = require('../../assets/images/kan-outfit-akatsuki.jpg');
+const kanProfile = require('../../assets/images/kan-profile.jpg');
 
 import { isImageData, pickKanReferences, type KanReferences } from './referencePlan';
 
-let referencesPromise: Promise<[string, string, string]> | null = null;
+let referencesPromise: Promise<[string, string, string, string]> | null = null;
 
 export function loadKanReferenceImages(wearsAkatsukiCloak: boolean): Promise<KanReferences> {
   if (!referencesPromise) {
@@ -14,6 +15,7 @@ export function loadKanReferenceImages(wearsAkatsukiCloak: boolean): Promise<Kan
       toDataUri(Asset.fromModule(kanFaceSheet)),
       toDataUri(Asset.fromModule(kanOutfitBlack)),
       toDataUri(Asset.fromModule(kanOutfitAkatsuki)),
+      toDataUri(Asset.fromModule(kanProfile)),
     ]);
   }
 
@@ -73,5 +75,5 @@ async function toDataUri(asset: Asset) {
   }
 }
 
-export { faceDroppedWarning, isImageData, pickKanReferences, planReferences } from './referencePlan';
+export { faceDroppedWarning, isImageData, pickKanReferences, planReferences, wantsProfileReference } from './referencePlan';
 export type { KanReferences, PlannedReference, ReferenceKind } from './referencePlan';

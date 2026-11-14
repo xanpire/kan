@@ -4,7 +4,21 @@ import { displayName } from './names';
 import { mentionsEntity } from './characterRefs';
 import { localizePlaceNames } from './glossary';
 import { completeChat, type CallUsage } from '../openrouter';
-import { KAN_HAIR_AND_EYES, kanAgeLine, kanAgeNow, kanOutfit, kanProtectorScratched, kanRightNow, SCRATCHED_PROTECTOR_LINE, type KanOutfit } from './kanLook';
+import {
+  KAN_AKATSUKI_OUTFIT,
+  KAN_BLACK_OUTFIT,
+  KAN_HAIR_AND_EYES,
+  KAN_NO_SANDALS,
+  KAN_NOSE,
+  kanAgeLine,
+  kanAgeNow,
+  kanOutfit,
+  kanProtectorPlace,
+  kanProtectorScratched,
+  kanRightNow,
+  SCRATCHED_PROTECTOR_LINE,
+  type KanOutfit,
+} from './kanLook';
 import type { PlannedReference } from './referencePlan';
 import { flashbackImageNote, kanAgeAt, latestReplyIsFlashback } from './flashbacks';
 import { entityAge, timeOfDayOf } from './calendar';
@@ -72,8 +86,8 @@ export { isCanonCharacter };
  * How many people can get their own reference slot: what the model takes,
  * minus Kan's face and outfit.
  */
-export function personReferenceSlots(maxReferences: number, withOutfit = true) {
-  return Math.max(0, maxReferences - 1 - (withOutfit ? 1 : 0));
+export function personReferenceSlots(maxReferences: number, withOutfit = true, withProfile = false) {
+  return Math.max(0, maxReferences - 1 - (withOutfit ? 1 : 0) - (withProfile ? 1 : 0));
 }
 
 /**
@@ -484,7 +498,10 @@ export async function writeImageAction(
   return null;
 }
 
-const KAN_LOOK = `Kan: a lean young shinobi with ${KAN_HAIR_AND_EYES}.`;
+/** The profile crop of the face sheet (decided 14 Nov 2026: the nose). */
+export const KAN_PROFILE_LABEL = "Kan's profile: copy the exact shape of his nose, the gentle outward arch included.";
+
+const KAN_LOOK = `Kan: a lean young shinobi with ${KAN_HAIR_AND_EYES}, and ${KAN_NOSE}.`;
 
 export type SceneStyle = 'fight' | 'quiet' | 'travel' | 'drama';
 
@@ -568,8 +585,8 @@ export function buildSceneImagePrompt(
   const impact = shotType === 'impact frame';
 
   const currentOutfit = cloak
-    ? 'the Akatsuki cloak'
-    : 'the plain black shinobi outfit without the Akatsuki cloak';
+    ? `the Akatsuki cloak: ${KAN_AKATSUKI_OUTFIT}`
+    : `the plain black shinobi outfit without the Akatsuki cloak: ${KAN_BLACK_OUTFIT}`;
 
   const alternateOutfit = cloak
     ? 'the plain black shinobi outfit without the Akatsuki cloak'
@@ -637,11 +654,14 @@ export function buildSceneImagePrompt(
     if (placeLook) lines.push(`This place looks like: ${placeLook.replace(/\.$/, '')}.`);
   }
 
-  // Kan's look. A scratched protector first: the face sheet shows it whole,
-  // and the model follows the sheet unless told early (audit 11c.1).
-  const scratched = !memoryNote && kanProtectorScratched(db);
+  // Kan's look. A scratched protector first, told early so the model draws
+  // the scratch (audit 11c.1); with the cloak it is out of sight (14 Nov 2026).
+  const protectorPlace = memoryNote ? null : kanProtectorPlace(db);
+  const scratched = protectorPlace === 'waist' && kanProtectorScratched(db);
   if (scratched) {
     lines.push(SCRATCHED_PROTECTOR_LINE);
+  } else if (protectorPlace === 'hidden') {
+    lines.push('Kan wears no Leaf protector anywhere: not on his forehead, not at his waist.');
   }
 
   if (!hasFace) {
@@ -655,14 +675,11 @@ export function buildSceneImagePrompt(
     if (outfit.sheet === null) {
       lines.push(`Kan's clothes right now: ${outfit.words}; neither of his usual outfits.`);
     } else if (!hasOutfit) {
-      lines.push(
-        cloak
-          ? 'Kan wears the Akatsuki cloak: long black cloak with red clouds outlined in white, high collar.'
-          : 'Kan wears a plain black shinobi outfit: fitted black top and pants, no Akatsuki cloak.'
-      );
+      lines.push(`Kan wears ${cloak ? KAN_AKATSUKI_OUTFIT : KAN_BLACK_OUTFIT}.`);
     } else {
       lines.push(`Kan currently wears ${currentOutfit}.`);
     }
+    if (outfit.sheet !== null) lines.push(KAN_NO_SANDALS);
 
     const now = kanRightNow(db, { protectorSaid: scratched });
     if (now) lines.push(now);
@@ -684,8 +701,10 @@ export function buildSceneImagePrompt(
       lines.push(`Reference image ${n}: the image to edit.`);
     } else if (reference.kind === 'face') {
       lines.push(
-        `Reference image ${n}: Kan's face sheet (front, both profiles, back of head; no clothes). Match his face exactly: ${KAN_HAIR_AND_EYES}, facial structure, hairline. ${IDENTITY_ONLY}`
+        `Reference image ${n}: Kan's face sheet (front, both profiles, back of head; no clothes). Match his face exactly: ${KAN_HAIR_AND_EYES}, facial structure, hairline, and ${KAN_NOSE}. ${IDENTITY_ONLY}`
       );
+    } else if (reference.kind === 'profile') {
+      lines.push(`Reference image ${n}: ${KAN_PROFILE_LABEL} ${IDENTITY_ONLY}`);
     } else if (reference.kind === 'outfit') {
       lines.push(
         `Reference image ${n}: the clothes Kan currently wears (${currentOutfit}), front, side and back views with NO person. Dress Kan in exactly these clothes. ${IDENTITY_ONLY}`

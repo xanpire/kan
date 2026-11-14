@@ -121,6 +121,7 @@ export function PortraitHeader() {
       const plan = planReferences(
         [
           { kind: 'face', uri: kanRefs.face },
+          { kind: 'profile', uri: kanRefs.profile },
           { kind: 'outfit', uri: kanRefs.outfit },
           { kind: 'previous', uri: previous ?? '' },
         ],

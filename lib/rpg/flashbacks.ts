@@ -181,18 +181,18 @@ export function kanThen(age: number): string {
 /** How Kan looks at an age, for images (his reference sheets show him at 13 and older). */
 export function kanLookAt(age: number): string {
   if (age <= 5) {
-    return `Kan as a small child of ${age}: round face, short ${KAN_HAIR}, the same ${KAN_EYES}, small and slight, in plain child’s clothes`;
+    return `Kan as a small child of ${age}: round face, short ${KAN_HAIR}, the same ${KAN_EYES}, a small straight nose that already has a high bridge, small and slight, in plain child’s clothes`;
   }
 
   if (age <= 8) {
-    return `Kan at ${age}: a skinny Academy boy with ${KAN_HAIR_AND_EYES}, in a plain dark shirt and shorts`;
+    return `Kan at ${age}: a skinny Academy boy with ${KAN_HAIR_AND_EYES}, a straight nose with a high bridge (never small or upturned), in a plain dark shirt and shorts`;
   }
 
   if (age <= 11) {
-    return `Kan at ${age}: a young genin with ${KAN_HAIR_AND_EYES}, a Leaf forehead protector, dark shinobi clothes cut small`;
+    return `Kan at ${age}: a young genin with ${KAN_HAIR_AND_EYES}, a long straight nose with a gentle arch beginning, his Leaf protector worn on his belt at his left hip (never on his forehead), dark shinobi clothes cut small and boots`;
   }
 
-  return `Kan at ${age}: a boy in ANBU gear, ${KAN_HAIR_AND_EYES}, grey armour and arm guards, an animal mask pushed up on his head or worn over his face`;
+  return `Kan at ${age}: a boy in ANBU gear, ${KAN_HAIR_AND_EYES}, a long nose with a gentle outward arch, grey armour and arm guards, boots, his bat mask pushed up on his head or worn over his face`;
 }
 
 // ---------------------------------------------------------------------------

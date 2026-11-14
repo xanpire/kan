@@ -175,6 +175,14 @@ const SCRATCH_ACT =
 const PROTECTOR_PART = /\b(forehead protector|headband|hitai-ate|leaf symbol|leaf insignia|insignia|the plate|metal plate|the leaf(?:'s|’s)? (?:symbol|mark|spiral))\b/i;
 const NOT_YET = /\b(not|never|don't|do not|won't|without|almost|nearly|hesitat\w*|refuse\w*|instead of|consider\w*|think\w* about|wonder\w*)\b/i;
 
+/**
+ * Kan wears his protector at the waist, not on his forehead (14 Nov 2026), so
+ * the item is "Hidden Leaf headband"; old saves called it a forehead protector.
+ */
+export function migrateProtectorName(item: string) {
+  return /^Hidden Leaf forehead protector\b/i.test(item) ? item.replace(/^Hidden Leaf forehead protector/i, 'Hidden Leaf headband') : item;
+}
+
 /** Kan's forehead protector, scratched through (the lore flag `headbandScratched` reads this). */
 export function isScratchedProtector(item: string) {
   return PROTECTOR.test(item) && SCRATCHED.test(item);
@@ -206,7 +214,7 @@ export function scratchProtectorFromProse(inventory: string[], narration: string
   if (!shows) return null;
 
   const next = [...inventory];
-  next[index] = 'Hidden Leaf forehead protector, scratched through';
+  next[index] = 'Hidden Leaf headband, scratched through';
   return next;
 }
 

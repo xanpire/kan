@@ -1,5 +1,5 @@
 /** Which reference images go with an image request. Pure, so it can be tested. */
-export type ReferenceKind = 'face' | 'outfit' | 'character' | 'cast' | 'place' | 'alternate' | 'previous' | 'edit';
+export type ReferenceKind = 'face' | 'profile' | 'outfit' | 'character' | 'cast' | 'place' | 'alternate' | 'previous' | 'edit';
 
 export type PlannedReference = {
   kind: ReferenceKind;
@@ -14,7 +14,7 @@ export type PlannedReference = {
 /**
  * Picks the references that fit the model's limit, most important first:
  * the image being retouched (only for a retouch), then Kan's face, so it is
- * the last thing to be left out, then his outfit, then the people in the
+ * the last thing to be left out, then his profile (the nose), then his outfit, then the people in the
  * scene (one by one or packed on a cast sheet), then an earlier scene for style.
  * `faceDropped` is true when the face could not be sent, so the caller can
  * warn instead of silently drawing a stranger.
@@ -29,7 +29,7 @@ export function planReferences(
   leftOut: ReferenceKind[];
 } {
   // Other people's faces outrank older scenes: drifting faces are worse than drifting style.
-  const order: ReferenceKind[] = ['edit', 'face', 'outfit', 'character', 'cast', 'place', 'previous', 'alternate'];
+  const order: ReferenceKind[] = ['edit', 'face', 'profile', 'outfit', 'character', 'cast', 'place', 'previous', 'alternate'];
   const available = candidates
     .filter((candidate) => Boolean(candidate.uri))
     .map((candidate, index) => ({ candidate, index }))
@@ -59,7 +59,7 @@ export function faceDroppedWarning(
     : `Kan’s face reference wasn’t sent: ${model} doesn’t accept reference images, so his face may not match. Pick a reference-capable image model in Settings.`;
 }
 
-export type KanReferences = { face: string; outfit: string; alternate: string };
+export type KanReferences = { face: string; outfit: string; alternate: string; profile: string };
 
 /**
  * Puts each loaded sheet in its own slot (audit 11c). The old code dropped
@@ -67,14 +67,23 @@ export type KanReferences = { face: string; outfit: string; alternate: string };
  * face sheet sent the black outfit as his face. A failed sheet stays ''.
  */
 export function pickKanReferences(
-  [face, black, akatsuki]: readonly [string, string, string],
+  [face, black, akatsuki, profile]: readonly [string, string, string, string?],
   wearsAkatsukiCloak: boolean
 ): KanReferences {
   return {
     face: face || '',
+    profile: profile || '',
     outfit: (wearsAkatsukiCloak ? akatsuki : black) || '',
     alternate: (wearsAkatsukiCloak ? black : akatsuki) || '',
   };
+}
+
+/**
+ * Kan's profile crop goes only where his face can be seen up close (14 Nov
+ * 2026: the nose); wide shots skip it.
+ */
+export function wantsProfileReference(wide: boolean) {
+  return !wide;
 }
 
 /** Only image data can be sent: a plain URL is something the image model cannot open. */
