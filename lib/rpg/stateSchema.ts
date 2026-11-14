@@ -46,6 +46,7 @@ export const RELATIONSHIPS = [
   'family',
   'teammate',
   'former teammate',
+  'former sensei',
   'partner',
   'mentor',
   'student',

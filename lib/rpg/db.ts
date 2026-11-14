@@ -1,5 +1,6 @@
 import { KAN_APPEARANCE, migrateKanEyes } from './kanLook';
 import { migrateProtectorName } from './inventory';
+import { withInnateNatures } from './abilities';
 import { normalizePlaceLooks } from './placeLooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadAppModels, withAppModels } from './modelDefaults';
@@ -1027,7 +1028,9 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
             // Team 3 were seeded as "teammate" though Kan left the team for ANBU.
             (bond.relationship === 'teammate' && /^(deceased · )?former teammate\b/i.test(bond.status ?? '')
               ? 'former teammate'
-              : bond.relationship) ??
+              : bond.relationship === 'mentor' && /^(deceased · )?former sensei\b/i.test(bond.status ?? '')
+                ? 'former sensei'
+                : bond.relationship) ??
             (bond.affinity >= 7
               ? 'close'
               : bond.affinity >= 4
@@ -1223,6 +1226,8 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
       ? {
           ...state.player,
           birthYear: state.player.birthYear ?? seeded.player.birthYear,
+          // Fire and Earth are Kan's own natures (decided 14 Nov 2026).
+          natures: withInnateNatures(state.player.natures, state.inStoryDate ?? seeded.inStoryDate),
         }
       : structuredClone(seeded.player),
     mood: state.mood ?? seeded.mood,

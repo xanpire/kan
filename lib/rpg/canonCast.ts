@@ -757,6 +757,20 @@ const BASE_CAST: CastEntry[] = [
     tags: ['canon', 'leaf', 'uchiha'],
   },
   {
+    name: 'Hazuki Uchiha',
+    aliases: ['Hazuki', 'Aunt Hazuki'],
+    // Canon (Itachi Shinden) gives her no birthday; this one is the app's.
+    birthday: { month: 2, day: 21 },
+    birthdayInvented: true,
+    birthYear: -27,
+    role: 'Izumi’s mother · Kan’s aunt',
+    personality: 'Warm, wry, quietly uneasy about the clan’s mood; married outside the clan and lived apart from it before the Nine-Tails night.',
+    speechStyle: 'Gentle and teasing, plain-spoken.',
+    appearance: 'A slight woman with Izumi’s soft dark hair worn loose, tired kind eyes, plain house clothes.',
+    status: 'Deceased',
+    tags: ['canon', 'leaf', 'uchiha', 'family'],
+  },
+  {
     name: 'Rin Nohara',
     aliases: ['Rin', 'Nohara Rin'],
     birthday: { month: 11, day: 15 },
@@ -1221,7 +1235,7 @@ function namesOf(entity: { name: string; aliases: string[] }) {
 export const FEMALE_CAST = new Set([
   'Sakura Haruno', 'Tsunade Senju', 'Konan', 'Hinata Hyuga', 'Anko Mitarashi', 'Kurenai Yuhi',
   'Shizune', 'Karin', 'Ino Yamanaka', 'Tenten', 'Hanabi Hyuga', 'Tsume Inuzuka', 'Koharu Utatane',
-  'Ayame', 'Kushina Uzumaki', 'Mikoto Uchiha', 'Rin Nohara', 'Temari', 'Chiyo', 'Mei Terumi',
+  'Ayame', 'Kushina Uzumaki', 'Mikoto Uchiha', 'Hazuki Uchiha', 'Rin Nohara', 'Temari', 'Chiyo', 'Mei Terumi',
   'Yugito Nii', 'Karui', 'Samui', 'Kurotsuchi', 'Fū', 'Tayuya',
   'Kaguya Ōtsutsuki', 'Sarada Uchiha', 'Himawari Uzumaki', 'Chōchō Akimichi', 'Mirai Sarutobi',
   'Ameyuri Ringo', 'Mito Uzumaki', 'Moegi Kazamatsuri', 'Yūgao Uzuki', 'Mebuki Haruno', 'Pakura',

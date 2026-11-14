@@ -86,7 +86,7 @@ const BIRTHDAY_LETTER_DAYS = 3;
 const ARCHIVE_WITH_TEXT = 200;
 const ARCHIVE_WITHOUT_TEXT = 40;
 
-const CLOSE_STAGES = new Set(['close', 'old friend', 'family', 'partner', 'mentor', 'romantic interest', 'lover']);
+const CLOSE_STAGES = new Set(['close', 'old friend', 'family', 'partner', 'mentor', 'former sensei', 'romantic interest', 'lover']);
 /** People Kan grew up with: they remember his birthday. */
 const GREW_UP_WITH = new Set(['Itachi Uchiha', 'Hana Inuzuka', 'Suzume']);
 

@@ -62,6 +62,19 @@ export function applyAbilityChanges(db: AppDatabase, diff: TurnDiff): AppDatabas
   return { ...db, state: { ...db.state, player: { ...db.state.player, natures, abilities } } };
 }
 
+/**
+ * Kan's own natures (decided 14 Nov 2026): Fire from his mother Erisa, Earth
+ * from his father Banri. Any other comes only through Thousand Souls. Old
+ * saves that never found them get both.
+ */
+export const KAN_INNATE_NATURES = ['Fire', 'Earth'] as const;
+
+export function withInnateNatures(natures: NatureRecord[] | undefined, date: NatureRecord['acquiredOn']): NatureRecord[] {
+  const list = (natures ?? []).filter((item) => item.source !== 'innate' || KAN_INNATE_NATURES.some((n) => sameName(n, item.nature)));
+  const missing = KAN_INNATE_NATURES.filter((nature) => !list.some((item) => sameName(item.nature, nature)));
+  return [...missing.map((nature) => ({ nature, source: 'innate' as const, acquiredOn: date })), ...list];
+}
+
 /** One line for the prompts: "Natures: Fire (innate); abilities: Sharingan (2 tomoe)". */
 export function formatAbilities(db: AppDatabase): string {
   const natures = db.state.player.natures ?? [];

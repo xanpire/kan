@@ -26,6 +26,7 @@ export const KNOWN_AT_START: Record<string, true | string[]> = {
   'Sasuke Uchiha': true,
   'Fugaku Uchiha': true,
   'Mikoto Uchiha': true,
+  'Hazuki Uchiha': true,
   'Yashiro Uchiha': true,
   'Inabi Uchiha': true,
   'Tekka Uchiha': true,

@@ -122,9 +122,11 @@ describe('the map shows nothing ahead of its time', () => {
 describe('Team 3 are former teammates', () => {
   test('a new story', () => {
     const db = seed();
-    for (const name of ['Hana Inuzuka', 'Izumi Uchiha']) {
-      expect(db.bonds.find((bond) => bond.characterName === name)!.relationship).toBe('former teammate');
-    }
+    expect(db.bonds.find((bond) => bond.characterName === 'Hana Inuzuka')!.relationship).toBe('former teammate');
+    // Izumi is his cousin (decided 14 Nov 2026): family first, former teammate in her status.
+    const izumi = db.bonds.find((bond) => bond.characterName === 'Izumi Uchiha')!;
+    expect(izumi.relationship).toBe('family');
+    expect(izumi.status).toContain('former teammate');
     expect(RELATIONSHIPS as readonly string[]).toContain('former teammate');
   });
 

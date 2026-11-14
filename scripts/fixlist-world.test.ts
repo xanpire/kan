@@ -56,9 +56,9 @@ describe('15. the starting cast', () => {
 
   test('a bond shows a death once you know of it, not before', () => {
     let db = seed();
-    expect(bondOf(db, 'Izumi Uchiha')?.status).toBe('Former teammate');
+    expect(bondOf(db, 'Izumi Uchiha')?.status).toBe('Cousin · former teammate');
     db = play(db, 'Itachi tells you Izumi died.', { characters_present: ['itachi-uchiha'], deaths: [{ character_id: 'izumi-uchiha', cause: 'the massacre' }] });
-    expect(bondOf(db, 'Izumi Uchiha')?.status).toBe('Deceased · Former teammate');
+    expect(bondOf(db, 'Izumi Uchiha')?.status).toBe('Deceased · Cousin · former teammate');
   });
 });
 
@@ -109,18 +109,22 @@ describe('17. base look and current look', () => {
 describe('18. abilities and natures', () => {
   test('the state reply records the Sharingan by stage and natures by source', () => {
     let db = seed();
-    expect(db.state.player.natures ?? []).toEqual([]);
+    expect((db.state.player.natures ?? []).map((n) => `${n.nature}:${n.source}`)).toEqual(['Fire:innate', 'Earth:innate']);
     expect(db.jutsuRecords.some((record) => record.name === 'Fire Release')).toBe(false);
 
     db = play(db, 'Your eyes burn red.', { abilities_changed: [{ name: 'Sharingan', stage: '1 tomoe' }] });
     db = play(db, 'You drain the ninja.', {
       abilities_changed: [{ name: 'Sharingan', stage: '2 tomoe' }],
-      natures_gained: [{ nature: 'Earth', source: 'thousand-souls', from: 'Iwa ninja' }],
+      natures_gained: [{ nature: 'Water', source: 'thousand-souls', from: 'Mist ninja' }],
     });
     const sharingan = db.state.player.abilities!.find((ability) => ability.name === 'Sharingan')!;
     expect(sharingan.stage).toBe('2 tomoe');
     expect(sharingan.history?.map((item) => item.stage)).toEqual(['1 tomoe', '2 tomoe']);
-    expect(db.state.player.natures).toEqual([expect.objectContaining({ nature: 'Earth', source: 'thousand-souls', from: 'Iwa ninja' })]);
+    expect(db.state.player.natures).toEqual([
+      expect.objectContaining({ nature: 'Fire', source: 'innate' }),
+      expect.objectContaining({ nature: 'Earth', source: 'innate' }),
+      expect.objectContaining({ nature: 'Water', source: 'thousand-souls', from: 'Mist ninja' }),
+    ]);
     expect(buildNarrationPrompt(db, '*You look.*').messages[0].content).toContain('Sharingan (2 tomoe)');
   });
 });

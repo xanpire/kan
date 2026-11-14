@@ -94,7 +94,7 @@ describe('6. facts can expire or be replaced', () => {
     });
 
     expect(db.entities.find((entity) => entity.id === izumi.id)?.deceased?.known).toBe(true);
-    expect(fact(db, 'Izumi Uchiha, your former teammate')!.validTo).not.toBeNull();
+    expect(fact(db, 'Izumi Uchiha, your cousin and former teammate')!.validTo).not.toBeNull();
   });
 
   test('a passing condition ends at the next rest; an injury after its days', () => {
@@ -165,7 +165,7 @@ describe('7. lore with conditions', () => {
     expect(loreActive(db, noSharingan)).toBe(false);
     expect(loreActive(db, holdsBack)).toBe(false);
     expect(loreActive(db, izumiUnknown)).toBe(false);
-    expect(db.loreEntries.some((lore) => lore.text.startsWith('Izumi Uchiha, your former Team 3 teammate, died') && !lore.text.includes('NOT') && loreActive(db, lore))).toBe(true);
+    expect(db.loreEntries.some((lore) => lore.text.startsWith('Izumi Uchiha, your cousin and former Team 3 teammate, died') && !lore.text.includes('NOT') && loreActive(db, lore))).toBe(true);
   });
 });
 

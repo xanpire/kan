@@ -12,6 +12,8 @@ export type RelationshipStage =
   | 'teammate'
   /** Served on a team with Kan once (Team 3, before ANBU); no longer on it. */
   | 'former teammate'
+  /** Taught Kan once (Suzume, Team 3's sensei); no longer his teacher. */
+  | 'former sensei'
   | 'partner'
   | 'mentor'
   | 'student'
@@ -36,6 +38,7 @@ export const RELATIONSHIP_STAGES: RelationshipStage[] = [
   'family',
   'teammate',
   'former teammate',
+  'former sensei',
   'partner',
   'mentor',
   'student',
@@ -67,6 +70,10 @@ export function normalizeRelationship(value: string | undefined): RelationshipSt
 
   if (lower.includes('teammate') && /\b(former|old|ex)\b/.test(lower)) {
     return 'former teammate';
+  }
+
+  if (/\b(sensei|teacher)\b/.test(lower) && /\b(former|old|ex)\b/.test(lower)) {
+    return 'former sensei';
   }
 
   if (
@@ -534,6 +541,11 @@ export const CHARACTER_LORE: Record<string, CharacterLoreProfile> = {
     canonDevotion: 'Married to Fugaku; devoted to her sons to the end.',
     romanceAccessibility: 'lore-locked',
     orientation: 'Attracted to men (Fugaku)',
+  },
+  'Hazuki Uchiha': {
+    canonDevotion: 'Widowed on the Nine-Tails night; her heart was her daughter and the nephew she raised.',
+    romanceAccessibility: 'lore-locked',
+    orientation: 'Attracted to men (her late husband)',
   },
   'Rin Nohara': {
     canonDevotion: 'Loved Kakashi Hatake, and was loved by Obito.',
