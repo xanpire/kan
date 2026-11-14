@@ -267,7 +267,7 @@ export default function BondScreen() {
                 <ListCard>
                   <ListRow
                     body={[
-                      companion.reason ? `${companion.reason.charAt(0).toUpperCase()}${companion.reason.slice(1)}.` : null,
+                      companion.reason ? `${companion.reason.charAt(0).toUpperCase()}${companion.reason.slice(1).replace(/[.!?\s]+$/, '')}.` : null,
                       companion.sinceLocation ? `Joined you at ${companion.sinceLocation}.` : null,
                       'In every scene with you until the story parts you. The scenes you share move their bond.',
                     ]

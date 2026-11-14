@@ -157,6 +157,16 @@ function castNames(db: AppDatabase) {
 }
 
 /**
+ * In a fight the opponents come first, then whoever travels with Kan
+ * (Session 2, audit 10.3: the attacker was missing from the strip's start).
+ */
+function fightCastNames(db: AppDatabase) {
+  const companions = new Set(companionsOf(db).map((entity) => displayName(db, entity).toLowerCase()));
+  const names = castNames(db);
+  return [...names.filter((name) => !companions.has(name.toLowerCase())), ...names.filter((name) => companions.has(name.toLowerCase()))];
+}
+
+/**
  * The mode a turn will be narrated in, from the scene so far and what Kan
  * writes now. Pure and deterministic, so a regenerated turn gets the same.
  */
@@ -176,7 +186,7 @@ export function resolveTurnMode(db: AppDatabase, input: string): TurnMode {
   const startsFight = kan.attacks && someoneHere && !harmless;
 
   if (state.override === 'fight') {
-    return { mode: 'fight', lean: false, manual: true, with: castNames(db).slice(0, 4) };
+    return { mode: 'fight', lean: false, manual: true, with: fightCastNames(db).slice(0, 4) };
   }
 
   if (state.override === 'normal') {
@@ -184,7 +194,7 @@ export function resolveTurnMode(db: AppDatabase, input: string): TurnMode {
   }
 
   if (fightOn || startsFight) {
-    return { mode: 'fight', lean: false, manual: false, with: castNames(db).slice(0, 4) };
+    return { mode: 'fight', lean: false, manual: false, with: fightCastNames(db).slice(0, 4) };
   }
 
   if (state.override === 'conversation') {

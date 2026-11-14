@@ -227,3 +227,13 @@ export function secondPerson(text: string): string {
 
   return out;
 }
+
+/**
+ * The letter an avatar shows: the first word that isn't an article, so "the
+ * pierced man" gets P, not T (Session 2, audit 10.3).
+ */
+export function avatarLetter(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const word = words.find((item) => !/^(the|a|an)$/i.test(item)) ?? words[0] ?? '';
+  return word.charAt(0).toUpperCase() || '?';
+}

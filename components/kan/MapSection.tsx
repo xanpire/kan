@@ -294,7 +294,8 @@ function WorldBoard({
             {/* Zoomed in, every place is named; the whole map only names the countries. */}
             {named
               ? places.map((place) => {
-                  const spot = placeNameSpot(place);
+                  // The place Kan is at: its name clears the you-are-here halo (audit 10.3).
+                  const spot = nameClearOf(placeNameSpot(place), place, you);
 
                   // A dark halo under the name first, so it reads over borders and coasts.
                   return (
@@ -344,6 +345,24 @@ function WorldBoard({
       ) : null}
     </View>
   );
+}
+
+/** The you-are-here halo's radius on the board. */
+const HERE_HALO = 2.6;
+
+/** Moves a place name out from under the you-are-here halo when Kan is at that place. */
+function nameClearOf(
+  spot: { x: number; y: number; anchor: 'start' | 'middle' | 'end' },
+  place: { x: number; y: number },
+  you: { x: number; y: number }
+) {
+  if (Math.hypot(place.x - you.x, place.y - you.y) > HERE_HALO) return spot;
+
+  if (spot.anchor === 'start') return { ...spot, x: Math.max(spot.x, you.x + HERE_HALO + 0.3) };
+  if (spot.anchor === 'end') return { ...spot, x: Math.min(spot.x, you.x - HERE_HALO - 0.3) };
+  return spot.y < place.y
+    ? { ...spot, y: Math.min(spot.y, you.y - HERE_HALO - 0.3) }
+    : { ...spot, y: Math.max(spot.y, you.y + HERE_HALO + PLACE_NAME_SIZE) };
 }
 
 function PersonRows({ entries }: { entries: KnownWhereabouts[] }) {

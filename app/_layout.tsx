@@ -25,6 +25,8 @@ import { GameProvider } from '@/lib/rpg/game';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
+const APP_TITLE = 'Kan — Interactive Naruto RPG';
+
 export default function RootLayout() {
   useFrameworkReady();
   const [fontsLoaded, fontError] = useFonts({
@@ -40,6 +42,20 @@ export default function RootLayout() {
       void SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontError, fontsLoaded]);
+
+  // The browser tab keeps a title: navigation clears it on every route
+  // (Session 2, audit 10.3), so it is put back whenever it goes empty.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+
+    const keep = () => {
+      if (!document.title.trim()) document.title = APP_TITLE;
+    };
+    keep();
+    const observer = new MutationObserver(keep);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === 'android') {

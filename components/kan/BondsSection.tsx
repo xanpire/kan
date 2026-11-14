@@ -6,6 +6,7 @@ import { Cake, Search } from 'lucide-react-native';
 import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { formatDayMonth } from '@/lib/rpg/calendar';
+import { avatarLetter } from '@/lib/rpg/util';
 import { kanKnowsDeath } from '@/lib/rpg/deaths';
 import { grudgeKnown, shownField } from '@/lib/rpg/disclosure';
 import { STAGE_LABEL, grudgeStage } from '@/lib/rpg/grudges';
@@ -110,7 +111,7 @@ export function Avatar({
       ]}
     >
       <Text style={[styles.avatarText, { fontSize: size * 0.36 }]}>
-        {name.trim().charAt(0).toUpperCase() || '?'}
+        {avatarLetter(name)}
       </Text>
     </View>
   );

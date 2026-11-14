@@ -882,9 +882,11 @@ export default function SettingsScreen() {
               accessibilityState={{ expanded: advancedOpen }}
               onPress={() => setAdvancedOpen((open) => !open)}
               title="Models for the engine"
+              // Under the title, not beside it: at 375 px the title wrapped (audit 10.3).
+              meta="Summaries, director, memory"
+              titleLines={1}
               trailing={
                 <View style={styles.trailingValue}>
-                  <Text style={styles.valueText}>Summaries, director, memory</Text>
                   {advancedOpen ? (
                     <ChevronDown color={colors.textDim} size={16} strokeWidth={2} />
                   ) : (

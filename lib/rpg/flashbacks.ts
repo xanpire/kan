@@ -516,7 +516,7 @@ export function flashbackTrackingLines(db: AppDatabase, offeredId: string | unde
   if (playing) {
     const age = kanAgeAt(db, playing.active.date);
     return [
-      `THIS TURN IS A MEMORY (flashback "${playing.record.title}", ${formatDate(playing.active.date)}, you are ${ageWord(age)}). Report time and location as they pass inside the memory. characters_present: who is in the memory scene (the dead are alive in it: list them). bonds: only how someone in the memory feels about you because of it, affinity_change -1..1. Leave inventory, jutsu, facts, threads, canon, news, letters, reputation, consequences, deaths, revived, companions, natures and abilities empty: the memory is recorded separately. flashback: "ended" when the reply closes the memory and brings you back to the present; otherwise null.`,
+      `THIS TURN IS A MEMORY (flashback "${playing.record.title}", ${formatDate(playing.active.date)}, you are ${ageWord(age)}). Report time and location as they pass inside the memory. characters_present: who is in the memory scene (the dead are alive in it: list them). bonds: only how someone in the memory feels about you because of it, affinity_change -1..1. Leave inventory, jutsu, facts, threads, canon, news, letters, reputation, consequences, deaths, revived, companions, natures and abilities empty: the memory is recorded separately. A fight inside the memory is tracked like any fight: scene_pace, beat and fight_options as usual, with moves that fit what you could do at that age. flashback: "ended" when the reply closes the memory and brings you back to the present; otherwise null.`,
     ];
   }
 

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { avatarLetter } from '@/lib/rpg/util';
 import { ImagePlus, RefreshCw, X } from 'lucide-react-native';
 
 import { ListCard, ListRow } from '@/components/List';
@@ -182,7 +183,7 @@ export function CharacterPortraitCard({
         >
           <StoredImage
             fallback={
-              <Text style={styles.initial}>{(kanKnowsName(entity) ? name : '?').trim().charAt(0).toUpperCase() || '?'}</Text>
+              <Text style={styles.initial}>{kanKnowsName(entity) ? avatarLetter(name) : '?'}</Text>
             }
             value={latest?.image ?? null}
           />

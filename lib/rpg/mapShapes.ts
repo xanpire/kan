@@ -292,7 +292,7 @@ export const BRIDGES: Array<readonly [Pt, Pt]> = [
 
 
 /** Label sizes in board units. */
-export const LABEL_SIZE = { large: 2.6, medium: 2.1, small: 1.6 } as const;
+export const LABEL_SIZE = { large: 3.2, medium: 2.6, small: 1.65 } as const;
 
 export type LabelLine = {
   text: string;
