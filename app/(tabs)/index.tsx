@@ -69,6 +69,7 @@ import {
   formatStoryDate,
   timeOfDayOf,
 } from '@/lib/rpg/calendar';
+import { narrationSegments } from '@/lib/rpg/narrationText';
 import { testOpenRouterKey } from '@/lib/openrouter';
 import { useReadingType } from '@/lib/reading';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
@@ -187,25 +188,21 @@ function paragraphsOf(text: string) {
     .filter(Boolean);
 }
 
-/** A narration paragraph: *action lines* and thoughts in italics. */
+/** A narration paragraph: *action lines* and thoughts in dim italics, never their asterisks. */
 function NarrationParagraph({ text, memory }: { text: string; memory?: boolean }) {
-  const parts = text.split(/(\*[^*\n]+\*)/g).filter(Boolean);
+  const segments = narrationSegments(text);
   const reading = useReadingType();
   const prose = memory ? [reading.prose, styles.memoryProse] : reading.prose;
 
-  if (parts.length === 1) {
-    return <Text style={prose}>{text}</Text>;
-  }
-
   return (
     <Text style={prose}>
-      {parts.map((part, index) =>
-        part.startsWith('*') && part.endsWith('*') && part.length > 2 ? (
+      {segments.map((segment, index) =>
+        segment.action ? (
           <Text key={index} style={[styles.narrationAction, memory && styles.memoryAction]}>
-            {part.slice(1, -1)}
+            {segment.text}
           </Text>
         ) : (
-          <Text key={index}>{part}</Text>
+          <Text key={index}>{segment.text}</Text>
         )
       )}
     </Text>
