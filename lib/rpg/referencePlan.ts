@@ -1,5 +1,5 @@
 /** Which reference images go with an image request. Pure, so it can be tested. */
-export type ReferenceKind = 'face' | 'profile' | 'outfit' | 'character' | 'cast' | 'place' | 'alternate' | 'previous' | 'edit';
+export type ReferenceKind = 'face' | 'profile' | 'eye' | 'outfit' | 'character' | 'cast' | 'place' | 'alternate' | 'previous' | 'edit';
 
 export type PlannedReference = {
   kind: ReferenceKind;
@@ -29,7 +29,7 @@ export function planReferences(
   leftOut: ReferenceKind[];
 } {
   // Other people's faces outrank older scenes: drifting faces are worse than drifting style.
-  const order: ReferenceKind[] = ['edit', 'face', 'profile', 'outfit', 'character', 'cast', 'place', 'previous', 'alternate'];
+  const order: ReferenceKind[] = ['edit', 'face', 'profile', 'eye', 'outfit', 'character', 'cast', 'place', 'previous', 'alternate'];
   const available = candidates
     .filter((candidate) => Boolean(candidate.uri))
     .map((candidate, index) => ({ candidate, index }))
@@ -59,7 +59,7 @@ export function faceDroppedWarning(
     : `Kan’s face reference wasn’t sent: ${model} doesn’t accept reference images, so his face may not match. Pick a reference-capable image model in Settings.`;
 }
 
-export type KanReferences = { face: string; outfit: string; alternate: string; profile: string };
+export type KanReferences = { face: string; outfit: string; alternate: string; profile: string; mangekyo: string; eternal: string };
 
 /**
  * Puts each loaded sheet in its own slot (audit 11c). The old code dropped
@@ -67,12 +67,14 @@ export type KanReferences = { face: string; outfit: string; alternate: string; p
  * face sheet sent the black outfit as his face. A failed sheet stays ''.
  */
 export function pickKanReferences(
-  [face, black, akatsuki, profile]: readonly [string, string, string, string?],
+  [face, black, akatsuki, profile, mangekyo, eternal]: readonly [string, string, string, string?, string?, string?],
   wearsAkatsukiCloak: boolean
 ): KanReferences {
   return {
     face: face || '',
     profile: profile || '',
+    mangekyo: mangekyo || '',
+    eternal: eternal || '',
     outfit: (wearsAkatsukiCloak ? akatsuki : black) || '',
     alternate: (wearsAkatsukiCloak ? black : akatsuki) || '',
   };

@@ -1,4 +1,5 @@
 import { KAN_APPEARANCE } from './kanLook';
+import { KAN_STARTING_JUTSU } from './kanStartingJutsu';
 import { DEFAULT_DATE } from './calendar';
 import { ensureCanonCast } from './canonCast';
 import { NAMES_VERSION } from './names';
@@ -226,21 +227,14 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
   };
 
   const jutsuRecords: JutsuRecord[] = [
-    {
+    ...KAN_STARTING_JUTSU.map((jutsu) => ({
       id: makeId('jutsu'),
-      name: 'Shinobi taijutsu',
       user: 'Kan',
-      chakraNature: 'Physical',
-      effect:
-        'Close-quarters shinobi combat built for silent takedowns, precise strikes, and quick escapes.',
-      visual:
-        'Fast, economical movements with almost no sound; you close distance in a low stance and end exchanges in one or two blows.',
+      ...jutsu,
       firstSeen: DEFAULT_DATE,
       lastSeen: DEFAULT_DATE,
       timesUsed: 0,
-      description: 'Close-quarters hand-to-hand combat focused on speed, silence, and precision.',
-      tags: ['taijutsu', 'kan'],
-    },
+    })),
     {
       id: makeId('jutsu'),
       name: 'Thousand Souls',
@@ -640,6 +634,14 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     },
     {
       id: makeId('lore'),
+      keywords: ['izumi', 'eyes', 'grave', 'body', 'marker', 'mangekyo', 'mangekyō', 'masked man', 'eternal'],
+      priority: 4,
+      text: 'Hidden truth about Izumi (never reveal it through narration; Kan learns it only on the page): in her last moment, as she understood it was Itachi killing her, Izumi awakened the Mangekyō Sharingan, a three-petal camellia. After the massacre the masked man harvested her eyes with the clan’s and holds them still. Her grave holds a body without eyes, or none at all; anyone who handled the burial may have noticed something wrong (a clue, never an explanation). Taking her eyes would give Kan, her cousin, the Eternal Mangekyō.',
+      enabled: true,
+      hidden: true,
+    },
+    {
+      id: makeId('lore'),
       keywords: ['shisui'],
       priority: 4,
       text: 'Shisui Uchiha grew up with you and Itachi. He was found dead in the Naka River shortly before the massacre, officially a suicide. You do not know the truth.',
@@ -761,7 +763,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       },
       mood: 'Numb, guarded, torn',
       worldDescription: 'The Hidden Leaf still carries the scars of the Nine-Tails attack. Tonight the rain is heavy, and the forest around the village is silent.',
-      jutsu: ['Shinobi taijutsu', 'Thousand Souls'],
+      jutsu: [...KAN_STARTING_JUTSU.map((jutsu) => jutsu.name), 'Thousand Souls'],
       inventory: [
         'Hidden Leaf headband',
         'Kunai pouch (6 kunai)',

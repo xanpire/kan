@@ -4,10 +4,12 @@ const kanFaceSheet = require('../../assets/images/kan-face-sheet.jpg');
 const kanOutfitBlack = require('../../assets/images/kan-outfit-black.jpg');
 const kanOutfitAkatsuki = require('../../assets/images/kan-outfit-akatsuki.jpg');
 const kanProfile = require('../../assets/images/kan-profile.jpg');
+const kanMangekyo = require('../../assets/images/kan-mangekyo.png');
+const kanEternal = require('../../assets/images/kan-eternal-mangekyo.png');
 
 import { isImageData, pickKanReferences, type KanReferences } from './referencePlan';
 
-let referencesPromise: Promise<[string, string, string, string]> | null = null;
+let referencesPromise: Promise<[string, string, string, string, string, string]> | null = null;
 
 export function loadKanReferenceImages(wearsAkatsukiCloak: boolean): Promise<KanReferences> {
   if (!referencesPromise) {
@@ -16,6 +18,8 @@ export function loadKanReferenceImages(wearsAkatsukiCloak: boolean): Promise<Kan
       toDataUri(Asset.fromModule(kanOutfitBlack)),
       toDataUri(Asset.fromModule(kanOutfitAkatsuki)),
       toDataUri(Asset.fromModule(kanProfile)),
+      toDataUri(Asset.fromModule(kanMangekyo)),
+      toDataUri(Asset.fromModule(kanEternal)),
     ]);
   }
 

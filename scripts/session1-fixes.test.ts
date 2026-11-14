@@ -89,17 +89,18 @@ describe('the forehead protector (6.21, 6.22)', () => {
 describe('the tracker (7, 8)', () => {
   test('taijutsu starts unused, and an old seeded count goes back to 0', () => {
     const db = seed();
-    expect(db.jutsuRecords.find((record) => record.name === 'Shinobi taijutsu')?.timesUsed).toBe(0);
-    const old = { ...db, jutsuRecords: db.jutsuRecords.map((record) => (record.name === 'Shinobi taijutsu' ? { ...record, timesUsed: 1 } : record)) };
+    expect(db.jutsuRecords.find((record) => record.name === 'Taijutsu (your own style)')?.timesUsed).toBe(0);
+    // Older saves seeded "Shinobi taijutsu" at 1.
+    const old = { ...db, jutsuRecords: db.jutsuRecords.map((record) => (record.name === 'Taijutsu (your own style)' ? { ...record, name: 'Shinobi taijutsu', timesUsed: 1 } : record)) };
     expect(normalizeDatabase(old).jutsuRecords.find((record) => record.name === 'Shinobi taijutsu')?.timesUsed).toBe(0);
     // A real use (lastSeen moved) is kept.
     const used = {
       ...db,
       jutsuRecords: db.jutsuRecords.map((record) =>
-        record.name === 'Shinobi taijutsu' ? { ...record, timesUsed: 1, lastSeen: { ...record.lastSeen, hour: record.lastSeen.hour + 1 } } : record
+        record.name === 'Taijutsu (your own style)' ? { ...record, timesUsed: 1, lastSeen: { ...record.lastSeen, hour: record.lastSeen.hour + 1 } } : record
       ),
     };
-    expect(normalizeDatabase(used).jutsuRecords.find((record) => record.name === 'Shinobi taijutsu')?.timesUsed).toBe(1);
+    expect(normalizeDatabase(used).jutsuRecords.find((record) => record.name === 'Taijutsu (your own style)')?.timesUsed).toBe(1);
   });
 
   test('the tracker prompt asks for a feeling as mood, and no longer names "Fire Style: Hell"', () => {

@@ -705,6 +705,10 @@ export function buildSceneImagePrompt(
       );
     } else if (reference.kind === 'profile') {
       lines.push(`Reference image ${n}: ${KAN_PROFILE_LABEL} ${IDENTITY_ONLY}`);
+    } else if (reference.kind === 'eye') {
+      lines.push(
+        `Reference image ${n}: the exact pattern of Kan's iris, his ${reference.name === 'eternal' ? 'Eternal Mangekyō' : 'Mangekyō'} Sharingan, active now: copy this pattern and its colours into both his eyes exactly.`
+      );
     } else if (reference.kind === 'outfit') {
       lines.push(
         `Reference image ${n}: the clothes Kan currently wears (${currentOutfit}), front, side and back views with NO person. Dress Kan in exactly these clothes. ${IDENTITY_ONLY}`

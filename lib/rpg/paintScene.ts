@@ -22,8 +22,9 @@ import {
 } from './image';
 import { checkSceneImage, imageCheckEnabled, sharperActorRule, type ImageCheck, checkWantsRepaint } from './imageCheck';
 import { isScaleShot, wantsEnsemble, type ShotChip } from './imageDirection';
+import { kanEyeReference } from './kanPowers';
 import { loadImage, toDataUri } from './imageStore';
-import { kanOutfit } from './kanLook';
+import { kanEntity, kanOutfit } from './kanLook';
 import { placeKeyOf, placeLookOf } from './placeLooks';
 import { wearsAkatsukiCloak } from './portrait';
 import { faceDroppedWarning, loadKanReferenceImages, planReferences, wantsProfileReference, type PlannedReference } from './referenceImages';
@@ -111,7 +112,9 @@ export async function paintScene({
   );
   // His profile (the nose) only where his face shows up close (14 Nov 2026).
   const withProfile = wantsProfileReference(ensemble || isScaleShot(shotType));
-  const people = await packPeopleReferences(loaded, personReferenceSlots(caps.maxReferences, sheets, withProfile));
+  // His Mangekyō (or, after the Eternal, that) when it is active and his face shows.
+  const eye = withProfile && !inMemory ? kanEyeReference(db, `${action} ${shot ?? ''} ${kanEntity(db)?.currentLook ?? ''}`) : null;
+  const people = await packPeopleReferences(loaded, personReferenceSlots(caps.maxReferences, sheets, withProfile) - (eye ? 1 : 0));
 
   // Which stored image each sent reference came from, for the image's record.
   const refOf = new Map<string, string>();
@@ -126,6 +129,7 @@ export async function paintScene({
   const plan = planReferences(
     [
       { kind: 'face', uri: kanRefs.face },
+      ...(eye && kanRefs[eye] ? [{ kind: 'eye' as const, uri: kanRefs[eye], name: eye }] : []),
       ...(withProfile ? [{ kind: 'profile' as const, uri: kanRefs.profile }] : []),
       ...(sheets ? [{ kind: 'outfit' as const, uri: kanRefs.outfit }] : []),
       ...people,

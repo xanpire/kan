@@ -2502,8 +2502,8 @@ const PERSONAL_BEATS: CanonMilestone[] = [
     era: 'Ashes',
     title: "Izumi's grave: the Mangekyō",
     description:
-      "You stand at Izumi's grave and finally let her be dead. The grief goes all the way down, and your Sharingan changes shape. It brings an ability that belongs to no other Uchiha, and a Susanoo of your own — and both cost your eyes a little every time.",
-    canonPoint: "You awakened the Mangekyō Sharingan at Izumi's grave, with your own ability and a Susanoo.",
+      "You stand at Izumi's grave and finally let her be dead. The grief goes all the way down, and your Sharingan changes shape: a ring of vulture bills and spirals, red on black. Your left eye brings Sky Burial, your right eye Okuribi, and a blood-red Susanoo rises around you — and all of it costs your eyes a little every time.",
+    canonPoint: "You awakened the Mangekyō Sharingan at Izumi's grave: Sky Burial in the left eye, Okuribi in the right, a blood-red Susanoo.",
     from: { year: 13, month: 11 },
     to: { year: 17, month: 7, day: 31 },
     region: 'Land of Fire',
@@ -2519,27 +2519,36 @@ const PERSONAL_BEATS: CanonMilestone[] = [
     completesWhen: "You stand at Izumi's grave, knowing she is dead, and the Mangekyō awakens on the page.",
     facts: [
       "Kan awakened the Mangekyō Sharingan at Izumi Uchiha's grave.",
-      'Kan has his own Mangekyō ability, unique to him, and can manifest Susanoo.',
+      'Kan’s Mangekyō holds Sky Burial in the left eye and Okuribi in the right, and he can manifest a blood-red Susanoo.',
       'Every use of the Mangekyō or Susanoo wears down the eyes toward blindness.',
     ],
     grantsJutsu: [
       {
-        name: 'Mangekyō Sharingan',
+        name: 'Sky Burial',
         chakraNature: 'Yin',
         effect:
-          "Your own Mangekyō ability, born from Izumi's death. It belongs to no other Uchiha. If you say what it does, that is what it does; otherwise the story shapes it from your grief the first time you call on it, and once named it never changes. Each use strains your eyes toward blindness.",
+          "Your left eye's genjutsu (Chōsō). Hold a target's eyes and they lie out on a mountain while your blood-red vultures land, surround them and eat them; as they eat, the target's chakra is consumed and flows into you. It drains a lot and permanently grows your reserve, but takes no chakra nature. Fused with Thousand Souls it drains anyone who can't break free completely, takes their nature and kills them unless you stop it; a fused use counts toward Thousand Souls' ten uses. Each use strains your eyes toward blindness.",
         visual:
-          "Your pattern is your own and never seen before. The eye bleeds a little when the ability is pushed.",
-        description: "Your Mangekyō Sharingan and its unique ability, awakened at Izumi's grave.",
-        tags: ['mangekyo', 'uchiha', 'dojutsu'],
+          "Your Mangekyō (black iris, red ring of hooked vulture bills and spirals) holds their gaze; in their mind, a bare mountain and the sky full of circling red vultures coming down.",
+        description: "Your left eye's genjutsu, awakened at Izumi's grave: vultures eat the target's chakra into you.",
+        tags: ['mangekyo', 'uchiha', 'dojutsu', 'genjutsu', 'kan'],
+      },
+      {
+        name: 'Okuribi',
+        chakraNature: 'Yin',
+        effect:
+          "Your right eye's black-red flame, named for the Obon fire that sends the dead back. It burns chakra, not flesh: a jutsu in flight, a barrier, a chakra cloak, even Amaterasu. On a person it burns their chakra until they collapse empty. You gain nothing from it. It burns until no chakra is left unless you put it out. Your right eye bleeds; big targets (a Susanoo, a tailed beast's cloak) strain it badly.",
+        visual: 'A black flame edged in deep red that clings to chakra and leaves skin and stone untouched; blood runs from your right eye.',
+        description: "Your right eye's flame, awakened at Izumi's grave: it burns chakra, not flesh.",
+        tags: ['mangekyo', 'uchiha', 'dojutsu', 'kan'],
       },
       {
         name: 'Susanoo',
         chakraNature: 'Yin',
         effect:
-          'A giant chakra warrior rises around you, in a color that is yours. It grows in stages with practice and strain: ribs and an arm first, then a skeletal torso, then a muscled warrior, then full armor. Manifesting it strains your whole body and your eyes.',
+          'A giant blood-red chakra warrior rises around you. It grows in stages with practice and strain: ribs and an arm first, then a skeletal torso, then a muscled warrior, then full armor. Manifesting it strains your whole body and your eyes.',
         visual:
-          'Chakra bones knit themselves around you in your color, then flesh, then armor, flickering at the edges like flame.',
+          'Blood-red chakra bones knit themselves around you, then flesh, then armor, flickering at the edges like flame.',
         description: "The Susanoo of your Mangekyō Sharingan. It starts as ribs and grows with use.",
         tags: ['mangekyo', 'uchiha', 'susanoo'],
       },
@@ -2548,7 +2557,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       who: "Izumi's grave",
       where: 'the Uchiha cemetery outside Hidden Leaf, usually at night',
       context:
-        "This only happens when Kan comes to Izumi's grave knowing she is dead and lets the loss land. Alone, or found there by Hana or Itachi. The Mangekyō's pattern and ability are new; if the player names the ability, use it exactly. Susanoo starts as ribs and an arm.",
+        "This only happens when Kan comes to Izumi's grave knowing she is dead and lets the loss land. Alone, or found there by Hana or Itachi. The pattern is fixed: black iris, a red ring with three vulture bills hooking inward, three red half-turn spirals into a red rim. The left eye holds Sky Burial, the right Okuribi; the Susanoo is blood red and starts as ribs and an arm.",
     },
   },
 
@@ -3026,22 +3035,39 @@ const PERSONAL_BEATS: CanonMilestone[] = [
   {
     id: 'masked-man-eyes',
     era: 'Shippuden',
-    title: 'The vault of eyes',
+    title: "Izumi's eyes",
     description:
-      "The masked man shows you what he took from the Uchiha district: rows of eyes in jars. Some belonged to people you knew. He offers you a pair, and light that will never go out.",
-    canonPoint: "The masked man offered you Uchiha eyes from the massacre.",
+      "The masked man shows you what he took from the Uchiha district: rows of eyes in jars. One pair is Izumi's — a Mangekyō, a camellia of three petals, that she woke in her last moment. He offers them to you, and light that will never go out.",
+    canonPoint: "You took Izumi's eyes and awakened the Eternal Mangekyō.",
+    // Around Itachi's death, in the same weeks Sasuke gets Itachi's eyes (decided 14 Nov 2026).
     from: { year: 21, month: 9, day: 14 },
     to: { year: 23, month: 1, day: 9 },
     playerDriven: true,
-    after: 'kan-sight-fades',
-    facts: [],
+    after: 'kan-mangekyo',
+    grantsAbilities: [{ name: 'Eternal Mangekyō Sharingan', stage: 'awakened' }],
+    completesWhen: "Izumi's eyes are implanted in Kan's own on the page and he wakes with the Eternal Mangekyō.",
+    facts: [
+      "Kan took his cousin Izumi Uchiha's eyes from the masked man and awakened the Eternal Mangekyō Sharingan.",
+      'Izumi Uchiha awakened the Mangekyō Sharingan in her last moment, when she understood it was Itachi killing her.',
+    ],
+    grantsJutsu: [
+      {
+        name: 'Long Dream',
+        chakraNature: 'Yin',
+        effect:
+          "Izumi's gift to you with her eyes (Nagayume). The target lives a whole happy life in a single moment, the way she died inside Itachi's genjutsu. Nothing hurts; on waking they have to live with having lost it. Your quietest and cruellest ability.",
+        visual: 'Your Eternal Mangekyō (red iris, black camellia and spirals) and, in their eyes, a whole life passing in a heartbeat.',
+        description: 'The Long Dream, inherited from Izumi with the Eternal Mangekyō.',
+        tags: ['mangekyo', 'eternal', 'uchiha', 'dojutsu', 'genjutsu', 'kan'],
+      },
+    ],
     encounter: {
       who: 'the masked man',
       where: "the masked man's hidden lair",
       context:
-        "Implanting eyes from a close relative would give Kan an Eternal Mangekyō; eyes from anyone else give only another Sharingan. Whether any of these were Kan's family is something the masked man may lie about. Taking them binds Kan to him.",
+        "He harvested the eyes after the massacre; Izumi's are a Mangekyō (a three-petal camellia) she awakened as she understood it was Itachi killing her, and he knows they are Kan's cousin's. Implanting them gives Kan the Eternal Mangekyō: his sight comes back, Sky Burial works on any eye contact and catches two or three people, Okuribi can be shaped, Perfect Susanoo becomes possible, and he inherits her Long Dream. Taking them binds Kan to him; Kan can refuse, bargain, or steal them.",
     },
-    attendanceFact: "The masked man showed Kan the massacre's stolen eyes.",
+    attendanceFact: "The masked man offered Kan Izumi's eyes.",
   },
 
   // --- The Root hunter -------------------------------------------------------

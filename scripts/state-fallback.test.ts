@@ -64,11 +64,11 @@ describe('prose fallback', () => {
     expect(kanJutsuFromMessage(db, 'I weave the signs for Fire Style: Fireball Jutsu.')).toEqual([
       'Fire Style: Fireball Jutsu',
     ]);
-    expect(kanJutsuFromMessage(db, 'I use Shadow Clone Jutsu and slip away.')).toEqual([
-      'Shadow Clone Jutsu',
+    expect(kanJutsuFromMessage(db, 'I use Water Clone Jutsu and slip away.')).toEqual([
+      'Water Clone Jutsu',
     ]);
     expect(kanJutsuFromMessage(db, 'I reach for Thousand Souls.')).toEqual(['Thousand Souls']);
-    expect(kanJutsuFromMessage(db, 'I ask Itachi about the Shadow Clone Jutsu.')).toEqual([]);
+    expect(kanJutsuFromMessage(db, 'I ask Itachi about the Water Clone Jutsu.')).toEqual([]);
     expect(kanJutsuFromMessage(db, 'I nod and keep walking.')).toEqual([]);
   });
 
@@ -77,13 +77,13 @@ describe('prose fallback', () => {
     const turnLogId = db.rawLog.filter((entry) => entry.role === 'assistant').at(-1)?.id ?? 'log_x';
     const turn = {
       turnLogId,
-      userMessage: 'I use Shadow Clone Jutsu.',
+      userMessage: 'I use Water Clone Jutsu.',
       narration: 'Itachi watches your clones scatter. Itachi says nothing.',
     };
-    expect(fallbackDiffFromProse(db, turn)?.jutsuUsed?.[0]?.name).toBe('Shadow Clone Jutsu');
+    expect(fallbackDiffFromProse(db, turn)?.jutsuUsed?.[0]?.name).toBe('Water Clone Jutsu');
 
     const result = applyStateStep(db, null, turn, new Set());
-    expect(result.db.jutsuRecords.some((r) => r.name === 'Shadow Clone Jutsu' && r.user === 'Kan')).toBe(true);
+    expect(result.db.jutsuRecords.some((r) => r.name === 'Water Clone Jutsu' && r.user === 'Kan')).toBe(true);
     expect(result.appliedDiff?.suggestedCast).toContain('Itachi Uchiha');
     // Only the state reply's characters_present stamps who was seen.
     const before = db.entities.find((e) => e.name === 'Itachi Uchiha');
@@ -149,7 +149,7 @@ describe('jutsu names stay as the player wrote them', () => {
     let db = seed();
     db = applyTurnDiff(db, { jutsuUsed: [{ name: 'Fire Style: Hell', user: 'Kan' }] });
     db = applyTurnDiff(db, { jutsuUsed: [{ name: 'Fire Release: Hell', user: 'Kan' }] });
-    const records = db.jutsuRecords.filter((record) => record.user === 'Kan' && /hell/i.test(record.name));
+    const records = db.jutsuRecords.filter((record) => record.user === 'Kan' && /: hell$/i.test(record.name));
     expect(records).toHaveLength(1);
     expect(records[0].name).toBe('Fire Style: Hell');
     expect(records[0].timesUsed).toBe(2);
@@ -245,7 +245,7 @@ describe('fixing jutsu by hand', () => {
     const db = withJutsu();
     const record = db.jutsuRecords.find((item) => item.name === 'Phoenix Flower')!;
     const next = renameJutsuRecord(db, record.id, 'Fire Release: Hell');
-    const hell = next.jutsuRecords.filter((item) => item.user === 'Kan' && /hell/i.test(item.name));
+    const hell = next.jutsuRecords.filter((item) => item.user === 'Kan' && /: hell$/i.test(item.name));
     expect(hell).toHaveLength(1);
     expect(hell[0].timesUsed).toBe(2);
     expect(next.jutsuRecords.some((item) => item.id === record.id)).toBe(false);
@@ -262,7 +262,7 @@ describe('fixing jutsu by hand', () => {
     expect(isBareNatureName('Fire Release')).toBe(true);
     expect(isBareNatureName('water style:')).toBe(true);
     expect(isBareNatureName('Fire Style: Hell')).toBe(false);
-    expect(isBareNatureName('Shadow Clone Jutsu')).toBe(false);
+    expect(isBareNatureName('Water Clone Jutsu')).toBe(false);
 
     const db = seed();
     const fresh = applyTurnDiff(db, { jutsuUsed: [{ name: 'Fire Release', user: 'Kan' }] });

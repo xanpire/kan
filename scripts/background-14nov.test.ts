@@ -72,3 +72,43 @@ describe("Kan's background (decided 14 Nov 2026)", () => {
     }
   });
 });
+
+import { KAN_STARTING_JUTSU } from '../lib/rpg/kanStartingJutsu';
+import { KAN_VULTURES, kanEyeReference, kanPowerLines } from '../lib/rpg/kanPowers';
+import { CANON_MILESTONES } from '../lib/rpg/canonData';
+
+describe("Kan's starting jutsu, vultures and eyes (decided 14 Nov 2026)", () => {
+  test('a new story seeds the starting jutsu, the vultures and both vulture jutsu; no tantō', () => {
+    const db = seed();
+    const mine = db.jutsuRecords.filter((record) => record.user === 'Kan').map((record) => record.name);
+    for (const name of ['Shadow Clone', 'Great Fireball', 'Majestic Destroyer Flame', 'Earth Flow Rampart', 'Adamantine Sealing Chains', 'Vulture Clone', 'Vulture Flight', 'Eight Gates', 'Thousand Souls']) {
+      expect(mine).toContain(name);
+    }
+    expect(KAN_STARTING_JUTSU.some((jutsu) => /tant[oō]|kenjutsu/i.test(jutsu.name))).toBe(false);
+    expect(db.state.jutsu).toContain('Vulture Flight');
+    expect(KAN_VULTURES.map((vulture) => vulture.name)).toEqual(['Okuri', 'Hōmuri', 'Tomurai']);
+    expect(narrator(db)).toContain('Okuri the courier');
+    expect(narrator(db)).toContain('about Itachi’s equal');
+  });
+
+  test('the Mangekyō beat names Sky Burial and Okuribi; the Eternal is Izumi’s eyes with the Long Dream', () => {
+    const mangekyo = CANON_MILESTONES.find((milestone) => milestone.id === 'kan-mangekyo')!;
+    expect(mangekyo.grantsJutsu?.map((jutsu) => jutsu.name)).toEqual(['Sky Burial', 'Okuribi', 'Susanoo']);
+    const eternal = CANON_MILESTONES.find((milestone) => milestone.id === 'masked-man-eyes')!;
+    expect(eternal.grantsAbilities?.[0].name).toBe('Eternal Mangekyō Sharingan');
+    expect(eternal.grantsJutsu?.[0].name).toBe('Long Dream');
+  });
+
+  test('the narrator gets the eye lines only once Kan has them, and Gyre only with a stolen Wind', () => {
+    const db = seed();
+    expect(kanPowerLines(db).join(' ')).not.toContain('Sky Burial');
+    const withEyes = { ...db, state: { ...db.state, player: { ...db.state.player, abilities: [{ name: 'Mangekyō Sharingan', stage: 'awakened', acquiredOn: db.state.inStoryDate, stageOn: db.state.inStoryDate }] } } };
+    expect(kanPowerLines(withEyes).join(' ')).toContain('Sky Burial');
+    expect(kanPowerLines(withEyes).join(' ')).not.toContain('Gyre');
+    const windy = { ...withEyes, state: { ...withEyes.state, player: { ...withEyes.state.player, natures: [...(withEyes.state.player.natures ?? []), { nature: 'Wind', source: 'thousand-souls' as const, acquiredOn: db.state.inStoryDate }] } } };
+    expect(kanPowerLines(windy).join(' ')).toContain('Gyre');
+    expect(kanEyeReference(db, 'Kan uses Sky Burial')).toBeNull();
+    expect(kanEyeReference(withEyes, 'Kan stares him down')).toBeNull();
+    expect(kanEyeReference(withEyes, 'Kan catches him in Sky Burial')).toBe('mangekyo');
+  });
+});

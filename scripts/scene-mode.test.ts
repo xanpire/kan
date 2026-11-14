@@ -196,12 +196,12 @@ describe('fight mode', () => {
       {
         beat: 'combat',
         pace: 'combat',
-        options: ['Twist away and slash back', 'Take the hit and grab his arm', 'Fire Style: Great Fireball'],
+        options: ['Twist away and slash back', 'Take the hit and grab his arm', 'Water Style: Water Dragon'],
       }
     );
     db = strike.db;
     expect(strike.reply.sceneMode).toBe('fight');
-    // Kan has no Great Fireball, so that move is never offered (Session 1).
+    // Kan has no Water Dragon, so that move is never offered (Session 1).
     expect(strike.reply.fightOptions).toEqual(['Twist away and slash back', 'Take the hit and grab his arm']);
     expect(db.state.sceneMode?.exchangeStreak).toBe(0);
     // While it goes on, everything is fight mode, even a line of speech.

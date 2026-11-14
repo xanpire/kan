@@ -11,6 +11,7 @@ import { groupJutsuByNature, jutsuKey } from '@/lib/rpg/jutsu';
 import type { JutsuRecord } from '@/lib/rpg/types';
 import { resolveEntity } from '@/lib/rpg/entities';
 import { displayName } from '@/lib/rpg/names';
+import { KAN_VULTURES } from '@/lib/rpg/kanPowers';
 
 export function JutsuSection() {
   const { db, renameJutsu, deleteJutsu } = useGame();
@@ -95,13 +96,20 @@ export function JutsuSection() {
         <ListRow
           body={
             natures.length === 0
-              ? 'Your own chakra nature is not known yet.'
+              ? 'Fire and Earth, your own.'
               : natures
                   .map((item) => `${item.nature}${item.source === 'innate' ? ' (yours)' : ` (Thousand Souls${item.from ? `, from ${userName(item.from)}` : ''})`}`)
                   .join(' · ')
           }
           title="Chakra natures"
         />
+      </ListCard>
+      {/* Part of you, like Itachi's crows: they can't talk, so no bonds (14 Nov 2026). */}
+      <SectionLabel>Your vultures</SectionLabel>
+      <ListCard>
+        {KAN_VULTURES.map((vulture) => (
+          <ListRow body={vulture.line} key={vulture.name} meta={`“${vulture.meaning}”`} title={`${vulture.name} · ${vulture.role.toLowerCase()}`} />
+        ))}
       </ListCard>
     </View>
   );

@@ -99,9 +99,9 @@ describe('inline diff wiring', () => {
       state: { location: 'Training field' },
       jutsu_used: [
         {
-          name: 'Fire Release: Great Fireball',
+          name: 'Water Release: Water Dragon',
           user: 'Kan',
-          chakra_nature: 'Fire',
+          chakra_nature: 'Water',
           effect: 'A large sphere of fire.',
           visual: 'A cone of roaring flames.',
         },
@@ -113,11 +113,11 @@ describe('inline diff wiring', () => {
 
     const next = applyTurnDiff(db, diff);
     const record = next.jutsuRecords.find(
-      (item) => item.name === 'Fire Release: Great Fireball' && item.user === 'Kan'
+      (item) => item.name === 'Water Release: Water Dragon' && item.user === 'Kan'
     );
 
     expect(record).toBeDefined();
-    expect(record?.chakraNature).toBe('Fire');
+    expect(record?.chakraNature).toBe('Water');
     expect(record?.timesUsed).toBe(1);
   });
 
@@ -3389,11 +3389,11 @@ describe('the Mangekyō and gated beats', () => {
     },
   });
 
-  test('awakening the Mangekyō records your own ability and Susanoo', () => {
+  test('awakening the Mangekyō records Sky Burial, Okuribi and Susanoo', () => {
     let db = at(loadSave(), 15, 3);
     db = applyCanonMarks(db, ['kan-mangekyo'], []);
     const mine = db.jutsuRecords.filter((r) => r.user === 'Kan');
-    for (const name of ['Mangekyō Sharingan', 'Susanoo']) {
+    for (const name of ['Sky Burial', 'Okuribi', 'Susanoo']) {
       const record = mine.find((r) => r.name === name);
       expect(record?.tags).toContain('signature');
       expect(db.state.jutsu).toContain(name);

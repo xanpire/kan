@@ -1,5 +1,6 @@
 import { isScratchedProtector } from './inventory';
 import { kanProtectorPlace } from './kanLook';
+import { kanPowerLines } from './kanPowers';
 import { advanceSeconds, calculateAge, dateSortValue, daysBetween, entityAge, formatClock, formatDate } from './calendar';
 import { paceMinimumSeconds } from './pacing';
 import { normalizeJutsuNature } from './jutsu';
@@ -809,6 +810,7 @@ function formatCharacterSheet(db: AppDatabase) {
     `Former sensei: ${player.sensei}`,
     KAN_HISTORY,
     kanProtectorLine(db),
+    ...kanPowerLines(db),
     `Personality: ${player.personality.join(', ')}`,
     formatAbilities(db),
     player.secretNotes.length > 0

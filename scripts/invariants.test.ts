@@ -196,7 +196,7 @@ describe('Session 1: quick actions use only what Kan has (audit 8)', () => {
   test('unknownJutsuInOption', () => {
     const db = seed();
     expect(unknownJutsuInOption(db, 'Fire Style: Hell to force him off')).toBe('Fire Style: Hell');
-    expect(unknownJutsuInOption(db, 'Use Shadow Clone Jutsu to flank')).toBe('Shadow Clone Jutsu');
+    expect(unknownJutsuInOption(db, 'Use Water Clone Jutsu to flank')).toBe('Water Clone Jutsu');
     expect(unknownJutsuInOption(db, 'Strike with a Lightning Release blade')).toBe('Lightning Release');
     expect(unknownJutsuInOption(db, 'Duck under the threads and close in')).toBeNull();
     expect(unknownJutsuInOption(db, 'Use Thousand Souls on his arm')).toBeNull();
