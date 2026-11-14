@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kan",
     "slug": "kan",
-    "version": "1.24.88",
+    "version": "1.24.89",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "kan",
@@ -17,7 +17,7 @@
       "package": "com.kan.story",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0A0A0A"
+        "backgroundColor": "#E50914"
       },
       "edgeToEdgeEnabled": true
     },
@@ -33,7 +33,7 @@
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png",
-      "name": "Kan \u2014 Interactive Naruto RPG",
+      "name": "Kan — Interactive Naruto RPG",
       "shortName": "Kan",
       "lang": "en",
       "scope": "/",
@@ -52,7 +52,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#050505",
-          "image": "./assets/images/icon.png",
+          "image": "./assets/images/vulture-mark-large.png",
           "imageWidth": 144,
           "resizeMode": "contain"
         }
