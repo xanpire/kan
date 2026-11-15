@@ -75,6 +75,7 @@ export const MAP_PLACES: MapPlace[] = [
   // The Land of Fire.
   { id: 'leaf', name: 'Hidden Leaf Village', region: 'fire', x: 41, y: 33.5, kind: 'village', match: /\b(hidden leaf|konoha(gakure)?|leaf village)\b/i, short: 'Leaf' },
   { id: 'uchiha-district', name: 'Uchiha district', region: 'fire', x: 41, y: 33.5, kind: 'ruin', parent: 'leaf', match: /\buchiha (district|compound|quarter)\b/i, note: 'Your clan’s streets, behind their own wall at the village’s edge.' },
+  { id: 'hazuki-house', name: 'Hazuki’s house', region: 'fire', x: 41, y: 33.5, kind: 'place', parent: 'leaf', match: /\b(hazuki[’']?s|aunt hazuki[’']?s|your aunt[’']?s) (old )?(house|home)\b/i, note: 'Your aunt’s house in the Uchiha district, where you and Izumi grew up.' },
   { id: 'naka-shrine', name: 'Naka Shrine', region: 'fire', x: 41, y: 33.5, kind: 'shrine', parent: 'leaf', match: /\bnaka shrine\b/i, note: 'The Uchiha stone tablet lies beneath it.' },
   { id: 'naka-river', name: 'Naka River', region: 'fire', x: 41, y: 33.5, kind: 'place', parent: 'leaf', match: /\bnaka river\b/i },
   { id: 'mask-shrine', name: 'Uzumaki mask shrine', region: 'fire', x: 41, y: 33.5, kind: 'shrine', parent: 'leaf', match: /\b(uzumaki )?mask shrine\b/i, note: 'Kept by the Uzumaki since Uzushio fell, on the edge of the Leaf.' },

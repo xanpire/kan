@@ -8,7 +8,7 @@
 export const INVENTORY_LIMIT = 40;
 
 /** Never dropped by the limit: who Kan is. */
-const PINNED_PATTERNS = [/\b(forehead protector|headband)\b/i, /\bakatsuki\b.*\b(cloak|robe)\b|\b(cloak|robe)\b.*\bakatsuki\b/i, /\bring\b/i];
+const PINNED_PATTERNS = [/\b(forehead protector|headband)\b/i, /\bakatsuki\b.*\b(cloak|robe)\b|\b(cloak|robe)\b.*\bakatsuki\b/i, /\bring\b/i, /\bbanri\b.*\bscrolls?\b/i];
 
 const NUMBER_WORDS: Record<string, number> = {
   a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, twenty: 20,

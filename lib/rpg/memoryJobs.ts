@@ -31,6 +31,7 @@ import { applyCanonEndgames } from './canonEndgame';
 import { deliverLetters, receiveLetters, sendLetters, turnLetterOffer } from './letters';
 import { advanceLives, applyLifeEvents, markReunions } from './lives';
 import { advanceConsequences, applyConsequences, markConsequenceOffered, turnConsequenceOffer } from './consequences';
+import { applyScrollCache } from './scrollCache';
 import { applyEpithet, applyNameOut, markEpithetsSeen, recordDeeds, syncCarriedBooks } from './renown';
 import { applyYearly, yearlyOffer } from './yearly';
 import { recordTravel } from './mapData';
@@ -493,6 +494,8 @@ export function applyStateStep(
   next = markEpithetsSeen(next, extraction?.bountySeen);
   // A bingo book that came into his hands keeps its page as printed today.
   next = syncCarriedBooks(next);
+  // Banri's scrolls under Hazuki's floor: Root's search, and Kan taking them.
+  next = applyScrollCache(next);
   const offeredSeed = turnConsequenceOffer(latest);
   const planted = applyConsequences(next, extraction?.consequences, extraction?.consequencesReturned, offeredSeed);
   next = markConsequenceOffered(planted.db, offeredSeed);

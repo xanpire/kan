@@ -329,6 +329,7 @@ describe('load keeps every GameState field (audit 3.4)', () => {
       flashbacks: { played: [], offered: {} },
       safehouses: { places: [{ id: 'sh_1', name: 'the cave above the falls', kind: 'camp', place: 'Falls', since: date, status: 'active' }] },
       purse: { ryo: 120, history: [] },
+      scrollCache: { status: 'taken', takenOn: date },
       pinnedItems: ['Rope'],
       namesVersion: 2,
       loreKnown: { 'naruto-parents': { version: 'truth', how: 'read', date: { year: 14, month: 2, day: 1, hour: 9, minute: 0 } } },

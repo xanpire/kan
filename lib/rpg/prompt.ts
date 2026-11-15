@@ -1,4 +1,5 @@
 import { knowsKanLine } from './knowsKan';
+import { formatScrollCacheLine, formatScrollCacheTracking } from './scrollCache';
 import { REACTION_RULES, formatReactionsBlock, shortVoiceOf, voiceOf } from './voices';
 import { isScratchedProtector } from './inventory';
 import { kanProtectorPlace } from './kanLook';
@@ -367,6 +368,7 @@ export function buildNarrationPrompt(
       formatTimeLine(db, 'narrator', sceneMode.mode),
       formatWeatherLine(db, sceneMode.mode),
       formatSafehouseLine(db, userMessage),
+      formatScrollCacheLine(db, userMessage),
       formatMatchedEntities(db, matchedEntityIds, {
         lastNarration: [...messagesForScene].reverse().find((message) => message.role === 'assistant')?.content,
         userMessage,
@@ -568,6 +570,7 @@ export function buildExtractionPrompt(
     stateLine,
     memoryView ? '' : formatCompanionIds(db),
     characterDetails,
+    memoryView ? '' : formatScrollCacheTracking(db),
     formatTimeLine(memoryView ?? db, 'state'),
     formatSceneModeTracking(null, reply?.sceneMode),
     // Inside a memory its line tells both trackers what to leave empty.

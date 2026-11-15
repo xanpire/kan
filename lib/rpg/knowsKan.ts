@@ -7,6 +7,7 @@
 
 import { happened } from './names';
 import { leafThinksDead } from './renown';
+import { danzoCacheLine, rootKnowsFromCache } from './scrollCache';
 import type { AppDatabase, EntityRecord } from './types';
 
 type Phase = {
@@ -129,7 +130,9 @@ function beliefLine(db: AppDatabase, belief: Belief): string {
   const dead = leafThinksDead(db);
 
   if (belief === 'danzo') {
-    return dead ? '' : 'He knows now that you are alive, and wants you more.';
+    const cache = danzoCacheLine(db);
+    if (!dead) return `${cache ? `${cache} ` : ''}He knows now that you are alive, and wants you more.`;
+    return rootKnowsFromCache(db) ? `${cache} He wants you more.` : cache;
   }
 
   return dead

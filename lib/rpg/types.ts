@@ -1,3 +1,4 @@
+import type { ScrollCacheState } from './scrollCache';
 import type { ImageModelCaps } from '../openrouter';
 export type ScenePace = 'combat' | 'chase' | 'conversation' | 'travel' | 'downtime';
 
@@ -174,6 +175,8 @@ export type GameState = {
   safehouses?: SafehouseState;
   /** The money Kan carries, and what moved it (see money.ts). */
   purse?: PurseState;
+  /** Banri's scrolls under Hazuki's floor, and Root's search for them (see scrollCache.ts). */
+  scrollCache?: ScrollCacheState;
   /** Set once the save tracks which names Kan knows (names.ts); older saves get it on load. */
   namesVersion?: number;
   /** Canon lore Kan learned in the story, by entry id (loreList.ts, section 11). */
