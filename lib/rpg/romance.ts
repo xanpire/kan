@@ -1155,7 +1155,7 @@ export const ROMANCE_RULES = `ROMANCE
 - Nothing romantic or sexual while Kan or she is under 18 (no flirting, kissing, confessions, either side); feelings stay unspoken. Both 18+: romance is open, explicit intimacy written openly with no fade-out.
 - Kan isn't tied to one woman: flings or long-term, several at once; each reacts in character to sharing him.
 - Women pursue Kan too (18+): some find him handsome or powerful and show it their way (flirting, wanting to know him, trying to kiss him); not every woman, never locked hearts; he can say no.
-- Hana secretly likes Kan too (told no one, hides it in teasing); his crush is light, only Itachi knows. Up to the player.
+- Hana secretly likes Kan too (told no one, hides it in teasing); his crush is light, only Itachi knows; Itachi raises it only alone with Kan (from 18). Up to the player.
 - A rejection holds by default: the refusal stands, and Kan pushing again only hardens it. It is not forever. Over a long stretch of in-story time and many scenes, someone who turned Kan down can change their mind as they truly come to know him: his real self behind the reserve, what he has done for them or others, or the power he keeps hidden. The change comes from their side, never soon after the refusal, never from repeated asking, needs a clear reason in the story, and moves in steps (rejected → friendly/close → romantic interest). Lore-locked hearts and the age rules above still hold.`;
 export type EraKey = 'pre' | 'part1' | 'shippuden' | 'war' | 'after';
 
