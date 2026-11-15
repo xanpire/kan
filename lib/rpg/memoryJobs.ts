@@ -60,6 +60,7 @@ import { CONVERSATION_MODE_MINIMUM_SECONDS, applySceneBeat, cleanFightOptions } 
 import { resolveEntity } from './entities';
 import { applyNameStep, displayName, nameLeaks, scrubNameLeaks } from './names';
 import { fallbackDiffFromProse, preferPlayerJutsuNames } from './proseFallback';
+import { applyLoreLearned, loreTrackingCandidates } from './loreList';
 import {
   applyTurnDiff,
   extractTurnDiff,
@@ -462,6 +463,13 @@ export function applyStateStep(
     narration: turn.narration,
     presentIds,
   });
+  // Canon lore Kan was told, read or saw (section 11): only what was offered
+  // for this reply, from the state its prompt was built on.
+  next = applyLoreLearned(
+    next,
+    extraction?.loreLearned,
+    loreTrackingCandidates(latest, turnEntry, `${turn.userMessage}\n${turn.narration}`)
+  );
   // Canon-bound hearts whose time has come go to their canon partners.
   next = applyCanonEndgames(next);
 

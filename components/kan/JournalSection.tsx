@@ -14,6 +14,7 @@ import { localizePlaceNames } from '@/lib/rpg/glossary';
 import { alwaysKept, isPinnedItem } from '@/lib/rpg/inventory';
 import { chapterDates, hiddenThread, kanConditions, memoryTitle, storyTimeline, type TimelineChapter, type TimelineEntry } from '@/lib/rpg/journal';
 import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
+import { whatYouKnow } from '@/lib/rpg/loreList';
 import { formatChange, formatRyo, purseFeel, purseOf } from '@/lib/rpg/money';
 import { displayName } from '@/lib/rpg/names';
 import type { AppDatabase, ThreadRecord } from '@/lib/rpg/types';
@@ -295,6 +296,37 @@ function ChapterCard({ chapter, startOpen }: { chapter: TimelineChapter; startOp
   );
 }
 
+/** Rows shown before "Show all". */
+const SHORT_KNOWN = 6;
+
+/**
+ * What you have learned in the story about the world, newest first, as the
+ * version you were told: a belief reads as the belief until you learn better.
+ */
+function WhatYouKnowCard({ db }: { db: AppDatabase }) {
+  const rows = useMemo(() => whatYouKnow(db), [db]);
+  const [all, setAll] = useState(false);
+  const shown = all ? rows : rows.slice(0, SHORT_KNOWN);
+
+  return (
+    <>
+      <SectionLabel>What you know</SectionLabel>
+      {rows.length === 0 ? (
+        <EmptyRow body="What people tell you about the world, and what you read or see for yourself, is kept here." title="Nothing new yet" />
+      ) : (
+        <ListCard>
+          {shown.map((row) => (
+            <OpenableRow body={row.body} key={row.id} meta={row.meta} title={row.title} />
+          ))}
+          {rows.length > SHORT_KNOWN ? (
+            <ListRow onPress={() => setAll((value) => !value)} title={all ? 'Show fewer' : `${rows.length - SHORT_KNOWN} more`} />
+          ) : null}
+        </ListCard>
+      )}
+    </>
+  );
+}
+
 function StoryView({ db }: { db: AppDatabase }) {
   const chapters = useMemo(() => storyTimeline(db), [db]);
 
@@ -304,6 +336,7 @@ function StoryView({ db }: { db: AppDatabase }) {
       {chapters.map((chapter) => (
         <ChapterCard chapter={chapter} key={chapter.chapter} startOpen={chapter.current} />
       ))}
+      <WhatYouKnowCard db={db} />
     </>
   );
 }

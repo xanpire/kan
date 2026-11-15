@@ -48,6 +48,7 @@ import { resolveEntity } from './entities';
 import { alsoKnownAs, displayName, identitiesOf, identityLine, kanKnowsLine, kanKnowsName, labelOf, narratorName } from './names';
 import { companionsOf, daysTogether, formatTogether } from './companions';
 import { canonJutsuOf, formatJutsuReference, selectCanonJutsu } from './jutsuList';
+import { LORE_TRACKING_RULE, formatCanonLore, formatLoreTracking, kanCanLearn, loreTrackingCandidates, selectCanonLore } from './loreList';
 import { relevantFacts, retrieveMemories, triggeredLore } from './retrieval';
 import { factRef, knowerNames } from './facts';
 import { formatAbilities } from './abilities';
@@ -189,6 +190,7 @@ const WORLD_AREA_RULES: Record<WorldArea, string> = {
   canon: `CANON: canon_engaged / canon_completed / canon_passed / news_relayed use ids exactly as listed under CANON TRACKING, only when that id's rule is met; otherwise []. A catch-up report can relay several listed news ids in one turn. trial_mission is null unless an AKATSUKI TRIAL line below says how to set it.`,
   weather: `WEATHER: weather: a few words for the sky the reply shows, whenever it differs from WEATHER NOW or changes it. If the reply describes rain, a downpour, drizzle, snow, sleet, fog, a storm, strong wind or a clear sky that WEATHER NOW does not say, set weather to it (\"heavy rain\", \"fog rolling in\"), even if it was already falling before this turn; when rain or snow stops, say so (\"the rain stops\"). Null only when the reply shows no weather or the same as WEATHER NOW. The Rain and the Mist as places are not weather.`,
   flashback: `FLASHBACK: flashback is null unless a FLASHBACK, MEMORY or THIS TURN IS A MEMORY line below says how to set it.`,
+  lore: LORE_TRACKING_RULE,
 };
 
 const SUMMARY_SYSTEM = `You are a story summarizer for a long-running interactive novel.
@@ -287,6 +289,16 @@ export function buildNarrationPrompt(
           .map((id) => db.entities.find((entity) => entity.id === id)?.name)
           .filter((name): name is string => Boolean(name)),
       });
+  // The canon lore library (section 11): what the recent text calls up and
+  // what the people here are part of. Never inside a flashback either.
+  let canonLore = activeFlashback(db)
+    ? []
+    : selectCanonLore(db, {
+        recentText: entityText,
+        presentNames: [...new Set([...companionsOf(db).map((entity) => entity.id), ...sceneCastIdsOf(db)])]
+          .map((id) => db.entities.find((entity) => entity.id === id)?.name)
+          .filter((name): name is string => Boolean(name)),
+      });
   const storySoFar = getStorySoFar(db);
   const shownSummaries = new Set(
     [storySoFar.arc, ...storySoFar.chapters].filter((text): text is string => Boolean(text))
@@ -364,6 +376,7 @@ export function buildNarrationPrompt(
       formatFigures(db),
       formatElsewhere(db),
       formatLore(lore),
+      formatCanonLore(db, canonLore),
       formatNewsBlock(db),
       formatLetterBlock(db),
       formatYearlyBlock(yearlyOffer(db)),
@@ -417,10 +430,12 @@ export function buildNarrationPrompt(
     () => (freshMemories.length > 2 ? ((freshMemories = freshMemories.slice(0, 2)), true) : false),
     () => (facts.length > 6 ? ((facts = facts.slice(0, 6)), true) : false),
     () => (lore.length > 2 ? ((lore = lore.slice(0, 2)), true) : false),
+    () => (canonLore.length > 2 ? ((canonLore = canonLore.slice(0, 2)), true) : false),
     () => (jutsuReference.length > 3 ? ((jutsuReference = jutsuReference.slice(0, 3)), true) : false),
     () => (freshMemories.length > 0 ? ((freshMemories = []), true) : false),
     () => (facts.length > 3 ? ((facts = facts.slice(0, 3)), true) : false),
     () => (jutsuReference.length > 0 ? ((jutsuReference = []), true) : false),
+    () => (canonLore.length > 0 ? ((canonLore = []), true) : false),
   ];
 
   for (const cut of cuts) {
@@ -444,6 +459,8 @@ export function buildNarrationPrompt(
     recentMessages: sceneMessages,
     arcSummary,
     sceneMode,
+    /** Canon lore Kan could still learn that this reply was given (stamped on the reply for the tracker). */
+    loreSent: canonLore.filter((entry) => kanCanLearn(db, entry)).map((entry) => entry.id),
     /** The flashback this reply belongs to (stamped on its entries), or the one offered on it. */
     flashback: {
       ...(playing ? { active: { id: playing.active.id, date: playing.active.date } } : {}),
@@ -502,6 +519,7 @@ export function worldAreasForTurn(db: AppDatabase, userMessage: string, assistan
   if (yearlyOffer(db) || words('lives') || words('letters')) areas.add('lives');
   if (words('abilities')) areas.add('abilities');
   if (formatCanonTracking(db) || trialActive(db)) areas.add('canon');
+  if (loreTrackingCandidates(db, reply, text).length > 0) areas.add('lore');
 
   return WORLD_AREAS.filter((area) => areas.has(area));
 }
@@ -586,6 +604,7 @@ export function buildExtractionPrompt(
     has('safehouse') ? formatSafehouseTracking(db) : '',
     has('lives') ? theDay : '',
     has('enemies') ? formatEnemyTracking(db) : '',
+    has('lore') ? formatLoreTracking(loreTrackingCandidates(db, reply, `${userMessage}\n${assistantMessage}`)) : '',
     ...thisTurn,
     'Report these areas for THIS TURN now.',
   ]

@@ -331,6 +331,7 @@ describe('load keeps every GameState field (audit 3.4)', () => {
       purse: { ryo: 120, history: [] },
       pinnedItems: ['Rope'],
       namesVersion: 2,
+      loreKnown: { 'naruto-parents': { version: 'truth', how: 'read', date: { year: 14, month: 2, day: 1, hour: 9, minute: 0 } } },
       futureField: { kept: true },
     } as any;
 

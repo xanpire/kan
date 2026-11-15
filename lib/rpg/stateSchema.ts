@@ -354,6 +354,13 @@ export const TURN_STATE_SCHEMA = object({
     event: { type: 'string', enum: [...GRUDGE_EVENTS] },
     reason: nullableString,
   }),
+  // Canon lore Kan was told, read or saw this turn (loreList.ts, section 11).
+  lore_learned: list({
+    id: { type: 'string' },
+    version: { type: 'string', enum: ['truth', 'belief'] },
+    from: nullableString,
+    how: { type: 'string', enum: ['told', 'read', 'seen'] },
+  }),
 });
 
 export const TURN_STATE_SCHEMA_NAME = 'kan_turn_state';
@@ -363,7 +370,7 @@ export const TURN_STATE_SCHEMA_NAME = 'kan_turn_state';
 // areas this turn touched. Both are cut from TURN_STATE_SCHEMA, so the reply
 // they make together reads exactly like one full reply.
 
-export const WORLD_AREAS = ['letters', 'safehouse', 'enemies', 'lives', 'abilities', 'canon', 'weather', 'flashback'] as const;
+export const WORLD_AREAS = ['letters', 'safehouse', 'enemies', 'lives', 'abilities', 'canon', 'weather', 'flashback', 'lore'] as const;
 export type WorldArea = (typeof WORLD_AREAS)[number];
 
 export const WORLD_AREA_FIELDS: Record<WorldArea, readonly string[]> = {
@@ -375,6 +382,7 @@ export const WORLD_AREA_FIELDS: Record<WorldArea, readonly string[]> = {
   canon: ['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed', 'trial_mission'],
   weather: ['weather'],
   flashback: ['flashback'],
+  lore: ['lore_learned'],
 };
 
 /** Plain words for each area, for the Debug panel. */
@@ -387,6 +395,7 @@ export const WORLD_AREA_LABEL: Record<WorldArea, string> = {
   canon: 'canon and news',
   weather: 'weather',
   flashback: 'flashback',
+  lore: 'what you learned',
 };
 
 const WORLD_FIELD_SET = new Set(Object.values(WORLD_AREA_FIELDS).flat());

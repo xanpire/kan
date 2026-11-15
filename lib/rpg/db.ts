@@ -1,4 +1,5 @@
 import { KAN_APPEARANCE, migrateKanEyes } from './kanLook';
+import { normalizeLoreKnown } from './loreList';
 import { migrateProtectorName } from './inventory';
 import { linkJutsuRecords } from './jutsuList';
 import { withInnateNatures } from './abilities';
@@ -1312,6 +1313,7 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     flashbacks: normalizeFlashbacks(state.flashbacks),
     safehouses: normalizeSafehouses(state.safehouses),
     purse: normalizePurse(state.purse),
+    loreKnown: normalizeLoreKnown(state.loreKnown),
     namesVersion: typeof state.namesVersion === 'number' ? state.namesVersion : undefined,
     ...(state.akatsukiTrial && Array.isArray(state.akatsukiTrial.missions)
       ? { akatsukiTrial: { since: normalizeDate(state.akatsukiTrial.since, seeded.inStoryDate), missions: state.akatsukiTrial.missions.filter((mission) => mission && typeof mission.title === 'string') } }

@@ -176,6 +176,18 @@ export type GameState = {
   purse?: PurseState;
   /** Set once the save tracks which names Kan knows (names.ts); older saves get it on load. */
   namesVersion?: number;
+  /** Canon lore Kan learned in the story, by entry id (loreList.ts, section 11). */
+  loreKnown?: Record<string, LoreLearned>;
+};
+
+/** One canon lore entry Kan learned: which version, how, from whom, when. */
+export type LoreLearned = {
+  version: 'truth' | 'belief';
+  how: 'told' | 'read' | 'seen';
+  /** Who told him, as he knew them then. */
+  from?: string;
+  fromId?: string;
+  date: CalendarDate;
 };
 
 /** One change to Kan's money (see money.ts). */
@@ -580,6 +592,8 @@ export type RawLogEntry = {
   flashback?: { id: string; date: CalendarDate };
   /** A flashback offered to the narrator on this reply (see flashbacks.ts). */
   flashbackOffer?: string;
+  /** Canon lore entries Kan could still learn that the narrator was sent on this reply (loreList.ts). */
+  loreSent?: string[];
 };
 
 export type SceneImageMeta = {
@@ -1395,6 +1409,8 @@ export type TurnDiff = {
   reputation?: { faction: ReputationFaction; change: number; reason?: string }[];
   /** People whose birthday Kan learned this turn (they said it, someone told him). */
   birthdaysLearned?: { entityId?: string; name: string }[];
+  /** Canon lore Kan was told, read or saw this turn (loreList.ts). */
+  loreLearned?: { id: string; version: 'truth' | 'belief'; from?: string; how: 'told' | 'read' | 'seen' }[];
   /** Names Kan heard, read or recognised this turn (names.ts). */
   namesLearned?: { entityId?: string; character: string; name: string; part: NamePart; how: NameHow }[];
   /** Someone in the scene learned another identity of a person (Kan told Deidara who Tobi is). */

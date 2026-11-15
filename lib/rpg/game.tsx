@@ -1064,6 +1064,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             ...withReply.rawLog[withReply.rawLog.length - 1],
             sceneMode: prompt.sceneMode.mode,
             ...(prompt.flashback.offerId ? { flashbackOffer: prompt.flashback.offerId } : {}),
+            ...(prompt.loreSent.length > 0 ? { loreSent: prompt.loreSent } : {}),
           };
 
           // A turn inside a memory: both entries carry it, with the memory's clock.

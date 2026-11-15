@@ -122,6 +122,24 @@ export function convertStateBlock(
     }
   }
 
+  if (Array.isArray(block.lore_learned)) {
+    const learned = block.lore_learned
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => {
+        const from = cleanString(item.from);
+        return {
+          id: cleanString(item.id) ?? '',
+          version: item.version === 'belief' ? ('belief' as const) : ('truth' as const),
+          ...(from && from.toLowerCase() !== 'null' && from.toLowerCase() !== 'kan' ? { from } : {}),
+          how: (item.how === 'read' || item.how === 'seen' ? item.how : 'told') as 'told' | 'read' | 'seen',
+        };
+      })
+      .filter((item) => item.id.length > 0)
+      .slice(0, 5);
+
+    if (learned.length > 0) diff.loreLearned = learned;
+  }
+
   if (Array.isArray(block.names_learned)) {
     const parts = new Set(['given', 'family', 'full', 'identity']);
     const hows = new Set(['introduced', 'told', 'written', 'overheard', 'recognised']);

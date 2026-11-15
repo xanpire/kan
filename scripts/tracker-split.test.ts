@@ -87,7 +87,7 @@ describe('the two schemas', () => {
     expect(Object.keys(schema.properties).sort()).toEqual(['letters_received', 'letters_sent', 'weather']);
     expect(schema.required.sort()).toEqual(['letters_received', 'letters_sent', 'weather']);
     expect(fieldsOf(['canon'])).toEqual(['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed', 'trial_mission']);
-    expect(WORLD_AREAS.length).toBe(8);
+    expect(WORLD_AREAS.length).toBe(9);
   });
 });
 
