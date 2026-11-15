@@ -978,7 +978,8 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       temperature: DEFAULT_SETTINGS.temperature,
       maxTokens: DEFAULT_SETTINGS.maxTokens,
       canonProgress: true,
-      promptTokenBudget: normalizePromptBudget(db.settings?.promptTokenBudget),
+      promptTokenBudget: normalizePromptBudget(db.settings?.promptTokenBudget, db.settings?.budgetVersion),
+      budgetVersion: 2,
     },
     ...(db.spending && typeof db.spending.total === 'number' ? { spending: db.spending } : {}),
     rawLog: Array.isArray(db.rawLog)

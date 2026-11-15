@@ -11,7 +11,8 @@ export const DEFAULT_SETTINGS: Settings = {
   temperature: 0.7,
   maxTokens: 5000,
   canonProgress: true,
-  promptTokenBudget: 9500,
+  promptTokenBudget: 6000,
+  budgetVersion: 2,
 };
 
 /**
@@ -39,12 +40,20 @@ export function providerRouting(model: string): { order: string[]; allow_fallbac
   return order ? { order, allow_fallbacks: true } : undefined;
 }
 
-/** Choices offered in Settings for the narrator's prompt budget. */
-export const PROMPT_BUDGET_OPTIONS = [6000, 8000, 9500, 12000] as const;
+/**
+ * Choices offered in Settings for the narrator's story context: the tokens
+ * for what changes each turn (the recent scene, facts, memories, lore), on
+ * top of the fixed rules and Kan's sheet. Until v1.25.9 the number counted
+ * the whole prompt (default 9,500), and the fixed part alone had grown to
+ * about 8,000, so the narrator read two exchanges of scene and no memories.
+ */
+export const PROMPT_BUDGET_OPTIONS = [4000, 6000, 8000, 12000] as const;
 
-export function normalizePromptBudget(value: unknown): number {
+/** `version` is the save's `budgetVersion`: before 2 the number counted the whole prompt, so it is replaced. */
+export function normalizePromptBudget(value: unknown, version?: unknown): number {
+  if (version !== 2) return DEFAULT_SETTINGS.promptTokenBudget;
   const number = typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_SETTINGS.promptTokenBudget;
-  return Math.min(16000, Math.max(4000, Math.round(number)));
+  return Math.min(16000, Math.max(3000, Math.round(number)));
 }
 
 export function emptyIndex(): MemoryIndex {

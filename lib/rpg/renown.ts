@@ -23,6 +23,7 @@
 //   him as it was printed, mistakes included, and the player reads exactly
 //   that page.
 
+import { firstNight } from './opening';
 import { dateSortValue, daysBetween, monthName, timeOfDayOf } from './calendar';
 import { isCombatPace } from './canon';
 import { castWithCompanions } from './companions';
@@ -711,7 +712,11 @@ export function epithetLines(db: AppDatabase): string[] {
     }
   }
 
-  if (leafThinksDead(db) && (territoryHere(db) === 'leaf' || sceneHasLeaf(db))) {
+  if (firstNight(db)) {
+    lines.push(
+      'Tonight the Leaf still counts you as one of its own: an ANBU out on an order. Nobody there knows what has happened in the Uchiha district yet. By dawn it is found, and you are listed missing, presumed dead.'
+    );
+  } else if (leafThinksDead(db) && (territoryHere(db) === 'leaf' || sceneHasLeaf(db))) {
     lines.push(
       `The Leaf believes you dead: its file reads "${LEAF_FILE}" (only Hiruzen knows better). Anyone from the Leaf who knew you, or an Inuzuka by your scent, would be shocked to find you alive; to anyone else you are a stranger.`
     );

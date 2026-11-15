@@ -550,7 +550,18 @@ function PaintingStages({ stage }: { stage: PaintStage }) {
 }
 
 /** Kan's action and the reply as it streams. The only part of the screen that redraws while the narrator writes. */
-function LiveReply({ db, pendingAction, memory }: { db: AppDatabase; pendingAction: string | null; memory: boolean }) {
+function LiveReply({
+  db,
+  pendingAction,
+  memory,
+  onActionLayout,
+}: {
+  db: AppDatabase;
+  pendingAction: string | null;
+  memory: boolean;
+  /** Where your action sits in the story, so the screen can follow the reply under it. */
+  onActionLayout?: (y: number) => void;
+}) {
   const streamingText = useStreamingText();
   // Only finished paragraphs are shown, each fading in as it completes, so
   // the reply reads like it is being written (audit 11b).
@@ -566,7 +577,10 @@ function LiveReply({ db, pendingAction, memory }: { db: AppDatabase; pendingActi
   return (
     <>
       {pendingAction ? (
-        <View style={[styles.playerBlock, memory && styles.memoryPlayerBlock]}>
+        <View
+          onLayout={(event) => onActionLayout?.(event.nativeEvent.layout.y)}
+          style={[styles.playerBlock, memory && styles.memoryPlayerBlock]}
+        >
           <PlayerText memory={memory} text={pendingAction} />
         </View>
       ) : null}
@@ -616,6 +630,8 @@ const Composer = memo(
     ref
   ) {
     const [input, setInput] = useState('');
+    // A multiline box on the web does not grow by itself: it showed one line of a long action.
+    const [inputHeight, setInputHeight] = useState(0);
     const inputRef = useRef<TextInput | null>(null);
     const selectionRef = useRef<{ start: number; end: number } | null>(null);
     const slotId = db.meta.slotId;
@@ -780,6 +796,7 @@ const Composer = memo(
             multiline
             numberOfLines={1}
             onChangeText={setInput}
+            onContentSizeChange={(event) => setInputHeight(Math.ceil(event.nativeEvent.contentSize.height))}
             onSelectionChange={(event) => {
               selectionRef.current = {
                 start: event.nativeEvent.selection.start,
@@ -796,7 +813,7 @@ const Composer = memo(
             placeholder="What do you do?"
             placeholderTextColor={colors.textDim}
             ref={inputRef}
-            style={styles.composerInput}
+            style={[styles.composerInput, input && inputHeight > 44 ? { height: Math.min(120, inputHeight) } : null]}
             value={input}
           />
           {canWait ? (
@@ -1066,9 +1083,33 @@ export default function StoryScreen() {
     setVisibleCount((count) => count + VISIBLE_TURNS * 2);
   }, []);
 
+  // While a reply is written the screen follows it: your action climbs to the
+  // top as the paragraphs arrive under it, then the screen stops, so a long
+  // reply never scrolls away from where you start reading (Session 3: the
+  // reply used to land below the fold, behind the composer). Scrolling up
+  // yourself ends the following.
+  const followRef = useRef<{ y: number } | null>(null);
+
+  const followReply = useCallback(() => {
+    const follow = followRef.current;
+    if (!follow) return;
+    const max = contentHeightRef.current - viewportHeightRef.current;
+    const target = Math.min(Math.max(0, follow.y - spacing.md), Math.max(0, max));
+    if (target > scrollYRef.current + 4) scrollRef.current?.scrollTo({ y: target, animated: true });
+  }, []);
+
+  const onActionLayout = useCallback(
+    (y: number) => {
+      if (followRef.current) followRef.current.y = y;
+      followReply();
+    },
+    [followReply]
+  );
+
   const onContentSizeChange = useCallback((_width: number, height: number) => {
     const anchor = anchorRef.current;
     contentHeightRef.current = height;
+    followReply();
 
     if (anchor && height > anchor.height) {
       anchorRef.current = null;
@@ -1076,12 +1117,12 @@ export default function StoryScreen() {
     }
 
     updateFarFromEnd();
-  }, [updateFarFromEnd]);
+  }, [followReply, updateFarFromEnd]);
 
   // The story only scrolls itself at two moments: when a save is opened (jump
-  // to the latest turn) and when you send an action (show it and where the
-  // reply will start). While the narrator streams, the screen stays wherever
-  // you put it, so you can scroll up and down freely.
+  // to the latest turn) and when you send an action (show it, then follow the
+  // reply until your action reaches the top). Scroll up while the narrator
+  // streams and the screen stays wherever you put it.
   const slotId = db?.meta.slotId ?? null;
   const scrolledSlotRef = useRef<string | null>(null);
 
@@ -1126,13 +1167,20 @@ export default function StoryScreen() {
 
   useEffect(() => {
     if (!isNarrating) {
-      return;
+      // One last look once the finished reply has replaced the streamed one.
+      const timer = setTimeout(() => {
+        followReply();
+        followRef.current = null;
+      }, 400);
+      return () => clearTimeout(timer);
     }
 
+    // Until your action is laid out, the reply starts where the story ended.
+    followRef.current = { y: contentHeightRef.current };
     requestAnimationFrame(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     });
-  }, [isNarrating]);
+  }, [followReply, isNarrating]);
 
   const submit = useCallback(
     async (value: string, remember?: string) => {
@@ -1466,7 +1514,10 @@ export default function StoryScreen() {
             updateFarFromEnd();
           }}
           onScroll={(event) => {
-            scrollYRef.current = event.nativeEvent.contentOffset.y;
+            const y = event.nativeEvent.contentOffset.y;
+            // The app only ever scrolls a reply downward: up is you.
+            if (y < scrollYRef.current - 24) followRef.current = null;
+            scrollYRef.current = y;
             updateFarFromEnd();
           }}
           ref={scrollRef}
@@ -1483,7 +1534,7 @@ export default function StoryScreen() {
             style={({ pressed }) => [styles.chapterLabel, pressed && styles.pressed]}
           >
             <Text numberOfLines={1} style={[type.sectionLabel, styles.chapterLabelText]}>
-              Chapter {db.state.chapter} · {db.state.scene || db.state.chapterTitle}
+              Chapter {db.state.chapter} · {db.state.chapterTitle || db.state.scene}
             </Text>
             {jumps.length > 0 ? <ChevronDown color={colors.textMeta} size={14} strokeWidth={2.2} /> : null}
           </Pressable>
@@ -1612,7 +1663,9 @@ export default function StoryScreen() {
             </Fragment>
           ))}
 
-          {isNarrating ? <LiveReply db={db} memory={liveMemory} pendingAction={pendingAction} /> : null}
+          {isNarrating ? (
+            <LiveReply db={db} memory={liveMemory} onActionLayout={onActionLayout} pendingAction={pendingAction} />
+          ) : null}
 
           {openElsewhere ? (
             <ListCard>

@@ -634,7 +634,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       id: makeId('lore'),
       keywords: ['anbu'],
       priority: 4,
-      text: 'ANBU are Hidden Leaf’s masked special forces. You joined at twelve, one year after Itachi; your mask was a bat. You served your whole ANBU year in Kakashi Hatake’s unit, Team Ro, with Tenzō, and with Itachi until he was made a captain at thirteen and got his own squad. You are no longer part of ANBU: you left the village and carry no ANBU equipment.',
+      text: 'ANBU are Hidden Leaf’s masked special forces. You joined at twelve, one year after Itachi; your mask was a bat. You served your whole ANBU year in Kakashi Hatake’s unit, Team Ro, with Tenzō, and with Itachi until he was made a captain at thirteen and got his own squad. Your time in ANBU ends on the night of the massacre: the order that sent you out was your last, you were out of uniform for it (no mask, no ANBU gear), and after that night you never go back.',
       enabled: true,
     },
     {
@@ -649,7 +649,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       id: makeId('lore'),
       keywords: ['itachi', 'massacre', 'forest', 'clan', 'happened', 'blood', 'izumi', 'hazuki'],
       priority: 5,
-      text: 'Until Itachi tells you in the forest, you do not know the massacre has happened. You learn it from him in the first scene: the clan is dead, Izumi and Hazuki with it. He may give you one honest detail of Hazuki’s death ("She didn’t run."). He never defends himself, never asks forgiveness, and lets you hate him. If you attack he only defends; you cannot win.',
+      text: 'Until Itachi tells you in the forest, you do not know the massacre has happened. You learn it from him in the first scene: the clan is dead, Izumi and Hazuki with it. He may give you one honest detail of Hazuki’s death ("She didn’t run."). He never excuses himself, never asks forgiveness, and lets you hate him, but what you ask about tonight he answers plainly. If you attack he only defends and holds you off, speaking while he does; you cannot win.',
       enabled: true,
       hidden: true,
       activeUntil: { flag: 'knowsIzumiDead' },
@@ -825,7 +825,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       inStoryDate: DEFAULT_DATE,
       canonPoint: 'The night of the massacre. You are on your way back from Itachi’s errand, and he is waiting in the forest.',
       chapter: 1,
-      chapterTitle: 'The flight from the Leaf',
+      chapterTitle: 'The longest night',
       chapterStart: { turn: 1, date: DEFAULT_DATE },
       scene: 'The road back',
       // Section 17: Itachi told Kan nothing and sent him away on a false order.

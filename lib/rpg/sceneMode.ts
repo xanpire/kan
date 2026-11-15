@@ -402,7 +402,7 @@ export function formatSceneModeLine(db: AppDatabase, turn: TurnMode): string {
   if (turn.mode === 'fight') {
     const condition = kanCondition(db);
     return [
-      `SCENE MODE: fight${turn.with.length > 0 ? ` against or beside ${turn.with.join(', ')}` : ''}${chosen}. Short exchange: show what Kan's move does, then the opponent's next specific move, and stop before it lands.`,
+      `SCENE MODE: fight${turn.with.length > 0 ? ` against or beside ${turn.with.join(', ')}` : ''}${chosen}. Short exchange: show what Kan's move does, then the opponent's next specific move (an attack, or for someone holding back or only defending: their guard, hold, or words), and stop before it lands. Anything they have to say, they say now, between blows.`,
       condition.length > 0 ? `Kan right now: ${condition.join('; ')}.` : '',
     ]
       .filter(Boolean)

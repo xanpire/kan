@@ -414,7 +414,9 @@ The current action appears **once** (it is excluded from the recent-message bloc
 
 ### Token budget
 
-`settings.promptTokenBudget` (default 9500; Settings → Advanced → Models for the engine → Story context offers 6k / 8k / 9.5k / 12k). After building, the prompt drops the oldest scene messages (never below 4) until `estimateTokens` is under budget.
+`settings.promptTokenBudget` (default 6000; Settings → Advanced → Models for the engine → Story context offers 4k / 6k / 8k / 12k) is the budget for the **per-turn part** of the prompt (everything but the system message: the scene, facts, memories, lore), since v1.25.9. Until then it counted the whole prompt (default 9500) while the fixed rules and Kan's sheet alone had grown to about 8,000 tokens, so by the third turn the narrator read two exchanges of scene and no memories (Session 3). `settings.budgetVersion` is 2 on a migrated save; an older save's number is replaced by the default on load. After building, the prompt cuts memories, facts and lore, then drops the oldest scene messages (never below 4) until `contextTokens` is under budget; `estimatedTokens` is still the whole prompt.
+
+**The first night** (`opening.ts`, v1.25.9): in a false-order story the narrator gets THE FIRST NIGHT block every turn (dynamic part, just before CONTINUITY) until dawn on 2 October, and after that for as long as Itachi still owes Kan the deaths or the truth: how Itachi is tonight (answers plainly, never "forgive me", Shisui kept out), that he only defends and talks while he does, and the steps still to come in order (`openingBeats`: the deaths said in words, the Sharingan, the truth, the offer), each leaving the list once the state shows it happened. The opening memory's `narratorNote` is no longer printed for these stories. `firstNight` also makes Kan a Hidden Leaf ANBU until he knows (`kanRankNow`, which later shows the cloak and the ring), and tells the narrator the Leaf still counts him as its own until dawn. Tests: `first-night.test.ts`.
 
 ### State prompt (call 2)
 

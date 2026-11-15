@@ -1132,7 +1132,7 @@ describe('canon endings and prompt memory', () => {
     }
 
     const prompt = buildNarrationPrompt(db, '*Kan waits.*');
-    expect(prompt.estimatedTokens).toBeLessThanOrEqual(db.settings.promptTokenBudget);
+    expect(prompt.contextTokens).toBeLessThanOrEqual(db.settings.promptTokenBudget);
     expect(prompt.recentMessages.length).toBeGreaterThanOrEqual(4);
   });
 

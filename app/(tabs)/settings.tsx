@@ -921,7 +921,7 @@ export default function SettingsScreen() {
                 <View style={styles.budgetRow}>
                   <Text style={styles.budgetLabel}>Story context</Text>
                   <Text style={styles.budgetHint}>
-                    How much the narrator reads each turn, in tokens. More remembers more of the scene; less costs less.
+                    How much of the recent scene, your memories and the world the narrator reads each turn, in tokens, on top of the rules and your sheet. More remembers more; less costs a little less.
                   </Text>
                   <Segmented
                     accessibilityLabel="Story context size"

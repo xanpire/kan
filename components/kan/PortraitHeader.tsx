@@ -1,3 +1,4 @@
+import { kanRankNow } from '@/lib/rpg/opening';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -178,7 +179,7 @@ export function PortraitHeader() {
         <View style={styles.info}>
           <Text style={type.pageTitle}>{db.state.player.name || 'Kan'}</Text>
           <Text style={styles.role}>
-            Age {age} · {db.state.player.rank || db.state.player.role}
+            Age {age} · {kanRankNow(db)}
           </Text>
           <Text numberOfLines={2} style={type.rowMeta}>
             {db.state.mood}

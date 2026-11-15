@@ -45,6 +45,7 @@ import { REANIMATED_LOOK, isDeceased, isReanimated, kanKnowsDeath } from './deat
 import { canonRoleAhead, canonSurvivalLine } from './canonRoles';
 import { FULL_CARD_LIMIT } from './sceneLimits';
 import { formatTimeSkipLine } from './timeSkip';
+import { firstNight, formatOpeningBlock, kanRankNow } from './opening';
 import { formatTrialLine, formatTrialTracking, trialActive } from './akatsukiTrial';
 import { resolveEntity } from './entities';
 import { alsoKnownAs, displayName, identitiesOf, identityLine, kanKnowsLine, kanKnowsName, labelOf, narratorName } from './names';
@@ -135,7 +136,8 @@ SCENE MODES (the turn's SCENE MODE line says which applies; with none, write as 
 - Conversation: mostly speech, like talking to them directly. Length follows the talk: one line or a longer speech; someone can ask one question and stop. Between lines, only short action lines in asterisks (*Sasuke looks away.*), no scenery. Several people can speak, each in their own voice. Kan's small moves in place (a look, a touch, sitting, stepping closer, pouring tea, a flash of the Sharingan) and his silences are part of the talk; answer them the same way. Seconds to a minute or two pass.
 - Talk is building: shorter and more spoken than usual.
 - The conversation ends: a short transition in normal prose, then carry on normally.
-- Fight: short exchanges. Show honestly what Kan's move does, by canon power levels and his real jutsu, chakra and wounds (a bad call hurts), then give the opponent's one specific next move ("Kakuzu's arm launches on threads, straight at your throat") and stop there, before it lands. One or two short paragraphs, a few seconds of fight time; wounds, chakra and positions carry over; short taunts are fine. If this exchange ends the fight, close with a short paragraph of aftermath in normal prose instead.
+- Fight: short exchanges. Show honestly what Kan's move does, by canon power levels and his real jutsu, chakra and wounds (a bad call hurts), then give the opponent's one specific next move ("Kakuzu's arm launches on threads, straight at your throat") and stop there, before it lands. One or two short paragraphs, a few seconds of fight time; wounds, chakra and positions carry over. If this exchange ends the fight, close with a short paragraph of aftermath in normal prose instead.
+- A fight is still the story. People talk while they fight when they have something to say: a taunt, an order, a plea, a truth; a story beat or a narrator-only note that belongs to this scene is played inside the fight, a few spoken lines in each exchange, never put off until it is over. And people fight the way they mean it: someone who is holding back, only defending, or trying to stop Kan without hurting him does exactly that, so their next move may be a guard, a hold, a step back or what they say; never invent attacks for someone who does not want the fight. A fight nobody is pressing ends.
 
 ${ROMANCE_RULES}
 
@@ -394,6 +396,7 @@ export function buildNarrationPrompt(
       pressure,
       formatFlashbackOffer(db, memoryOffer),
       formatFlashbackReturn(db),
+      formatOpeningBlock(db),
       `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Location type: ${locationKindOf(db)}.`,
       formatSceneModeLine(db, sceneMode),
       formatTrialLine(db),
@@ -421,10 +424,15 @@ export function buildNarrationPrompt(
     ];
   };
 
+  // The budget is for what changes every turn (the scene, facts, memories,
+  // lore): the rules and Kan's sheet in front of it are a fixed, cached cost
+  // that grows with the story, and counting them left the scene almost
+  // nothing (Session 3: two exchanges of scene and no memories by turn 3).
   const budget = db.settings.promptTokenBudget ?? DEFAULT_SETTINGS.promptTokenBudget;
+  const contextTokens = (list: OpenRouterMessage[]) => estimateTokens(list.filter((message) => message.role !== 'system'));
   let sceneMessages = recentMessages;
   let messages = assemble(sceneMessages);
-  let estimated = estimateTokens(messages);
+  let estimated = contextTokens(messages);
 
   // Prompt budget: cut the least important material first — recalled
   // memories, then the less relevant facts and lore — and the recent scene
@@ -445,19 +453,22 @@ export function buildNarrationPrompt(
     if (estimated <= budget) break;
     if (cut()) {
       messages = assemble(sceneMessages);
-      estimated = estimateTokens(messages);
+      estimated = contextTokens(messages);
     }
   }
 
   while (estimated > budget && sceneMessages.length > MIN_SCENE_MESSAGES) {
     sceneMessages = sceneMessages.slice(1);
     messages = assemble(sceneMessages);
-    estimated = estimateTokens(messages);
+    estimated = contextTokens(messages);
   }
 
   return {
     messages,
-    estimatedTokens: estimated,
+    /** The whole prompt, rules and sheet included. */
+    estimatedTokens: estimateTokens(messages),
+    /** The per-turn part the budget applies to. */
+    contextTokens: estimated,
     memories: freshMemories,
     recentMessages: sceneMessages,
     arcSummary,
@@ -847,7 +858,9 @@ function formatCharacterSheet(db: AppDatabase) {
     `Birthday: month ${player.birthday.month}, day ${player.birthday.day}`,
     `Birth year: ${player.birthYear}`,
     `Age: ${calculateAge(db.state.inStoryDate, player.birthday, player.birthYear)}`,
-    `Rank/Role: ${player.rank} / ${player.role}`,
+    firstNight(db) && kanRankNow(db) !== player.rank
+      ? `Rank/Role: ${kanRankNow(db)} (tonight you are still the Leaf's; by dawn you are missing)`
+      : `Rank/Role: ${kanRankNow(db)} / ${player.role}`,
     `Former team (Team 3, left on joining ANBU at 12): ${player.team.join(', ')}`,
     `Former sensei: ${player.sensei}`,
     KAN_HISTORY,
@@ -1581,7 +1594,10 @@ function formatMemories(db: AppDatabase, memories: EventRecord[]) {
       const text = full ?? memory.summary;
       // A flashback is a memory of the past, lived again, not something that just happened.
       const past = memory.tags.includes('flashback') ? `(from Year ${memory.inStoryDate.year}, before the story) ` : '';
-      const note = memory.narratorNote ? ` (For you, the narrator, not Kan: ${memory.narratorNote})` : '';
+      // The false-order opening's briefing is the THE FIRST NIGHT block now
+      // (opening.ts), sent every turn that night; here it would say "tonight" for years.
+      const briefed = memory.tags.includes('opening') && db.state.opening === 'false-order';
+      const note = memory.narratorNote && !briefed ? ` (For you, the narrator, not Kan: ${memory.narratorNote})` : '';
       return `- ${past}${memory.title ? `${memory.title}: ` : ''}${truncate(text, 400)}${note}`;
     }),
   ].join('\n');

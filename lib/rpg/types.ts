@@ -1099,8 +1099,13 @@ export type Settings = {
   temperature: number;
   maxTokens: number;
   canonProgress: boolean;
-  /** Upper bound on the narrator prompt, in estimated tokens. */
+  /**
+   * Upper bound, in estimated tokens, on the part of the narrator prompt that
+   * changes each turn (scene, facts, memories, lore). The rules and Kan's
+   * sheet come on top (budgetVersion 2; before it the number was the whole prompt).
+   */
   promptTokenBudget: number;
+  budgetVersion?: number;
   /** Frames each scene image (the "director"); empty = the narrator model. */
   imageDirectorModel?: string;
   /** Check each scene image for swapped roles and retry once (default on). */
@@ -1472,6 +1477,8 @@ export type PromptBundle = {
     recentMessages: RawLogEntry[];
   };
   estimatedTokens: number;
+  /** The per-turn part (everything but the system message): what the budget applies to. */
+  contextTokens: number;
 };
 
 export type OpenRouterMessage = {

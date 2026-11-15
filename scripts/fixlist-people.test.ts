@@ -38,7 +38,7 @@ const bondOf = (db: AppDatabase, name: string) => db.bonds.find((bond) => bond.e
 describe('10. real chapters', () => {
   test('summaries and scene ends never move the chapter; a break needs a real reason and enough story', () => {
     let db = seed();
-    expect(db.state.chapterTitle).toBe('The flight from the Leaf');
+    expect(db.state.chapterTitle).toBe('The longest night');
 
     // Many scenes ending, and an early chapter title, change nothing.
     db = play(db, 'You run.', { scene_ended: true, chapter_title: 'Too soon' });
@@ -50,7 +50,7 @@ describe('10. real chapters', () => {
     db = play(db, 'The Rain rises out of the mist.', { chapter_title: 'The road to the Rain', location: 'Hidden Rain outskirts' });
     expect(db.state.chapter).toBe(2);
     expect(db.state.chapterTitle).toBe('The road to the Rain');
-    expect(db.state.chapters).toEqual([expect.objectContaining({ chapter: 1, title: 'The flight from the Leaf' })]);
+    expect(db.state.chapters).toEqual([expect.objectContaining({ chapter: 1, title: 'The longest night' })]);
     expect(db.rawLog.at(-1)?.chapter).toBe(2);
 
     // Right after a break, even a time skip waits for the minimum.

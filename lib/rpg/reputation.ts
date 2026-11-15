@@ -337,7 +337,9 @@ const NAMED: (village: VillageFaction) => ListingSubject = () => ({ label: 'you'
 
 function shinobiLine(name: string, listing: BingoListing | undefined, subject: ListingSubject) {
   if (!listing) {
-    return `${name} has nothing on you: its shinobi see a stranger.`;
+    return name === VILLAGE_NAME.leaf
+      ? `${name} has no bingo-book entry on you. Its shinobi who never knew you see a stranger; anyone who knew you would know your face at once.`
+      : `${name} has nothing on you: its shinobi see a stranger.`;
   }
 
   if (!subject.linked) {
