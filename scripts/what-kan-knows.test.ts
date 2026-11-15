@@ -20,7 +20,7 @@ mock.module('@react-native-async-storage/async-storage', () => ({
 import { CANON_MILESTONES } from '../lib/rpg/canonData';
 import { normalizeDatabase } from '../lib/rpg/db';
 import { displayName, scrubNameLeaks } from '../lib/rpg/names';
-import { LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING, OPENING_MEMORY, seedDatabase } from '../lib/rpg/seed';
+import { LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING, OPENING_BRIEFING_TOLD, OPENING_MEMORY, OPENING_MEMORY_TOLD, seedDatabase } from '../lib/rpg/seed';
 
 const seed = () => normalizeDatabase(seedDatabase('slot_knows', 'Knows'));
 
@@ -43,8 +43,9 @@ describe('the opening is Kan’s memory, not the narrator’s briefing (audit 6b
       ),
     };
     const opening = normalizeDatabase(old).events.find((event) => event.tags.includes('opening'))!;
-    expect(opening.summary).toBe(OPENING_MEMORY);
-    expect(opening.narratorNote).toBe(OPENING_BRIEFING);
+    // Those saves began with the old opening (Itachi told Kan his plan): they keep its words.
+    expect(opening.summary).toBe(OPENING_MEMORY_TOLD);
+    expect(opening.narratorNote).toBe(OPENING_BRIEFING_TOLD);
   });
 });
 

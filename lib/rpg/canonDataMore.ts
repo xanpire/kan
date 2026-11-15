@@ -484,7 +484,7 @@ export const STAGE_TWO_PERSONAL: CanonMilestone[] = [
       who: 'whoever Kan trusts with it: Itachi while he lives, the masked man, the snakes',
       where: 'when the dark will not clear',
       context:
-        "Itachi is dying and his eyes are meant for Sasuke. The masked man keeps a vault of Uchiha eyes. Orochimaru and Kabuto have Hashirama's cells. Each way has a price, and canon still holds (Sasuke gets Itachi's eyes).",
+        "Itachi is dying and his eyes are meant for Sasuke; he says nothing yet of Izumi's, which he has kept sealed since the massacre (they come to Kan only with \"masked-man-eyes\", in Itachi's last days or after his death). The masked man keeps a vault of the clan's other eyes. Orochimaru and Kabuto have Hashirama's cells. Each way has a price, and canon still holds (Sasuke gets Itachi's eyes).",
     },
   },
 

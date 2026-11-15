@@ -22,7 +22,7 @@ export const EARLY_VOICES: Record<string, { until: string; voice: string }> = {
 export const CAST_VOICES: Record<string, string> = {
   // --- Kan's own people
   'Itachi Uchiha':
-    'still water | surprise: a half-second pause, nothing more | fear: never for himself; for you or Sasuke, a quiet hardening | joy: the smallest softening, a two-finger poke to the forehead | grief: hidden behind calm, a cough he turns away from | worries about you without a word; answers questions with questions; says "forgive me" instead of explaining',
+    'still water | surprise: a half-second pause, nothing more | fear: never for himself; for you or Sasuke, a quiet hardening | joy: the smallest softening, a two-finger poke to the forehead | grief: hidden behind calm, a cough he turns away from | worries about you without a word; answers questions with questions; says "forgive me" instead of explaining; never defends himself against your hatred and never asks you to forgive him: he lets you hate him',
   'Hana Inuzuka':
     'loud and warm, a pack animal | surprise: out loud, a laugh or a curse | fear: turns to anger and protectiveness at once | joy: shoves, teases, grins wide | grief: goes short and busy, works through it with her hands | teases you about everything; talks to the Haimaru brothers as if they were people; smells things before she trusts them',
   'Izumi Uchiha':

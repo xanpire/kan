@@ -25,7 +25,7 @@ import { CANON_GRID, CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from
 import { unfireFutureMilestones } from './canon';
 import { dropBareNatureJutsu, normalizeJutsuNature } from './jutsu';
 import { dateSortValue, normalizeDate } from './calendar';
-import { GEOGRAPHY_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING, OPENING_MEMORY, seedDatabase } from './seed';
+import { GEOGRAPHY_LORE, IZUMI_EYES_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING_TOLD, OPENING_MEMORY_TOLD, seedDatabase } from './seed';
 import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
 import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
@@ -1034,11 +1034,12 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       db.state?.canonProgress?.completed ?? []
     ),
     // The opening memory told the player the plan (audit 6b.1): Kan's own
-    // memory now, with the setup kept for the narrator.
+    // memory now, with the setup kept for the narrator. Those saves began with
+    // the old opening (Itachi told Kan his plan), so they keep its words.
     events: Array.isArray(db.events)
       ? db.events.map((event) =>
           typeof event.summary === 'string' && event.summary.startsWith(LEGACY_OPENING_SUMMARY_START)
-            ? { ...event, summary: OPENING_MEMORY, narratorNote: OPENING_BRIEFING }
+            ? { ...event, summary: OPENING_MEMORY_TOLD, narratorNote: OPENING_BRIEFING_TOLD }
             : refreshCanonEventText(event)
         )
       : [],
@@ -1078,6 +1079,12 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
           .map((lore) =>
             typeof lore.text === 'string' && lore.text.startsWith('GEOGRAPHY (fixed') && lore.text !== GEOGRAPHY_LORE
               ? { ...lore, text: GEOGRAPHY_LORE }
+              : lore
+          )
+          // Section 17: Itachi, not the masked man, holds Izumi's eyes.
+          .map((lore) =>
+            typeof lore.text === 'string' && lore.text.startsWith('Hidden truth about Izumi') && lore.text !== IZUMI_EYES_LORE
+              ? { ...lore, text: IZUMI_EYES_LORE }
               : lore
           )
           // The seed's old typo "kurma" (audit 11).

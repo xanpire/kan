@@ -237,6 +237,11 @@ function beatJustReached(db: AppDatabase, id: string) {
   return days >= 0 && days <= FLASHBACK_BEAT_DAYS;
 }
 
+/** Which opening this story began with (section 17): saves from before v1.25.5 began with "told". */
+export function openingOf(db: AppDatabase): 'told' | 'false-order' {
+  return db.state.opening === 'false-order' ? 'false-order' : 'told';
+}
+
 /** Was there a fight in the last few replies? */
 function justFought(db: AppDatabase) {
   return db.rawLog
@@ -299,6 +304,7 @@ export function flashbackOffer(db: AppDatabase, input: string, mode: SceneModeNa
   for (const record of FLASHBACKS) {
     if (state.played.includes(record.id)) continue;
     if (record.requires?.some((id) => milestoneStage(db, id) !== 'completed')) continue;
+    if (record.opening && record.opening !== openingOf(db)) continue;
 
     const score = flashbackScore(db, record, text);
 

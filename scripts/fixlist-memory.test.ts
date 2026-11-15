@@ -71,7 +71,7 @@ describe('5. one clock', () => {
 describe('6. facts can expire or be replaced', () => {
   test('supersedes and facts_ended end the old fact', () => {
     let db = seed();
-    const forest = fact(db, 'You left for the forest')!;
+    const forest = fact(db, 'Nobody was there')!;
     const crush = fact(db, 'crush on Hana')!;
     db = play(db, 'Itachi tells you everything.', {
       characters_present: ['itachi-uchiha'],
@@ -79,7 +79,7 @@ describe('6. facts can expire or be replaced', () => {
       facts_ended: [factRef(crush)],
     });
 
-    expect(fact(db, 'You left for the forest')!.validTo).toEqual(db.state.inStoryDate);
+    expect(fact(db, 'Nobody was there')!.validTo).toEqual(db.state.inStoryDate);
     expect(fact(db, 'crush on Hana')!.validTo).not.toBeNull();
     expect(fact(db, 'Leaf’s orders')!.supersedes).toBe(forest.id);
     expect(promptText(db)).not.toContain('You left for the forest');
@@ -145,7 +145,7 @@ describe('7. lore with conditions', () => {
   test('lore turns off when the story passes it, and geography is always on', () => {
     let db = seed();
     const noSharingan = db.loreEntries.find((lore) => lore.text === 'You have not awakened the Sharingan.')!;
-    const holdsBack = db.loreEntries.find((lore) => lore.text.startsWith('When Itachi reaches you'))!;
+    const holdsBack = db.loreEntries.find((lore) => lore.text.startsWith('When Itachi meets you'))!;
     const izumiUnknown = db.loreEntries.find((lore) => lore.text.includes('You do NOT know she is dead'))!;
 
     expect(loreActive(db, noSharingan)).toBe(true);

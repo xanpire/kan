@@ -188,7 +188,9 @@ describe('the tracker', () => {
     const db = seed();
     const offered = loreTrackingCandidates(db, undefined, 'the masked man, and the Uchiha massacre, and Pain');
     expect(offered.map((entry) => entry.id)).toContain('masked-madara');
-    expect(offered.map((entry) => entry.id)).not.toContain('uchiha-massacre'); // Kan knows the truth already
+    // Section 17: Kan learns why the clan died only later, from Itachi, so the massacre's truth is still to learn.
+    expect(offered.map((entry) => entry.id)).toContain('uchiha-massacre');
+    expect(loreTrackingCandidates(db, undefined, 'the coup').map((entry) => entry.id)).not.toContain('uchiha-coup'); // Kan knows the truth already
     expect(offered.map((entry) => entry.id)).not.toContain('pain-god'); // not true yet
 
     const notOffered = applyLoreLearned(db, [{ id: 'akatsuki-plan', version: 'truth', how: 'told' }], offered);

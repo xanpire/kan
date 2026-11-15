@@ -1491,19 +1491,37 @@ export default function StoryScreen() {
           {!storyStarted ? (
             <View style={styles.seed}>
               <Text style={styles.seedTitle}>The rain hasn’t stopped.</Text>
-              <Text style={reading.prose}>
-                Days ago Itachi told you he would kill the clan. You fought him, you lost, and he
-                sent you here to wait. Now you crouch in the forest outside the Leaf, soaked to the
-                bone, not knowing if he went through with it — or who is still alive. He promised you
-                an answer. Every drop sounds like footsteps.
-              </Text>
+              {db.state.opening === 'false-order' ? (
+                <Text style={reading.prose}>
+                  Two days ago Itachi pressed an urgent ANBU order into your hand: a sealed scroll for
+                  a contact at a waystation a day north. Nobody came. Now you run home through the
+                  forest outside the Leaf, soaked to the bone, a few hours from the gate, and the order
+                  sits wrong in your chest. Every drop sounds like footsteps.
+                </Text>
+              ) : (
+                <Text style={reading.prose}>
+                  Days ago Itachi told you he would kill the clan. You fought him, you lost, and he
+                  sent you here to wait. Now you crouch in the forest outside the Leaf, soaked to the
+                  bone, not knowing if he went through with it — or who is still alive. He promised you
+                  an answer. Every drop sounds like footsteps.
+                </Text>
+              )}
               {!apiKey ? <FirstRunCard onSave={setApiKey} /> : null}
-              <AppButton
-                disabled={!apiKey}
-                label={apiKey ? 'Wait for him' : 'Begin: wait for him'}
-                onPress={() => void submit('*You wait in the rain for Itachi.*')}
-                style={styles.seedButton}
-              />
+              {db.state.opening === 'false-order' ? (
+                <AppButton
+                  disabled={!apiKey}
+                  label={apiKey ? 'Run on' : 'Begin: run on'}
+                  onPress={() => void submit('*You run on through the rain toward the Leaf.*')}
+                  style={styles.seedButton}
+                />
+              ) : (
+                <AppButton
+                  disabled={!apiKey}
+                  label={apiKey ? 'Wait for him' : 'Begin: wait for him'}
+                  onPress={() => void submit('*You wait in the rain for Itachi.*')}
+                  style={styles.seedButton}
+                />
+              )}
             </View>
           ) : null}
 

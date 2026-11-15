@@ -147,7 +147,7 @@ describe('19. scene labels', () => {
 describe('21. second person', () => {
   test('text that reaches you says "you"', () => {
     const db = seed();
-    expect(db.events[0].summary.startsWith('You wait alone')).toBe(true);
+    expect(db.events[0].summary.startsWith('Two days ago Itachi handed you')).toBe(true);
     expect(db.jutsuRecords.find((record) => record.name === 'Thousand Souls')?.visual).toContain('your skin');
     expect(db.facts.every((fact) => !/\bKan\b/.test(fact.text))).toBe(true);
     expect(secondPerson("Kan's cloak is torn, and Kakuzu watches Kan.")).toBe('Your cloak is torn, and Kakuzu watches you.');

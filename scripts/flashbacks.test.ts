@@ -106,9 +106,13 @@ function playMemory(db: AppDatabase, input: string, narration: string, block: Re
 
 describe('the twenty-three flashbacks', () => {
   test('numbered 1-23 with unique ids, all before the story begins', () => {
-    expect(FLASHBACKS).toHaveLength(23);
-    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(23);
-    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(23)].map((_, i) => i + 1));
+    // 24 records: number 23 is "The order" in new stories, "The fight" in saves that began with the old opening.
+    expect(FLASHBACKS).toHaveLength(24);
+    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(24);
+    for (const opening of ['told', 'false-order'] as const) {
+      const story = FLASHBACKS.filter((record) => !record.opening || record.opening === opening);
+      expect(story.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(23)].map((_, i) => i + 1));
+    }
 
     for (const record of FLASHBACKS) {
       expect(dateSortValue(record.date)).toBeLessThan(dateSortValue(DEFAULT_DATE));
@@ -166,6 +170,7 @@ describe('the twenty-three flashbacks', () => {
     expect(kanAgeAt(db, FLASHBACK_BY_ID['team-three'].date)).toBe(9);
     expect(kanAgeAt(db, FLASHBACK_BY_ID['the-mask'].date)).toBe(12);
     expect(kanAgeAt(db, FLASHBACK_BY_ID['the-fight'].date)).toBe(13);
+    expect(kanAgeAt(db, FLASHBACK_BY_ID['the-order'].date)).toBe(13);
 
     for (const record of FLASHBACKS) {
       const age = kanAgeAt(db, record.date);

@@ -48,6 +48,12 @@ export type FlashbackRecord = {
   hidden?: string[];
   /** Milestones Kan must have reached first. */
   requires?: string[];
+  /**
+   * Only for stories that began with this opening (section 17): "told" for
+   * saves from before v1.25.5 (Itachi told Kan his plan and they fought),
+   * "false-order" for new ones. Unset: any story.
+   */
+  opening?: 'told' | 'false-order';
   /** The memory a sentence long, until its write-up lands. */
   memoryLine: string;
   importance: 3 | 4 | 5;
@@ -636,6 +642,44 @@ export const FLASHBACKS: FlashbackRecord[] = [
     importance: 4,
   },
   {
+    // Section 17 (15 Nov 2026): Itachi tells Kan nothing; this is the last
+    // time Kan sees Izumi and Hazuki alive.
+    id: 'the-order',
+    number: 23,
+    title: 'The order',
+    date: at(13, 9, 29, 19, 30),
+    place: 'Hazuki’s house in the Uchiha district, Hidden Leaf',
+    locationKind: 'settlement',
+    cast: ['Itachi Uchiha', 'Izumi Uchiha', 'Hazuki Uchiha'],
+    castNotes: [
+      'Itachi is very calm, calmer than he should be.',
+      'Izumi is your cousin and lights up when Itachi is at the door.',
+      'Hazuki asks Itachi to stay and eat.',
+    ],
+    scene:
+      'Two days before the massacre. Itachi comes to Hazuki’s house at dusk with an urgent ANBU order for you, sealed: a scroll for a contact at a waystation a day north, leave tonight. Hazuki asks him to stay and eat; Izumi teases you both; he does not stay. You pack and go without asking why, because it is Itachi. The last time you see Izumi and Hazuki alive.',
+    hint: 'an order, a sealed scroll, someone at the door, Izumi’s grave, Hazuki, the last time you saw them, the anniversary of the massacre',
+    triggers: {
+      dates: [{ month: 9, day: 29 }, { month: 10, day: 1 }],
+      people: ['Itachi Uchiha'],
+      beats: ['izumi-funeral', 'kan-mangekyo', 'itachi-vs-sasuke', 'masked-man-eyes'],
+      words: /\b(orders?|sealed scroll|hazuki|the last time you saw)\b/i,
+    },
+    fixed: [
+      'Itachi gives you the order; you take it without question and leave tonight.',
+      'Izumi and Hazuki are alive, and this is the last time you see them.',
+      'Itachi tells you nothing of what is coming.',
+    ],
+    hidden: [
+      'that the order is false: nothing in the scene may reveal it',
+      'the massacre, the coup, Danzō, or anything Itachi plans',
+    ],
+    memoryLine: 'The evening Itachi came to Hazuki’s door with an urgent order, and the last time you saw Izumi and Hazuki alive.',
+    importance: 5,
+    opening: 'false-order',
+  },
+  {
+    // The old opening's flashback: only for stories that began with it.
     id: 'the-fight',
     number: 23,
     title: 'The fight',
@@ -663,6 +707,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
     ],
     memoryLine: 'The night Itachi told you what he would do, and you fought him, held back, and lost.',
     importance: 5,
+    opening: 'told',
   },
 ];
 

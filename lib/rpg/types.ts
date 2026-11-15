@@ -141,6 +141,12 @@ export type GameState = {
   /** Finished chapters, oldest first. */
   chapters?: { chapter: number; title: string; from: CalendarDate; to: CalendarDate }[];
   scene: string;
+  /**
+   * Which opening the story began with: "false-order" (section 17, v1.25.5:
+   * Itachi told Kan nothing and sent him away on a false ANBU order). Missing
+   * on saves that began before it, when Itachi told Kan his plan and they fought.
+   */
+  opening?: 'false-order';
   scenePace?: ScenePace;
   sceneCast?: string[];
   /** Conversation and fight mode (see sceneMode.ts). */

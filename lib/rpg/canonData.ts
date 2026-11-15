@@ -261,7 +261,7 @@ const CORE_MILESTONES: CanonMilestone[] = [
     encounter: {
       who: 'Hana Inuzuka and Suzume',
       where: 'the Uchiha cemetery outside Hidden Leaf',
-      context: 'Hana and Suzume are grieving and angry. Kan can attend in disguise, watch from the treeline, or stay away.',
+      context: "Hana and Suzume are grieving and angry. Kan can attend in disguise, watch from the treeline, or stay away. If he watches Izumi buried, knowing she is dead, this is where his Mangekyō can awaken (the personal beat \"kan-mangekyo\").",
     },
     attendanceFact: "Kan was at Izumi Uchiha's funeral.",
   },
@@ -2514,9 +2514,10 @@ const PERSONAL_BEATS: CanonMilestone[] = [
     era: 'Ashes',
     title: "Izumi's grave: the Mangekyō",
     description:
-      "You stand at Izumi's grave and finally let her be dead. The grief goes all the way down, and your Sharingan changes shape: a ring of vulture bills and spirals, red on black. Your left eye brings Sky Burial, your right eye Okuribi, and a blood-red Susanoo rises around you — and all of it costs your eyes a little every time.",
+      "You watch Izumi buried, or stand at her grave later, and finally let her be dead. The grief goes all the way down, and your Sharingan changes shape: a ring of vulture bills and spirals, red on black. Your left eye brings Sky Burial, your right eye Okuribi, and a blood-red Susanoo rises around you — and all of it costs your eyes a little every time.",
     canonPoint: "You awakened the Mangekyō Sharingan at Izumi's grave: Sky Burial in the left eye, Okuribi in the right, a blood-red Susanoo.",
-    from: { year: 13, month: 11 },
+    // From her funeral (section 17, 15 Nov 2026): days after the Sharingan woke in the fight with Itachi.
+    from: { year: 13, month: 10, day: 6 },
     to: { year: 18, month: 3, day: 21 },
     region: 'Land of Fire',
     location: 'the Uchiha cemetery outside the Hidden Leaf',
@@ -2528,7 +2529,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       { name: 'Mangekyō Sharingan', stage: 'awakened' },
       { name: 'Susanoo', stage: 'ribs and an arm' },
     ],
-    completesWhen: "You stand at Izumi's grave, knowing she is dead, and the Mangekyō awakens on the page.",
+    completesWhen: "At Izumi's funeral (watching her buried, in disguise or from the treeline) or later at her grave, knowing she is dead, the grief lands and the Mangekyō awakens on the page.",
     facts: [
       "Kan awakened the Mangekyō Sharingan at Izumi Uchiha's grave.",
       'Kan’s Mangekyō holds Sky Burial in the left eye and Okuribi in the right, and he can manifest a blood-red Susanoo.',
@@ -2569,7 +2570,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       who: "Izumi's grave",
       where: 'the Uchiha cemetery outside Hidden Leaf, usually at night',
       context:
-        "This only happens when Kan comes to Izumi's grave knowing she is dead and lets the loss land. Alone, or found there by Hana or Itachi. The pattern is fixed: black iris, a red ring with three vulture bills hooking inward, three red half-turn spirals into a red rim. The left eye holds Sky Burial, the right Okuribi; the Susanoo is blood red and starts as ribs and an arm.",
+        "This only happens when Kan watches Izumi buried at her funeral (6 October, in disguise or from the treeline), or comes to her grave later, knowing she is dead, and lets the loss land. Never in a fight, and never in the first fight with Itachi, which wakes only the tomoe Sharingan. At the funeral Hana and Suzume are at the grave; later, alone, or found there by Hana or Itachi. The pattern is fixed: black iris, a red ring with three vulture bills hooking inward, three red half-turn spirals into a red rim. The left eye holds Sky Burial, the right Okuribi; the Susanoo is blood red and starts as ribs and an arm.",
     },
   },
 
@@ -2581,7 +2582,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
     description:
       'Itachi sees your new eyes before you can hide them. He has carried the same pattern of grief since Shisui died. He tells you what it costs, how fast the dark comes, and that there is one way past it no one should take.',
     canonPoint: 'Itachi knows about your Mangekyō and has warned you of its cost.',
-    from: { year: 13, month: 11 },
+    from: { year: 13, month: 10, day: 6 },
     to: { year: 18, month: 11 },
     playerDriven: true,
     after: 'kan-mangekyo',
@@ -2590,7 +2591,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       who: 'Itachi Uchiha',
       where: 'anywhere the two of them are alone',
       context:
-        "Itachi's own Mangekyō came from Shisui's death. He knows about the blindness, and that taking a sibling's or close kin's eyes gives an Eternal Mangekyō. He would never want Kan to go that way, and will not say why it matters so much to him.",
+        "Itachi's own Mangekyō came from Shisui's death. He knows about the blindness, and that taking a sibling's or close kin's eyes gives an Eternal Mangekyō. He would never want Kan to go that way, and will not say why it matters so much to him: he carries Izumi's eyes himself, sealed, and says nothing of them. Kan's hatred is in the room: Kan may refuse to listen.",
     },
     attendanceFact: "Itachi saw Kan's Mangekyō and warned him of its cost.",
   },
@@ -2609,7 +2610,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       who: 'Itachi Uchiha',
       where: 'wherever Kan is, the night before the Uchiha hideout',
       context:
-        "Itachi is dying and nearly blind, and he means to die at Sasuke's hand. He may ask Kan to stay away, to look after Sasuke, or simply sit with him. He will not be talked out of it.",
+        "Itachi is dying and nearly blind, and he means to die at Sasuke's hand. He may ask Kan to stay away, to look after Sasuke, or simply sit with him; this is when he may give Kan Izumi's eyes (the beat \"masked-man-eyes\"). He will not be talked out of it, and he does not ask Kan to forgive him.",
     },
     attendanceFact: 'Itachi spent his last free night with Kan.',
   },
@@ -3049,17 +3050,18 @@ const PERSONAL_BEATS: CanonMilestone[] = [
     era: 'Shippuden',
     title: "Izumi's eyes",
     description:
-      "The masked man shows you what he took from the Uchiha district: rows of eyes in jars. One pair is Izumi's — a Mangekyō, a camellia of three petals, that she woke in her last moment. He offers them to you, and light that will never go out.",
+      "Itachi took them the night he killed her, so Danzō never could, and carried them sealed for eight years without a word to you: a Mangekyō, a camellia of three petals, that she woke in her last moment. Now he gives them to you, or leaves them where only you will find them. Light that will never go out.",
     canonPoint: "You took Izumi's eyes and awakened the Eternal Mangekyō.",
-    // Around Itachi's death, in the same weeks Sasuke gets Itachi's eyes (decided 14 Nov 2026).
-    from: { year: 21, month: 12, day: 14 },
+    // Around Itachi's death, in the same weeks Sasuke gets Itachi's eyes (decided 14 Nov 2026);
+    // from Itachi himself, so from his last month (section 17, 15 Nov 2026). The id is kept for saves.
+    from: { year: 21, month: 12, day: 1 },
     to: { year: 22, month: 10, day: 7 },
     playerDriven: true,
     after: 'kan-mangekyo',
     grantsAbilities: [{ name: 'Eternal Mangekyō Sharingan', stage: 'awakened' }],
     completesWhen: "Izumi's eyes are implanted in Kan's own on the page and he wakes with the Eternal Mangekyō.",
     facts: [
-      "Kan took his cousin Izumi Uchiha's eyes from the masked man and awakened the Eternal Mangekyō Sharingan.",
+      "Kan took his cousin Izumi Uchiha's eyes, which Itachi had kept since the massacre, and awakened the Eternal Mangekyō Sharingan.",
       'Izumi Uchiha awakened the Mangekyō Sharingan in her last moment, when she understood it was Itachi killing her.',
     ],
     grantsJutsu: [
@@ -3074,12 +3076,12 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       },
     ],
     encounter: {
-      who: 'the masked man',
-      where: "the masked man's hidden lair",
+      who: 'Itachi Uchiha, or what he left behind',
+      where: "wherever Itachi finds Kan in his last days, or a place only Kan would look after Itachi's death (a crow leads him there, or one of Kan's vultures finds it)",
       context:
-        "He harvested the eyes after the massacre; Izumi's are a Mangekyō (a three-petal camellia) she awakened as she understood it was Itachi killing her, and he knows they are Kan's cousin's. Implanting them gives Kan the Eternal Mangekyō: his sight comes back, Sky Burial works on any eye contact and catches two or three people, Okuribi can be shaped, Perfect Susanoo becomes possible, and he inherits her Long Dream. Taking them binds Kan to him; Kan can refuse, bargain, or steal them.",
+        "Itachi took Izumi's eyes (and Hazuki's) the night of the massacre so Danzō could never harvest them, and has carried them sealed for eight years without telling Kan; Izumi's are a Mangekyō (a three-petal camellia) she awakened as she understood it was Itachi killing her. While Itachi lives, he gives them to Kan himself, in his last days (often the last night before he meets Sasuke), with no apology; after his death he has left them sealed for Kan with a few words. The masked man never had them. Implanting them gives Kan the Eternal Mangekyō: his sight comes back, Sky Burial works on any eye contact and catches two or three people, Okuribi can be shaped, Perfect Susanoo becomes possible, and he inherits her Long Dream. Implanting needs a skilled medic or a dangerous attempt of Kan's own; Kan decides whether he takes them at all.",
     },
-    attendanceFact: "The masked man offered Kan Izumi's eyes.",
+    attendanceFact: "Itachi gave Kan Izumi's eyes, or Kan found where he left them.",
   },
 
   // --- The Root hunter -------------------------------------------------------

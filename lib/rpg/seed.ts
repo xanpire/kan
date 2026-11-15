@@ -36,14 +36,29 @@ const FOREST_ID = makeId('entity');
 
 /**
  * The opening as Kan remembers it: only what he knows at 10 PM on 1 Oct
- * (audit 6b.1). Shown on the bond pages and in the Journal.
+ * (audit 6b.1). Shown on the bond pages and in the Journal. Section 17
+ * (15 Nov 2026): Itachi told him nothing; he sent Kan away on a false order.
  */
 export const OPENING_MEMORY =
+  'Two days ago Itachi handed you an urgent ANBU order, sealed and marked for your eyes only: carry a scroll to a contact at an old waystation a day north of the Leaf. Nobody was there. You waited through the night and the morning, then turned back. Now you run home through the rain-soaked forest, a few hours from the village, and something about the order sits wrong.';
+
+/** The opening's setup, for the narrator only (never shown: it gives the night away). */
+export const OPENING_BRIEFING =
+  'Tonight Itachi has killed the Uchiha clan, your cousin Izumi and your aunt Hazuki with it. The order he gave you was false, written to get you out of the village before it happened: he used your trust in him. He is waiting for you in the forest on your way back, rain on him and blood under it. In this first scene you learn from him that the clan is dead, Izumi and Hazuki with them (he may give you one honest detail of Hazuki, such as "She didn’t run."), but not why. If you attack, the fight is played: you cannot win, he only defends and never really hurts you, and your Sharingan awakens mid-fight from rage (the tomoe only, never the Mangekyō). Then he asks you to come with him and join the Akatsuki, and promises to explain once you are far from the village. The Leaf will think you died tonight, and Danzō would have you in Root or in a grave: there is nowhere to go back to.';
+
+/** The opening before section 17 (v1.24.82 to v1.25.4): Itachi told Kan his plan and they fought. Saves that began with it keep it. */
+export const OPENING_MEMORY_TOLD =
   'You wait alone in the rain-soaked forest outside Hidden Leaf, where Itachi sent you days ago after he told you what he meant to do, and you fought him and lost. He promised to explain everything once it was over. You do not know whether he went through with it, how it happened, or who died, Izumi included.';
 
-/** The opening's setup, for the narrator only (never shown: it gives the plan away). */
-export const OPENING_BRIEFING =
+export const OPENING_BRIEFING_TOLD =
   'Tonight the massacre has happened. Itachi is about to arrive and ask you to come with him and join the Akatsuki; he promised an explanation, but he will hold the truth back until you are far from the village.';
+
+/**
+ * The hidden truth about Izumi's eyes (section 17, 15 Nov 2026): Itachi, not
+ * the masked man, took them. Old saves get this text too (db.ts).
+ */
+export const IZUMI_EYES_LORE =
+  'Hidden truth about Izumi (never reveal it through narration; Kan learns it only on the page): in her last moment, as she understood it was Itachi killing her, Izumi awakened the Mangekyō Sharingan, a three-petal camellia; and Itachi’s Tsukuyomi gave her a whole ordinary life in that moment before she died, the dream she once told you on the roof. Whether that was mercy or cruelty, you will not be able to tell when you learn it. That night Itachi took her eyes (and Hazuki’s) so Danzō could never harvest them, sealed them, and carries them for years without telling you. Her grave holds a body without eyes; anyone who handled the burial may have noticed something wrong (a clue, never an explanation). Near the end he gives them to you, or leaves them for you to find after his death: taking them gives you, her cousin, the Eternal Mangekyō and her Long Dream.';
 
 /** The opening memory's text before v1.24.82, which told the player the plan. */
 export const LEGACY_OPENING_SUMMARY_START = 'You wait alone in the rain-soaked forest outside Hidden Leaf, where Itachi sent you days ago. Tonight the massacre has happened';
@@ -63,8 +78,8 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       personality: 'Reserved, watchful, hard to read. Smart and versatile, hides his feelings. A trace of the timid, quiet child he was at the Academy still shows when he is caught off guard.',
       speechStyle: 'Short, restrained, rarely volunteers more than necessary.',
       status: 'Former ANBU, now missing-nin',
-      notes: 'Original character. Uchiha-Uzumaki lineage, usually goes only by Kan. Grew up with Itachi and Shisui; the three were inseparable. Outside Team 3 they were his only real friends. Raised from five by his aunt Hazuki, so Izumi is his cousin. Lost a fight to Itachi days before the massacre, but held back because he would not truly hurt him; how strong Kan really is remains an open question.',
-      mood: 'Numb, guarded, torn',
+      notes: 'Original character. Uchiha-Uzumaki lineage, usually goes only by Kan. Grew up with Itachi and Shisui; the three were inseparable. Outside Team 3 they were his only real friends. Raised from five by his aunt Hazuki, so Izumi is his cousin. Two days before the massacre Itachi sent him out of the village on a false ANBU order; he learns on his way back, from Itachi, that the clan is dead. How strong Kan really is remains an open question.',
+      mood: 'Tired, uneasy, alert',
       appearance: KAN_APPEARANCE,
       gender: 'male',
       met: true,
@@ -78,13 +93,13 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       birthday: { month: 6, day: 9 },
       birthYear: 0,
       met: true,
-      lastSeen: { year: 13, month: 9, day: 28, hour: 21, minute: 0 },
-      lastSeenAt: 'Forest outside Hidden Leaf',
+      lastSeen: { year: 13, month: 9, day: 29, hour: 19, minute: 30 },
+      lastSeenAt: 'Hidden Leaf',
       role: 'Missing-nin · Akatsuki',
       personality: 'Calm, perceptive, self-sacrificing, gentle beneath a controlled surface.',
       speechStyle: 'Quiet, precise, polite, often speaking in gentle observations.',
       status: 'Missing-nin, Akatsuki',
-      notes: 'Kan’s closest friend, like an older brother; with Shisui, the three grew up together. Joined ANBU one year before Kan. A few days before the massacre he told Kan what he was going to do, beat him in the fight that followed, and sent him to hide in the forest and wait — promising to explain everything afterwards. He wants Kan beside him in the Akatsuki, the two of them spying on it together.',
+      notes: 'Kan’s closest friend since childhood, like an older brother; with Shisui, the three grew up together. Joined ANBU one year before Kan. He told Kan nothing: two days before the massacre he handed him a false ANBU order to get him out of the village, using Kan’s trust in him. Tonight he killed the clan, Kan’s cousin Izumi and his aunt Hazuki, who raised Kan, among them. He took Izumi’s eyes (and Hazuki’s) that night so Danzō could never have them, and carries them sealed, telling no one. He wants Kan beside him in the Akatsuki, the two of them spying on it together. He never defends himself and accepts Kan’s hatred: he wants to be hated.',
       mood: 'Burdened, controlled, grieving beneath the calm',
       // His look at thirteen, the night he leaves; the Akatsuki cloak comes later.
       appearance: 'Slim thirteen-year-old with long black hair tied low at the nape, sharp dark eyes and faint tear-trough lines; dark high-collared shirt, ANBU-issue arm guards, dark trousers, and a Hidden Leaf forehead protector.',
@@ -127,13 +142,13 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       birthdayInvented: true,
       birthYear: 0,
       met: true,
-      lastSeen: { year: 13, month: 9, day: 27, hour: 18, minute: 0 },
+      lastSeen: { year: 13, month: 9, day: 29, hour: 20, minute: 0 },
       lastSeenAt: 'Hidden Leaf',
       role: 'Hidden Leaf genin · Team 3',
       personality: 'Kind, observant, gentle, quietly stubborn.',
       speechStyle: 'Soft and careful, with a warm teasing streak.',
       status: 'Deceased',
-      // Kan learns of it when someone tells him, or when news of her funeral reaches him.
+      // Kan learns of it from Itachi in the first scene (section 17), or from news of the funeral.
       deceased: { known: false, canonEventId: 'event_canon_izumi-funeral' },
       notes: 'Kan’s cousin (their mothers were sisters: Izumi’s mother Hazuki raised Kan from five, so they grew up in one house, almost as siblings) and his former teammate from Team 3; he left the team when he joined ANBU. Killed in the Uchiha massacre, still a genin. She had loved Itachi since the Academy, and Kan knew it; she had the Sharingan from the Nine-Tails night.',
       mood: 'Unknown',
@@ -153,7 +168,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       birthdayInvented: true,
       birthYear: -27,
       met: true,
-      lastSeen: { year: 13, month: 9, day: 24, hour: 7, minute: 0 },
+      lastSeen: { year: 13, month: 9, day: 29, hour: 20, minute: 0 },
       lastSeenAt: 'Hidden Leaf',
       role: 'Izumi’s mother · your aunt',
       personality: 'Warm, wry, quietly uneasy about the clan’s mood; married outside the clan and lived apart from it before the Nine-Tails night.',
@@ -195,7 +210,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       name: 'Forest outside Hidden Leaf',
       type: 'place',
       aliases: ['the woods', 'the forest'],
-      notes: 'Rain-soaked meeting place after the Uchiha massacre.',
+      notes: 'The rain-soaked forest on the road back to the Leaf, where Itachi waits for you the night of the massacre.',
       tags: ['location', 'forest', 'rain'],
     },
     {
@@ -216,7 +231,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
   const openingEvent: EventRecord = {
     id: makeId('event'),
     chapter: 1,
-    scene: 'The rain after',
+    scene: 'The road back',
     inStoryDate: DEFAULT_DATE,
     summary: OPENING_MEMORY,
     narratorNote: OPENING_BRIEFING,
@@ -271,13 +286,14 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       entityId: ITACHI_ID,
       characterName: 'Itachi Uchiha',
       affinity: 8,
-      status: 'Like an older brother, now strained',
+      status: 'Closest friend, like an older brother',
       lastKeyEventId: openingEvent.id,
-      note: 'He loves you like a brother and wants you safe beside him, even if it costs him your trust.',
-      theirFeelings: { affinity: 8, note: 'He loves you like a brother and wants you safe beside him, even if it costs him your trust.' },
+      note: 'He loves you like a brother and wants you safe beside him, even if it costs him your trust; he will let you hate him.',
+      theirFeelings: { affinity: 8, note: 'He loves you like a brother and wants you safe beside him, even if it costs him your trust; he will let you hate him.' },
+      // Kan knows nothing yet: the trust is real until the forest (section 17).
       yourFeelings: {
         affinity: 7,
-        note: 'You grew up together with Shisui and joined ANBU a year apart. Days ago he told you he would kill the clan; you fought, and you lost while holding back. The love is still there, and so are dread, anger and unanswered questions.',
+        note: 'You grew up together with Shisui and joined ANBU a year apart. You would follow an order of his without asking why, and two days ago you did.',
       },
       isMajor: true,
       relationship: 'old friend',
@@ -423,21 +439,32 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     },
     {
       id: makeId('fact'),
-      subjectEntityId: ITACHI_ID,
-      type: 'secret',
-      text: 'A few days before the massacre, Itachi told you he was going to kill the Uchiha. You fought him and lost, holding back because you would not truly hurt him. He then sent you to hide in the forest and wait, promising to explain everything once it was over.',
+      subjectEntityId: KAN_ID,
+      type: 'event',
+      text: 'Two days before the massacre Itachi handed you an urgent ANBU order: carry a sealed scroll to a contact at a waystation a day north of the Leaf. Nobody was there.',
       whoKnows: ['Kan', 'Itachi Uchiha'],
       validFrom: DEFAULT_DATE,
       validTo: null,
       confidence: 'confirmed',
-      sourceEventId: null,
+      sourceEventId: openingEvent.id,
     },
     {
       id: makeId('fact'),
-      subjectEntityId: KAN_ID,
-      type: 'knowledge',
-      text: 'You left for the forest days before the massacre. You do not know whether Itachi went through with it, how it happened, who died, or why. Itachi promised to tell you.',
-      whoKnows: ['Kan', 'Itachi Uchiha'],
+      subjectEntityId: ITACHI_ID,
+      type: 'secret',
+      text: 'The ANBU order Itachi gave you was false: he wrote it to get you out of the village before he killed the clan.',
+      whoKnows: ['Itachi Uchiha'],
+      validFrom: DEFAULT_DATE,
+      validTo: null,
+      confidence: 'confirmed',
+      sourceEventId: openingEvent.id,
+    },
+    {
+      id: makeId('fact'),
+      subjectEntityId: ITACHI_ID,
+      type: 'secret',
+      text: 'On the night of the massacre Itachi took Izumi’s eyes, and Hazuki’s, so Danzō could never have them; he keeps them sealed and has told no one.',
+      whoKnows: ['Itachi Uchiha'],
       validFrom: DEFAULT_DATE,
       validTo: null,
       confidence: 'confirmed',
@@ -447,7 +474,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       id: makeId('fact'),
       subjectEntityId: IZUMI_ID,
       type: 'death',
-      text: 'Izumi Uchiha, your cousin and former teammate, was killed in the Uchiha massacre. You do not know this yet.',
+      text: 'Izumi Uchiha, your cousin and former teammate, and her mother Hazuki were killed in the Uchiha massacre. You do not know this yet.',
       whoKnows: ['Itachi Uchiha', 'Hidden Leaf'],
       validFrom: DEFAULT_DATE,
       validTo: null,
@@ -499,7 +526,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       type: 'goal',
       title: 'Make Itachi explain',
       description:
-        'Itachi told you he would kill the clan, sent you into the woods, and promised to explain everything once it was over. You still don’t know if he did it.',
+        'Itachi’s urgent order sent you a day north to a contact who never came. You want to know why.',
       status: 'open',
       openedAt: DEFAULT_DATE,
       resolvedAt: null,
@@ -530,9 +557,9 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     },
     {
       id: makeId('lore'),
-      keywords: ['sharingan', 'awaken', 'truth', 'itachi', 'explain', 'coup'],
+      keywords: ['sharingan', 'awaken', 'itachi', 'fight', 'rage', 'eyes', 'tomoe'],
       priority: 5,
-      text: 'Your Sharingan awakens in the moment Itachi finally tells you the truth about why he killed the clan: not in a fight, not from fear, and not before that moment. Until then you have no Sharingan.',
+      text: 'Your Sharingan awakens in your first fight with Itachi, tonight in the forest, from rage, once you know what he has done: show it on the page (the burn, the world slowing, his moves suddenly readable) and report it as an ability. Only the tomoe Sharingan: NEVER the Mangekyō in this fight, however deep the grief; the Mangekyō comes only at Izumi’s funeral or later at her grave. Until that fight you have no Sharingan.',
       enabled: true,
       hidden: true,
       activeUntil: { flag: 'hasSharingan' },
@@ -541,7 +568,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       id: makeId('lore'),
       keywords: ['itachi', 'truth', 'explain', 'why', 'coup', 'tell', 'promise'],
       priority: 5,
-      text: 'When Itachi reaches you in the forest he does NOT tell you the truth yet. You are too close to the Leaf: he asks you to come with him (and to join the Akatsuki) first, and promises to explain once you are far from the village. The full truth (the coup, the order, Shisui) comes later, on the road, well away from the Leaf.',
+      text: 'When Itachi meets you in the forest he tells you WHAT he did (the clan is dead, Izumi and Hazuki with it) but NOT why. You are too close to the Leaf: he asks you to come with him (and to join the Akatsuki) first, and promises to explain once you are far from the village. The full truth (the coup, Danzō’s order, the threat of war, Shisui) comes later, on the road, well away from the Leaf; when it comes you understand him, and hate that you do. Understanding is never forgiveness.',
       enabled: true,
       hidden: true,
       activeUntil: { thread: 'Make Itachi explain', threadStatus: 'resolved' },
@@ -601,26 +628,35 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     },
     {
       id: makeId('lore'),
-      keywords: ['itachi', 'fight', 'massacre', 'forest', 'promise'],
+      keywords: ['itachi', 'order', 'anbu', 'waystation', 'contact', 'massacre', 'forest'],
       priority: 5,
-      text: 'Days before the massacre Itachi told you his plan. Shaken, you fought him and lost, but you held back, unwilling to really hurt him, so nobody knows what you can do when you go all out. He sent you to hide in the forest and wait, promising to explain everything afterwards.',
+      text: 'Itachi told you nothing beforehand. Two days before the massacre he handed you a false ANBU order (a sealed scroll for a contact at a waystation a day north) because he knew you would go without asking: he used your trust to get you out of the way. There was no fight before the story; you have never fought him for real, so nobody knows what you can do when you go all out.',
       enabled: true,
       hidden: true,
     },
     {
       id: makeId('lore'),
-      keywords: ['itachi', 'massacre', 'forest', 'wait', 'clan', 'happened'],
+      keywords: ['itachi', 'massacre', 'forest', 'clan', 'happened', 'blood', 'izumi', 'hazuki'],
       priority: 5,
-      text: 'You have been in the forest since that fight, so you do not know whether Itachi went through with it, how, or who died. Between you there is real tension: love and trust on one side, dread, anger and the need to know on the other.',
+      text: 'Until Itachi tells you in the forest, you do not know the massacre has happened. You learn it from him in the first scene: the clan is dead, Izumi and Hazuki with it. He may give you one honest detail of Hazuki’s death ("She didn’t run."). He never defends himself, never asks forgiveness, and lets you hate him. If you attack he only defends; you cannot win.',
       enabled: true,
       hidden: true,
-      activeUntil: { thread: 'Make Itachi explain', threadStatus: 'resolved' },
+      activeUntil: { flag: 'knowsIzumiDead' },
+    },
+    {
+      id: makeId('lore'),
+      keywords: ['itachi', 'hate', 'hatred', 'anger', 'izumi', 'hazuki', 'sasuke', 'forgive', 'partner', 'brother'],
+      priority: 5,
+      text: 'You and Itachi, since the forest: he killed your cousin Izumi and Hazuki, the aunt who raised you, and he used your trust to get you out of the way. You go with him anyway, because you have nowhere else (the Leaf thinks you died that night, and Danzō would have you in Root or in a grave) and, once he tells you why, because you understand him and hate that you do. The bond is a mix, never fixed stages: hatred (cold silences, refusing his help, sparring too hard, at least once a real attempt on his life), cold working partners on Akatsuki business, cracks (he protects you or Sasuke at a cost to himself; the guilt he hides), and his illness, if you learn of it. Your anger flares at any mention of Izumi or Hazuki, at Sasuke, and at his calm. He never defends himself and accepts the hate: he wants to be hated. The hatred softens only for real story reasons, slowly, never on its own.',
+      enabled: true,
+      hidden: true,
+      activeAfter: { flag: 'knowsIzumiDead' },
     },
     {
       id: makeId('lore'),
       keywords: ['izumi', 'team 3', 'team-3'],
       priority: 5,
-      text: 'Izumi Uchiha, your cousin and former Team 3 teammate, died in the massacre, and her mother Hazuki with her. She had loved Itachi since the Academy, and you knew it. You do NOT know she is dead until someone tells you (Itachi, news, or the funeral); never reveal it through narration.',
+      text: 'Izumi Uchiha, your cousin and former Team 3 teammate, died in the massacre, and her mother Hazuki with her. She had loved Itachi since the Academy, and you knew it. You do NOT know she is dead until Itachi tells you in the forest tonight (or, if he somehow does not, news or the funeral); never reveal it through narration before someone tells you.',
       enabled: true,
       hidden: true,
       activeUntil: { flag: 'knowsIzumiDead' },
@@ -635,9 +671,9 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     },
     {
       id: makeId('lore'),
-      keywords: ['izumi', 'eyes', 'grave', 'body', 'marker', 'mangekyo', 'mangekyō', 'masked man', 'eternal'],
+      keywords: ['izumi', 'eyes', 'grave', 'body', 'marker', 'mangekyo', 'mangekyō', 'itachi', 'eternal', 'dream', 'tsukuyomi'],
       priority: 4,
-      text: 'Hidden truth about Izumi (never reveal it through narration; Kan learns it only on the page): in her last moment, as she understood it was Itachi killing her, Izumi awakened the Mangekyō Sharingan, a three-petal camellia. After the massacre the masked man harvested her eyes with the clan’s and holds them still. Her grave holds a body without eyes, or none at all; anyone who handled the burial may have noticed something wrong (a clue, never an explanation). Taking her eyes would give Kan, her cousin, the Eternal Mangekyō.',
+      text: IZUMI_EYES_LORE,
       enabled: true,
       hidden: true,
     },
@@ -762,7 +798,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
           { nature: 'Earth', source: 'innate', acquiredOn: DEFAULT_DATE },
         ],
       },
-      mood: 'Numb, guarded, torn',
+      mood: 'Tired, uneasy, alert',
       worldDescription: 'The Hidden Leaf still carries the scars of the Nine-Tails attack. Tonight the rain is heavy, and the forest around the village is silent.',
       jutsu: [...KAN_STARTING_JUTSU.map((jutsu) => jutsu.name), 'Thousand Souls'],
       inventory: [
@@ -776,11 +812,13 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       ],
       location: 'Forest outside Hidden Leaf',
       inStoryDate: DEFAULT_DATE,
-      canonPoint: 'The night Itachi said he would act. He is coming to the forest to find you.',
+      canonPoint: 'The night of the massacre. You are on your way back from Itachi’s errand, and he is waiting in the forest.',
       chapter: 1,
       chapterTitle: 'The flight from the Leaf',
       chapterStart: { turn: 1, date: DEFAULT_DATE },
-      scene: 'The rain after',
+      scene: 'The road back',
+      // Section 17: Itachi told Kan nothing and sent him away on a false order.
+      opening: 'false-order',
       // The opening is a heavy downpour (Session 1: the world rolled "cloudy").
       weather: { region: 'fire', condition: 'downpour', text: 'heavy rain', since: DEFAULT_DATE, source: 'story' },
       purse: startingPurse(),
