@@ -1,6 +1,7 @@
 import { dateSortValue } from './calendar';
 import { resolveEntity } from './entities';
 import { makeId } from './id';
+import { matchCanonJutsu } from './jutsuList';
 import type { AppDatabase, JutsuRecord, TurnDiff } from './types';
 
 export const JUTSU_NATURES = [
@@ -205,6 +206,12 @@ export function jutsuNameVariants(name: string) {
   return swapped === name ? [name] : [name, swapped];
 }
 
+/** The built-in list's entry for a new record (section 9), when one matches. */
+function canonLink(name: string, user: string): { canonId?: string } {
+  const entry = matchCanonJutsu(name, user.trim().toLowerCase() === 'kan');
+  return entry ? { canonId: entry.id } : {};
+}
+
 export function applyJutsuDiff(db: AppDatabase, jutsu: JutsuDiff): AppDatabase {
   if (!jutsu?.name || typeof jutsu.name !== 'string' || !jutsu.user) {
     return db;
@@ -239,6 +246,7 @@ export function applyJutsuDiff(db: AppDatabase, jutsu: JutsuDiff): AppDatabase {
       timesUsed: 1,
       description: jutsu.description?.trim() || '',
       tags: [],
+      ...canonLink(name, user),
     };
 
     return {
@@ -258,6 +266,7 @@ export function applyJutsuDiff(db: AppDatabase, jutsu: JutsuDiff): AppDatabase {
     lastSeen: db.state.inStoryDate,
     timesUsed: existing.timesUsed + 1,
     description: jutsu.description?.trim() || existing.description,
+    ...(existing.canonId ? {} : canonLink(existing.name, existing.user)),
   };
 
   return {
@@ -333,7 +342,8 @@ export function renameJutsuRecord(db: AppDatabase, recordId: string, rawName: st
       .filter((item) => item.id !== record.id)
       .map((item) => (item.id === twin.id ? merged : item));
   } else {
-    jutsuRecords = db.jutsuRecords.map((item) => (item.id === record.id ? { ...item, name } : item));
+    const canonId = matchCanonJutsu(name, record.user.trim().toLowerCase() === 'kan')?.id;
+    jutsuRecords = db.jutsuRecords.map((item) => (item.id === record.id ? { ...item, name, canonId } : item));
   }
 
   const isKan = record.user.toLowerCase() === 'kan';

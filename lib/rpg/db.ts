@@ -1,5 +1,6 @@
 import { KAN_APPEARANCE, migrateKanEyes } from './kanLook';
 import { migrateProtectorName } from './inventory';
+import { linkJutsuRecords } from './jutsuList';
 import { withInnateNatures } from './abilities';
 import { normalizePlaceLooks } from './placeLooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -969,7 +970,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
         )
       : [],
     jutsuRecords: Array.isArray(db.jutsuRecords)
-      ? db.jutsuRecords.map((record) => ({
+      ? linkJutsuRecords(db.jutsuRecords.map((record) => ({
           ...record,
           chakraNature: normalizeJutsuNature(record.chakraNature),
           effect: record.effect ?? record.description ?? '',
@@ -983,7 +984,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
           dateSortValue(record.lastSeen) === dateSortValue(record.firstSeen)
             ? { timesUsed: 0 }
             : {}),
-        }))
+        })))
       : [],
     entities: ensureCanonCast(
       Array.isArray(db.entities)

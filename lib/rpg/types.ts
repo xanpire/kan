@@ -873,6 +873,8 @@ export type JutsuRecord = {
   timesUsed: number;
   description: string;
   tags: string[];
+  /** The built-in jutsu list's entry this is (jutsuData.ts), when one matches. */
+  canonId?: string;
 };
 
 export type EventEntityRecord = {

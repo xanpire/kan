@@ -47,6 +47,7 @@ import { formatTrialLine, formatTrialTracking, trialActive } from './akatsukiTri
 import { resolveEntity } from './entities';
 import { alsoKnownAs, displayName, identitiesOf, identityLine, kanKnowsLine, kanKnowsName, labelOf, narratorName } from './names';
 import { companionsOf, daysTogether, formatTogether } from './companions';
+import { canonJutsuOf, formatJutsuReference, selectCanonJutsu } from './jutsuList';
 import { relevantFacts, retrieveMemories, triggeredLore } from './retrieval';
 import { factRef, knowerNames } from './facts';
 import { formatAbilities } from './abilities';
@@ -276,6 +277,16 @@ export function buildNarrationPrompt(
   // oldest lines of the recent scene.
   let facts = allFacts;
   let lore = allLore;
+  // The built-in jutsu list (section 9): what was named lately and what the
+  // people here can do. Never inside a flashback, where the present's list is wrong.
+  let jutsuReference = activeFlashback(db)
+    ? []
+    : selectCanonJutsu(db, {
+        recentText: entityText,
+        presentNames: [...new Set([...companionsOf(db).map((entity) => entity.id), ...sceneCastIdsOf(db)])]
+          .map((id) => db.entities.find((entity) => entity.id === id)?.name)
+          .filter((name): name is string => Boolean(name)),
+      });
   const storySoFar = getStorySoFar(db);
   const shownSummaries = new Set(
     [storySoFar.arc, ...storySoFar.chapters].filter((text): text is string => Boolean(text))
@@ -348,6 +359,7 @@ export function buildNarrationPrompt(
         userMessage,
       }),
       formatReactionsBlock(db, matchedEntityIds),
+      formatJutsuReference(db, jutsuReference, entityText),
       formatFacts(db, facts),
       formatFigures(db),
       formatElsewhere(db),
@@ -405,8 +417,10 @@ export function buildNarrationPrompt(
     () => (freshMemories.length > 2 ? ((freshMemories = freshMemories.slice(0, 2)), true) : false),
     () => (facts.length > 6 ? ((facts = facts.slice(0, 6)), true) : false),
     () => (lore.length > 2 ? ((lore = lore.slice(0, 2)), true) : false),
+    () => (jutsuReference.length > 3 ? ((jutsuReference = jutsuReference.slice(0, 3)), true) : false),
     () => (freshMemories.length > 0 ? ((freshMemories = []), true) : false),
     () => (facts.length > 3 ? ((facts = facts.slice(0, 3)), true) : false),
+    () => (jutsuReference.length > 0 ? ((jutsuReference = []), true) : false),
   ];
 
   for (const cut of cuts) {
@@ -1090,6 +1104,12 @@ const SCENE_JUTSU_PER_PERSON = 3;
  * genjutsu, taijutsu and space-time techniques too); then up to 3 each for
  * the people in the scene. Nobody else's.
  */
+/** A record's real chakra cost from the built-in list, for fight options (section 9). */
+function costOf(record: JutsuRecord) {
+  const cost = canonJutsuOf(record)?.cost;
+  return cost ? `, cost ${truncate(cost, 50)}` : '';
+}
+
 function formatJutsu(db: AppDatabase) {
   const isKan = (user: string) => user.trim().toLowerCase() === 'kan';
   const used = (a: JutsuRecord, b: JutsuRecord) =>
@@ -1123,7 +1143,7 @@ function formatJutsu(db: AppDatabase) {
     ...(own.length > 0
       ? own.map(
           (record) =>
-            `  - ${record.name}${record.tags.includes('signature') ? ' (signature)' : ''} [${normalizeJutsuNature(record.chakraNature)}]: ${truncate(record.effect, 90)}; used ${record.timesUsed}×`
+            `  - ${record.name}${record.tags.includes('signature') ? ' (signature)' : ''} [${normalizeJutsuNature(record.chakraNature)}${costOf(record)}]: ${truncate(record.effect, 90)}; used ${record.timesUsed}×`
         )
       : ['  None yet.']),
     ...(theirs.length > 0 ? ['JUTSU OF PEOPLE IN THE SCENE', ...theirs] : []),
