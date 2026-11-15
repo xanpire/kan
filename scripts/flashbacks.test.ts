@@ -104,11 +104,11 @@ function playMemory(db: AppDatabase, input: string, narration: string, block: Re
   return { ...applyStateStep(next, diff, { turnLogId, userMessage: input, narration }, new Set()), prompt };
 }
 
-describe('the twenty-one flashbacks', () => {
-  test('numbered 1-21 with unique ids, all before the story begins', () => {
-    expect(FLASHBACKS).toHaveLength(21);
-    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(21);
-    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(21)].map((_, i) => i + 1));
+describe('the twenty-three flashbacks', () => {
+  test('numbered 1-23 with unique ids, all before the story begins', () => {
+    expect(FLASHBACKS).toHaveLength(23);
+    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(23);
+    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(23)].map((_, i) => i + 1));
 
     for (const record of FLASHBACKS) {
       expect(dateSortValue(record.date)).toBeLessThan(dateSortValue(DEFAULT_DATE));
@@ -136,6 +136,28 @@ describe('the twenty-one flashbacks', () => {
     for (const name of [...hana.cast, ...izumi.cast]) {
       expect(db.entities.some((entity) => entity.name === name)).toBe(true);
     }
+  });
+
+  test('the chains and Guy’s Gate (decided 15 Nov 2026)', () => {
+    const db = quietSave();
+    const chains = FLASHBACK_BY_ID['the-chains'];
+    const guy = FLASHBACK_BY_ID['guy-and-the-gate'];
+    expect(kanAgeAt(db, chains.date)).toBe(10);
+    expect(chains.cast).toEqual([]);
+    expect(chains.triggers.places?.ids).toContain('hazuki-house');
+    expect(chains.hidden?.join(' ')).toContain('Naruto’s mother');
+    expect(chains.triggers.words?.test('Golden chains burst from your back.')).toBe(true);
+    expect(chains.triggers.words?.test('The prisoner rattles his iron chains.')).toBe(false);
+    expect(kanAgeAt(db, guy.date)).toBe(11);
+    expect(guy.cast).toEqual(['Might Guy']);
+    expect(guy.triggers.beats).toContain('gai-night-guy');
+    expect(guy.triggers.words?.test('You open the Third Gate.')).toBe(true);
+    expect(guy.fixed.join(' ')).toContain('promise');
+    // Team 3 days, before ANBU.
+    const joinsAnbu = dateSortValue(FLASHBACK_BY_ID['the-mask'].date);
+    expect(dateSortValue(chains.date)).toBeLessThan(joinsAnbu);
+    expect(dateSortValue(guy.date)).toBeLessThan(joinsAnbu);
+    expect(db.entities.some((entity) => entity.name === 'Might Guy')).toBe(true);
   });
 
   test('Kan is the right age in each (0-13)', () => {

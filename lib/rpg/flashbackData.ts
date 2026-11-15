@@ -1,5 +1,5 @@
 /**
- * The twenty-one playable flashbacks of Kan's life before the story (ages 0–13).
+ * The twenty-three playable flashbacks of Kan's life before the story (ages 0–13).
  * Data only; the engine lives in flashbacks.ts.
  *
  * Kan, Itachi, Izumi and Hana are born in year 0, Shisui in year -3, Sasuke
@@ -27,7 +27,7 @@ export type FlashbackTriggers = {
 
 export type FlashbackRecord = {
   id: string;
-  /** Its place in Kan's life, 1–21. */
+  /** Its place in Kan's life, 1–23. */
   number: number;
   title: string;
   date: CalendarDate;
@@ -283,8 +283,40 @@ export const FLASHBACKS: FlashbackRecord[] = [
     importance: 4,
   },
   {
-    id: 'hanas-dogs',
+    id: 'the-chains',
     number: 9,
+    title: 'The chains',
+    date: at(10, 7, 12, 2, 40),
+    place: 'your room in Hazuki’s house, the Uchiha district, Hidden Leaf',
+    locationKind: 'structure',
+    cast: [],
+    scene:
+      'Two weeks after your tenth birthday you wake in the dark from a nightmare of the Nine-Tails night, and golden chains of chakra are pouring out of your back: they have smashed the lamp, wrapped the bedposts and pinned the door, and you cannot make them stop. You have never seen anything like them, and they are yours. When they finally sink back into you, you hide the damage before morning and go to your father’s scrolls, and in the margin of an old Uzumaki passage on chakra chains you find a name in Banri’s hand: Kushina.',
+    castNotes: [
+      'You are ten, a genin on Team 3, living in Hazuki’s house with Izumi and her mother; they sleep down the hall and must not wake. Nobody else is in the scene unless the player brings someone in, and then they see only a frightened boy, never the chains.',
+      'Banri’s scrolls are the Uzumaki working collection he carried out of Uzushio; the chain passage is half legend, his notes in the margin.',
+    ],
+    hint: 'chains of chakra, Kan’s chains in a fight, Kushina’s name, someone who knew Kushina, an Uzumaki, Hazuki’s house',
+    triggers: {
+      beats: ['karin-senses-uzumaki', 'kurama-mastered'],
+      places: { ids: ['hazuki-house'], words: /\bhazuki'?s house\b/i },
+      words: /\b(chakra chains?|sealing chains?|golden chains?|adamantine( sealing)? chains?|your chains|kushina)\b/i,
+    },
+    fixed: [
+      'The chains come out on their own tonight, for the first time, and they frighten you.',
+      'Nobody sees them: you hide what happened, and from now on you show them to almost no one.',
+      'You find the chain passage in Banri’s scrolls with Kushina’s name in his hand.',
+    ],
+    hidden: [
+      'that Kushina carried the Nine-Tails, or that she was Minato’s wife and Naruto’s mother',
+      'how strong the chains will become: never show their limit',
+    ],
+    memoryLine: 'The night your chakra chains first broke out of you, and you found Kushina’s name in your father’s scrolls.',
+    importance: 4,
+  },
+  {
+    id: 'hanas-dogs',
+    number: 10,
     title: 'Hana’s dogs',
     date: at(10, 8, 3, 7, 30),
     place: 'the forests of the Land of Fire, on a Team 3 mission',
@@ -304,7 +336,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-long-night',
-    number: 10,
+    number: 11,
     title: 'The long night',
     date: at(11, 7, 18, 21),
     place: 'the kennels of the Inuzuka compound, Hidden Leaf',
@@ -335,7 +367,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'itachis-eyes',
-    number: 11,
+    number: 12,
     title: 'Itachi’s eyes',
     date: at(8, 12, 3, 20),
     place: 'the Naka Shrine grounds in the Uchiha district, Hidden Leaf',
@@ -358,7 +390,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   // The ANBU years
   {
     id: 'itachi-joins-anbu',
-    number: 12,
+    number: 13,
     title: 'Itachi joins ANBU',
     date: at(11, 8, 12, 19),
     place: 'the rooftops of the Uchiha district, Hidden Leaf',
@@ -377,8 +409,40 @@ export const FLASHBACKS: FlashbackRecord[] = [
     importance: 3,
   },
   {
+    id: 'guy-and-the-gate',
+    number: 14,
+    title: 'Guy and the Gate',
+    date: at(11, 11, 4, 21, 30),
+    place: 'a training ground in the forest at the edge of the Hidden Leaf',
+    locationKind: 'wilderness',
+    cast: ['Might Guy'],
+    scene:
+      'Weeks after you watched Guy open a Gate in a spar, you have worked out the first ones yourself. Tonight, alone on a training ground, you push past what your body can take, and Guy, out on one of his night runs, finds you: skin flushed, muscles tearing, still forcing the next one open. He is horrified. He shuts you down, carries you back, and the next day starts teaching you to open them without tearing yourself apart, and makes you promise never to go past what he shows you.',
+    castNotes: [
+      'Might Guy, a jōnin in his twenties with no team of his own yet: loud, earnest and absurd, until he sees what you have done to yourself; then he is deadly serious, the only time you see him like that. He has given you some taijutsu sessions and spars before tonight, but you are not close and never will be.',
+      'You are eleven, already a chūnin, still on Team 3. Your taijutsu is your own style, and Uzumaki stamina is why you can keep going when you shouldn’t.',
+    ],
+    hint: 'Guy in the scene, opening a Gate, the Front or Reverse Lotus, torn muscles after a fight, someone talking about youth or a promise',
+    triggers: {
+      people: ['Might Guy', 'Rock Lee'],
+      beats: ['gai-night-guy'],
+      words: /\b(eight (inner )?gates|(first|second|third|fourth|fifth|sixth|seventh|eighth) gate|gate of (opening|healing|life|pain|limit|view|wonder|death)|(front|reverse) lotus|might guy)\b/i,
+    },
+    fixed: [
+      'Guy catches you opening the Gates on your own and is horrified.',
+      'He teaches you to open them safely, with the Front and Reverse Lotus, and you promise never to go past what he shows you: you keep that promise.',
+      'You and Guy are not close, before or after.',
+    ],
+    hidden: [
+      'the Eighth Gate’s true cost and Night Guy: what Guy will one day do',
+      'how far you could really push the Gates: never show the limit',
+    ],
+    memoryLine: 'The night Guy caught you forcing open the Gates on your own, and made you promise never to go past what he showed you.',
+    importance: 4,
+  },
+  {
     id: 'the-mask',
-    number: 13,
+    number: 15,
     title: 'The mask',
     date: at(12, 7, 15, 17),
     place: 'ANBU headquarters, then the Team 3 training ground, Hidden Leaf',
@@ -403,7 +467,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'her-dream',
-    number: 14,
+    number: 16,
     title: 'Her dream',
     date: at(12, 8, 14, 19),
     place: 'Hazuki’s house in the Uchiha district, Hidden Leaf: the kitchen, then the roof',
@@ -437,7 +501,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'first-kill',
-    number: 15,
+    number: 17,
     title: 'First kill',
     date: at(12, 9, 3, 2, 10),
     place: 'a pine forest on the Land of Fire’s northern border, on an ANBU mission',
@@ -456,7 +520,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-three-vultures',
-    number: 16,
+    number: 18,
     title: 'The three vultures',
     date: at(12, 10, 21, 16),
     place: 'a high crag in the mountains on the Land of Fire’s northern border, on an ANBU assignment',
@@ -484,7 +548,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'shisui-of-the-body-flicker',
-    number: 17,
+    number: 19,
     title: 'Shisui of the Body Flicker',
     date: at(12, 4, 9, 6, 30),
     place: 'a training ground in the forest outside the Uchiha district, Hidden Leaf',
@@ -508,7 +572,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   // The last days (year 13)
   {
     id: 'last-good-day',
-    number: 18,
+    number: 20,
     title: 'The last good day',
     date: at(13, 9, 14, 15),
     place: 'the banks of the Naka River, Hidden Leaf',
@@ -529,7 +593,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'shisuis-last-night',
-    number: 19,
+    number: 21,
     title: 'Shisui’s last night',
     date: at(13, 9, 20, 20),
     place: 'near the Naka Shrine, Hidden Leaf',
@@ -552,7 +616,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-week-before',
-    number: 20,
+    number: 22,
     title: 'The week before',
     date: at(13, 9, 24, 14),
     place: 'a dango shop in the Hidden Leaf',
@@ -573,7 +637,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-fight',
-    number: 21,
+    number: 23,
     title: 'The fight',
     date: at(13, 9, 27, 23),
     place: 'a training ground in the forest outside the Hidden Leaf',
