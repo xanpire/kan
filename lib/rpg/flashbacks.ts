@@ -18,6 +18,7 @@
  *   one point at most. Each flashback plays once.
  */
 import { voiceOf } from './voices';
+import { roleBeforeStory } from './eraRoles';
 import { KAN_EYES, KAN_HAIR, KAN_HAIR_AND_EYES } from './kanLook';
 import { advanceSeconds, calculateAge, daysBetween, daysFromCivil, entityAge, formatDate, timeOfDayOf } from './calendar';
 import { FLASHBACKS, FLASHBACK_BY_ID, KAN_PARENTS, type FlashbackRecord } from './flashbackData';
@@ -429,7 +430,8 @@ function castLines(db: AppDatabase, record: FlashbackRecord, date: CalendarDate)
     const age = entity ? entityAge(date, entity) : undefined;
     const ageText = age === undefined ? '' : age === 0 ? ', a newborn' : `, ${age}`;
     const dead = entity && (entity.deceased || entity.status === 'Deceased') ? ' (dead in the present; alive here)' : '';
-    const role = entity?.role ? ` — ${entity.role.split('·')[0].trim()}` : '';
+    const earlier = entity ? roleBeforeStory(entity) : undefined;
+    const role = earlier ? ` — ${earlier.split('·')[0].trim()}` : '';
     const personality = entity?.personality ? `: ${entity.personality}` : '';
     const voice = entity ? voiceOf(entity) : null;
     return `- ${entity?.name ?? name}${ageText}${role}${personality}${dead}${voice ? `\n  VOICE: ${voice}` : ''}`;

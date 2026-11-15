@@ -1,4 +1,5 @@
 import { KAN_APPEARANCE, migrateKanEyes } from './kanLook';
+import { syncEraRoles } from './eraRoles';
 import { normalizeLoreKnown } from './loreList';
 import { migrateProtectorName } from './inventory';
 import { linkJutsuRecords } from './jutsuList';
@@ -1099,7 +1100,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(acceptedBeforeTrial(normalized))))));
+  const withDeaths = syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(acceptedBeforeTrial(normalized)))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;

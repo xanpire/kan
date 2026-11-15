@@ -8,7 +8,7 @@ import { isDeceased } from './deaths';
 import { kanAgeNow } from './kanLook';
 import { happened } from './names';
 import type { AppDatabase, EntityRecord } from './types';
-import { CAST_VOICES, TEMPERAMENTS } from './voiceData';
+import { CAST_VOICES, EARLY_VOICES, TEMPERAMENTS } from './voiceData';
 
 export const REACTION_RULES = `REACTIONS (people are alive)
 - Everyone present reacts to what is new to them, at once, in their own VOICE: an unknown jutsu ("What was that?", a guess, a wrong name), the Sharingan (fear, shock that the clan isn't all dead, grief, greed, a child's stare), a joke, bad news, a kindness, an insult. Feelings last into the next turns. Surprised once, then they remember. No stock reactions: no shared "eyes widen" or gasps, never the same reaction twice in a room.
@@ -17,8 +17,11 @@ export const REACTION_RULES = `REACTIONS (people are alive)
 - It fits the person: Orochimaru covets, Kakuzu appraises, Hidan mocks, Itachi worries silently, Pain calculates, Danzō wants him.`;
 
 /** A person's voice line: the cast's own, or a temperament for anyone else. */
-export function voiceOf(entity: Pick<EntityRecord, 'id' | 'name'>): string | null {
+export function voiceOf(entity: Pick<EntityRecord, 'id' | 'name'>, db?: AppDatabase): string | null {
   if (entity.name.toLowerCase() === 'kan') return null;
+
+  const early = EARLY_VOICES[entity.name];
+  if (early && db && !happened(db, early.until)) return early.voice;
 
   return CAST_VOICES[entity.name] ?? `temperament: ${temperamentFor(entity.id)}`;
 }
@@ -37,8 +40,8 @@ export function temperamentFor(id: string): string {
 }
 
 /** The short form for a crowded room: the first part of the line. */
-export function shortVoiceOf(entity: Pick<EntityRecord, 'id' | 'name'>): string | null {
-  const voice = voiceOf(entity);
+export function shortVoiceOf(entity: Pick<EntityRecord, 'id' | 'name'>, db?: AppDatabase): string | null {
+  const voice = voiceOf(entity, db);
   return voice ? voice.split('|')[0].trim() : null;
 }
 

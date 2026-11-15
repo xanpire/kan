@@ -25,6 +25,7 @@ import {
 import { markDeathsByName, markReleased, reanimateByName } from './deaths';
 import { missingKeyActor } from './canonRoles';
 import { castAppearingWith, ensureCanonCast } from './canonCast';
+import { syncEraRoles } from './eraRoles';
 import { knowersOf } from './facts';
 import { resolveEntity } from './entities';
 import { mentionsName } from './characterRefs';
@@ -97,13 +98,15 @@ function normalizeProgress(db: AppDatabase): CanonProgress {
 }
 
 function withProgress(db: AppDatabase, progress: CanonProgress): AppDatabase {
-  return {
+  // Section 1 (era accuracy): roles move with canon, both ways (a clock set
+  // back takes a milestone back, and the role with it).
+  return syncEraRoles({
     ...db,
     state: {
       ...db.state,
       canonProgress: { ...progress, completed: [...new Set(progress.completed)] },
     },
-  };
+  });
 }
 
 const addId = (list: string[], id: string) => (list.includes(id) ? list : [...list, id]);

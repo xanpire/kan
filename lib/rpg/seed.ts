@@ -1,3 +1,4 @@
+import { syncEraRoles } from './eraRoles';
 import { KAN_APPEARANCE } from './kanLook';
 import { KAN_STARTING_JUTSU } from './kanStartingJutsu';
 import { DEFAULT_DATE } from './calendar';
@@ -790,5 +791,6 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
     snapshots: [],
   };
 
-  return database;
+  // Section 1: a few seeded roles are written for later; the first night's come from eraRoles.ts.
+  return syncEraRoles(database);
 }

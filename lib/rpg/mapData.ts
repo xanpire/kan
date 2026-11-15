@@ -55,6 +55,8 @@ export type MapPlace = {
   secret?: { knownFrom?: string };
   /** The note says more than Kan knows: shown only once he has been there or this milestone happened. */
   noteFrom?: string;
+  /** Era accuracy: until this milestone the place is not what `note` says yet, and this note shows instead. */
+  noteBefore?: { until: string; note: string };
   /** The note names something only this milestone brings (a person Kan hasn't met): being there is not enough. */
   noteNeeds?: string;
   /** Does not exist until this canon milestone has happened: not on the map, whatever the story says. */
@@ -88,7 +90,7 @@ export const MAP_PLACES: MapPlace[] = [
   { id: 'ceramic', name: 'Ceramic Village', region: 'wind', x: 26.8, y: 49.6, kind: 'place', match: /\bceramic village\b/i, note: 'A potters’ village in the mountains where Wind meets Rivers.' },
   { id: 'valley-village', name: 'Hidden Valley Village', region: 'rivers', x: 32.5, y: 41.9, kind: 'village', match: /\b(hidden valley|tanigakure|village hidden in the vale)\b/i },
   { id: 'artisans', name: 'Artisans Village', region: 'rivers', x: 34.7, y: 47.4, kind: 'place', match: /\bartisans'? village\b/i, },
-  { id: 'rain', name: 'Hidden Rain Village', region: 'rain', x: 25.1, y: 29.2, kind: 'village', match: /\b(hidden rain|amegakure)\b/i, short: 'Rain', noteFrom: 'kan-joins-akatsuki', note: 'The Akatsuki’s stronghold, in the tower.' },
+  { id: 'rain', name: 'Hidden Rain Village', region: 'rain', x: 25.1, y: 29.2, kind: 'village', match: /\b(hidden rain|amegakure)\b/i, short: 'Rain', noteFrom: 'kan-joins-akatsuki', noteBefore: { until: 'ame-stronghold', note: 'A closed, rain-soaked village at war with itself; the Akatsuki meet here in secret.' }, note: 'The Akatsuki’s stronghold, in the tower.' },
   { id: 'grass', name: 'Hidden Grass Village', region: 'grass', x: 25.75, y: 26.25, kind: 'village', nameAt: 'right', match: /\b(hidden grass|kusagakure)\b/i, noteNeeds: 'karin-meets', note: 'Where Karin is from.' },
   { id: 'tenchi-bridge', name: 'Tenchi Bridge', region: 'grass', x: 27.6, y: 28.3, kind: 'place', nameAt: 'right', match: /\btenchi bridge\b/i },
   { id: 'hozuki-castle', name: 'Hōzuki Castle', region: 'grass', x: 25.75, y: 26.25, kind: 'place', parent: 'grass', match: /\b(h[oō]zuki castle|blood prison)\b/i, note: 'The Blood Prison. Said to stand by the sea, though Grass has no coast.' },
@@ -167,6 +169,12 @@ export function placeKnown(db: AppDatabase, place: MapPlace, visits?: Map<string
 
 /** Its note, or null while the note says more than Kan knows. */
 export function placeNote(db: AppDatabase, place: MapPlace, visits?: Map<string, unknown>): string | null {
+  const note = baseNote(db, place, visits);
+  if (note && place.noteBefore && !happened(db, place.noteBefore.until)) return place.noteBefore.note;
+  return note;
+}
+
+function baseNote(db: AppDatabase, place: MapPlace, visits?: Map<string, unknown>): string | null {
   if (!place.note) return null;
   if (place.noteNeeds) return happened(db, place.noteNeeds) ? place.note : null;
   if (!place.noteFrom && !place.secret) return place.note;

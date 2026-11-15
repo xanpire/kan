@@ -6,6 +6,19 @@
 // Format: temperament | surprise | fear | joy | grief | habits. Short on
 // purpose: the card already carries personality and speech style.
 
+/**
+ * Era accuracy (section 1): a voice that is only true from a milestone on.
+ * Until `until` has happened, the narrator gets this line instead.
+ */
+export const EARLY_VOICES: Record<string, { until: string; voice: string }> = {
+  // Before Naruto beats him in the invasion, Gaara is the killer the Sand fears.
+  Gaara: {
+    until: 'konoha-invasion',
+    voice:
+      'flat, cold, murderous | surprise: none shown; the sand twitches | fear: never admits it; lashes out | joy: only in killing, a thin terrible smile | grief: buried under hatred | habits: "I love only myself", "mother wants your blood"; no sleep; trusts no one, his siblings fear him',
+  },
+};
+
 export const CAST_VOICES: Record<string, string> = {
   // --- Kan's own people
   'Itachi Uchiha':

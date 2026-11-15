@@ -1009,7 +1009,7 @@ function formatMatchedEntities(
   // Section 8: each person's voice and reactions, only for those really here.
   const voiceLine = (entity: EntityRecord) => {
     if (!entity.companion && !presentSet.has(entity.id)) return '';
-    const voice = voiceOf(entity);
+    const voice = voiceOf(entity, db);
     // Section 12: people who knew Kan before the story.
     const knew = knowsKanLine(db, entity);
     return `${knew ? `\n  ${knew}` : ''}${voice ? `\n  VOICE: ${voice}` : ''}`;
@@ -1026,7 +1026,7 @@ function formatMatchedEntities(
           'ALSO HERE',
           ...extras.map((entity) => {
             const bond = bondsByEntity.get(entity.id);
-            const short = shortVoiceOf(entity);
+            const short = shortVoiceOf(entity, db);
             return `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}; mood ${truncate(entity.mood ?? 'unknown', 40)}${bond ? `; ${bond.affinity}/10 toward you, ${bond.relationship ?? 'stranger'}` : ''}${short ? `; ${short}` : ''}${survives(entity)}`;
           }),
         ]

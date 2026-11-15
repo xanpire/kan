@@ -181,6 +181,8 @@ export const BEARER_TENURE: Record<string, { joins?: string; leaves?: string }> 
   'Kisame Hoshigaki': { joins: 'kisame-joins' },
   Deidara: { joins: 'deidara-recruited' },
   Hidan: { joins: 'roster-completes', leaves: 'hidan-kakuzu' },
+  // The masked man is around from the start, but "Tobi" carries news only once he wears that name (era sweep).
+  Tobi: { joins: 'tobi-joins-akatsuki' },
 };
 
 export const CHANNEL_BY_KNOWLEDGE: Record<CanonKnowledge, string> = {
@@ -2817,15 +2819,15 @@ const PERSONAL_BEATS: CanonMilestone[] = [
     era: 'Shippuden',
     title: "Karin's eyes",
     description:
-      "Hebi's sensor stares at you too long. Karin feels chakra like a temperature, and yours feels like her own blood: Uzumaki. If you knew her as a child in the Grass, she knows exactly who you are.",
+      "Sasuke's sensor stares at you too long. Karin feels chakra like a temperature, and yours feels like her own blood: Uzumaki. If you knew her as a child in the Grass, she knows exactly who you are.",
     canonPoint: 'Karin sensed Uzumaki chakra in you.',
     from: { year: 21, month: 7, day: 10 },
     to: { year: 21, month: 12 },
     playerDriven: true,
     facts: [],
     encounter: {
-      who: 'Karin, with Sasuke and Hebi',
-      where: 'wherever Hebi crosses an Akatsuki trail',
+      who: 'Karin, with Sasuke and his team (Hebi; Taka once it is renamed)',
+      where: 'wherever Sasuke’s team crosses an Akatsuki trail',
       context:
         "Karin is sharp, flustered around Sasuke, and an Uzumaki without a clan. If Kan trained her in the Land of Grass (see the memories), she is grown and changed and still remembers him: the lessons, the parting, maybe the hurt. If not, she knows what Kan is before he says a word. Either way she may tell Sasuke, or keep it for herself. Never romance; her heart is Sasuke's.",
     },
