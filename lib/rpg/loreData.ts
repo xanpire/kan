@@ -351,7 +351,7 @@ export const CANON_LORE: CanonLore[] = [
     text: 'Itachi killed the Uchiha on the elders’ order, with Danzō pressing for it and the masked man helping, to stop the coup and a civil war that would have invited the other villages in. He spared Sasuke and made the Third promise to protect him.',
     belief: { text: 'Itachi Uchiha slaughtered his whole clan in one night to test his own strength, sparing only his little brother Sasuke, and fled the village.', heldBy: ['everyone'] },
     known: ['Hiruzen Sarutobi', 'Danzo Shimura', 'Homura Mitokado', 'Koharu Utatane', 'Tobi', 'Zetsu', 'Itachi Uchiha'],
-    // Kan learns that it happened from Itachi in the forest, and why only later, on the road (section 17).
+    // Kan learns that it happened, and why, from Itachi in the forest, mid-fight (section 17).
     widens: [{ at: 'masked-man-truth', known: ['Sasuke Uchiha'] }, { at: 'taka-formed', known: ['Suigetsu Hozuki', 'Karin', 'Jugo'] }, { at: 'kage-summit', known: ['Naruto Uzumaki', 'Kakashi Hatake', 'Yamato', 'Sai'] }],
     priority: 3,
   },

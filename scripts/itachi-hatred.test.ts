@@ -50,6 +50,12 @@ describe('the opening: a false order, no fight before the story', () => {
     expect(OPENING_BRIEFING).toMatch(/Sharingan awakens mid-fight from rage/);
     expect(OPENING_BRIEFING).toMatch(/never the Mangekyō/);
     expect(OPENING_BRIEFING).toMatch(/only defends/);
+    // He tells the whole truth mid-fight: it is how he convinces Kan to come.
+    expect(OPENING_BRIEFING).toMatch(/In the middle of the fight, between blows, he tells you the whole truth/);
+    expect(OPENING_BRIEFING).toMatch(/coup/);
+    expect(OPENING_BRIEFING).toMatch(/Danzō/);
+    expect(OPENING_BRIEFING).toMatch(/Sasuke/);
+    expect(OPENING_BRIEFING).not.toMatch(/once you are far from the village/);
   });
 
   test('the Sharingan lore: first fight, from rage, tomoe only', () => {
@@ -60,6 +66,9 @@ describe('the opening: a false order, no fight before the story', () => {
     expect(lore.text).toMatch(/NEVER the Mangekyō/);
     expect(db.loreEntries.some((entry) => /not in a fight/.test(entry.text))).toBe(false);
     expect(db.loreEntries.some((entry) => /told you his plan/.test(entry.text))).toBe(false);
+    const truth = db.loreEntries.find((entry) => entry.text.startsWith('When Itachi meets you'))!;
+    expect(truth.text).toMatch(/in the middle of your fight/);
+    expect(truth.text).not.toMatch(/NOT why|on the road/);
   });
 });
 
@@ -124,10 +133,10 @@ describe('the Mangekyō at the funeral, the eyes with Itachi', () => {
   });
 });
 
-describe('flashback 23 follows the opening', () => {
-  test('new stories get The order; old saves keep The fight', () => {
+describe('flashback 23 is The order', () => {
+  test('The fight is gone (it is played in the story); The order is only for new stories', () => {
+    expect(FLASHBACK_BY_ID['the-fight']).toBeUndefined();
     expect(FLASHBACK_BY_ID['the-order'].opening).toBe('false-order');
-    expect(FLASHBACK_BY_ID['the-fight'].opening).toBe('told');
     expect(FLASHBACK_BY_ID['the-order'].fixed.join(' ')).toMatch(/last time you see them/);
     expect(FLASHBACK_BY_ID['the-order'].hidden?.join(' ')).toMatch(/order is false/);
 

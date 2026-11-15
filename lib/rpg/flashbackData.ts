@@ -21,7 +21,7 @@ export type FlashbackTriggers = {
   dates?: { month: number; day: number }[];
   /** Personal beats or world milestones reached in the last few days. */
   beats?: string[];
-  /** Only right after a fight (Kan's own first kill, the fight with Itachi). */
+  /** Only right after a fight (Kan's own first kill). */
   afterFight?: boolean;
 };
 
@@ -49,11 +49,11 @@ export type FlashbackRecord = {
   /** Milestones Kan must have reached first. */
   requires?: string[];
   /**
-   * Only for stories that began with this opening (section 17): "told" for
-   * saves from before v1.25.5 (Itachi told Kan his plan and they fought),
-   * "false-order" for new ones. Unset: any story.
+   * Only for stories that began with this opening (section 17): "false-order"
+   * for stories from v1.25.5 on (saves from before began with Itachi telling
+   * Kan his plan, which "The order" would contradict). Unset: any story.
    */
-  opening?: 'told' | 'false-order';
+  opening?: 'false-order';
   /** The memory a sentence long, until its write-up lands. */
   memoryLine: string;
   importance: 3 | 4 | 5;
@@ -677,37 +677,6 @@ export const FLASHBACKS: FlashbackRecord[] = [
     memoryLine: 'The evening Itachi came to Hazuki’s door with an urgent order, and the last time you saw Izumi and Hazuki alive.',
     importance: 5,
     opening: 'false-order',
-  },
-  {
-    // The old opening's flashback: only for stories that began with it.
-    id: 'the-fight',
-    number: 23,
-    title: 'The fight',
-    date: at(13, 9, 27, 23),
-    place: 'a training ground in the forest outside the Hidden Leaf',
-    locationKind: 'wilderness',
-    cast: ['Itachi Uchiha'],
-    scene:
-      'Days before the massacre. Itachi tells you what he is going to do; you fight him, you hold back, and you lose. He sends you to hide in the forest and wait.',
-    hint: 'fighting Itachi again, Itachi’s death, the massacre anniversary, the forest where you waited',
-    triggers: {
-      dates: [{ month: 10, day: 1 }],
-      people: ['Itachi Uchiha'],
-      afterFight: true,
-      beats: ['itachi-vs-sasuke'],
-      words: /\b(massacre|that night)\b/i,
-    },
-    fixed: [
-      'Itachi tells you he will kill the clan; you fight; you hold back and lose.',
-      'Itachi sends you to the forest to hide and wait.',
-    ],
-    hidden: [
-      'why Itachi does it: the coup, the order, Danzō, Shisui’s truth',
-      'how strong you really are: never show the limit of your power',
-    ],
-    memoryLine: 'The night Itachi told you what he would do, and you fought him, held back, and lost.',
-    importance: 5,
-    opening: 'told',
   },
 ];
 
