@@ -449,3 +449,71 @@ function natureOfJutsuName(name: string) {
   const match = name.match(/\b([\p{L}-]+)\s+(?:style|release)\b/iu);
   return match ? match[1].toLowerCase() : null;
 }
+
+// ---------------------------------------------------------------------------
+// The Jutsu tab's sections (Session 3): the five natures and the bloodline
+// releases keep their own section; everything without a nature used to pile
+// up under "Physical" (Shadow Clone, Sealing and Transformation beside
+// taijutsu). Those are now sorted by the kind of technique they are.
+
+const ELEMENT_SECTIONS: ReadonlySet<string> = new Set([
+  'Fire', 'Wind', 'Lightning', 'Earth', 'Water', 'Wood', 'Ice', 'Lava', 'Boil', 'Storm', 'Dust', 'Magnet', 'Scorch', 'Explosion', 'Crystal', 'Steel',
+]);
+
+const KIND_ORDER = ['Taijutsu', 'Ninjutsu', 'Genjutsu', 'Sealing and barriers', 'Dōjutsu', 'Sage arts', 'Medical', 'Summoning', 'Vulture arts', 'Forbidden', 'Tools and weapons', 'Space-time'] as const;
+
+const TYPE_SECTION: Record<string, (typeof KIND_ORDER)[number]> = {
+  taijutsu: 'Taijutsu',
+  ninjutsu: 'Ninjutsu',
+  genjutsu: 'Genjutsu',
+  fuinjutsu: 'Sealing and barriers',
+  barrier: 'Sealing and barriers',
+  dojutsu: 'Dōjutsu',
+  kenjutsu: 'Tools and weapons',
+  weapon: 'Tools and weapons',
+  puppetry: 'Tools and weapons',
+  senjutsu: 'Sage arts',
+  medical: 'Medical',
+  summoning: 'Summoning',
+};
+
+/** The section a jutsu without an element belongs in, from its canon type or, failing that, its name. */
+export function jutsuKindSection(record: Pick<JutsuRecord, 'name' | 'chakraNature'>, canonType?: string): (typeof KIND_ORDER)[number] {
+  const name = record.name.toLowerCase();
+
+  if (/vulture/.test(name)) return 'Vulture arts';
+  if (/thousand souls/.test(name)) return 'Forbidden';
+  if (/sky burial|okuribi|susanoo|long dream|sharingan|amaterasu|tsukuyomi|izanagi|izanami|kamui/.test(name)) return 'Dōjutsu';
+  if (canonType && TYPE_SECTION[canonType]) return TYPE_SECTION[canonType];
+  if (/seal|barrier|chain/.test(name)) return 'Sealing and barriers';
+  if (/taijutsu|gates?\b|lotus|whirlwind|hurricane|kick|fist|palm/.test(name)) return 'Taijutsu';
+  if (/genjutsu|illusion|hell viewing/.test(name) && !/release/.test(name)) return 'Genjutsu';
+  if (/shuriken|kunai|wire|sword|blade/.test(name)) return 'Tools and weapons';
+
+  const nature = normalizeJutsuNature(record.chakraNature);
+  if (nature === 'Genjutsu') return 'Genjutsu';
+  if (nature === 'Space-Time') return 'Space-time';
+  return 'Ninjutsu';
+}
+
+/** The Jutsu tab's sections: elements first (as `groupJutsuByNature`), then the kinds, in a fixed order. */
+export function groupJutsuForDisplay(records: JutsuRecord[], canonTypeOf: (record: JutsuRecord) => string | undefined) {
+  const elemental: JutsuRecord[] = [];
+  const kinds = new Map<string, JutsuRecord[]>();
+
+  for (const record of records) {
+    if (ELEMENT_SECTIONS.has(normalizeJutsuNature(record.chakraNature))) {
+      elemental.push(record);
+      continue;
+    }
+    const section = jutsuKindSection(record, canonTypeOf(record));
+    kinds.set(section, [...(kinds.get(section) ?? []), record]);
+  }
+
+  const byUse = (list: JutsuRecord[]) => groupJutsuByNature(list).flatMap((group) => group.jutsu);
+
+  return [
+    ...groupJutsuByNature(elemental).map((group) => ({ nature: group.nature as string, jutsu: group.jutsu })),
+    ...KIND_ORDER.filter((section) => kinds.has(section)).map((section) => ({ nature: section as string, jutsu: byUse(kinds.get(section)!) })),
+  ];
+}

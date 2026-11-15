@@ -7,7 +7,8 @@ import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { formatDayMonth } from '@/lib/rpg/calendar';
 import { useGame } from '@/lib/rpg/game';
-import { groupJutsuByNature, jutsuKey } from '@/lib/rpg/jutsu';
+import { groupJutsuForDisplay, jutsuKey } from '@/lib/rpg/jutsu';
+import { canonJutsuById } from '@/lib/rpg/jutsuList';
 import type { JutsuRecord } from '@/lib/rpg/types';
 import { resolveEntity } from '@/lib/rpg/entities';
 import { displayName } from '@/lib/rpg/names';
@@ -66,7 +67,7 @@ export function JutsuSection() {
     ) ?? null;
 
   const groups = useMemo(
-    () => (db ? groupJutsuByNature(db.jutsuRecords) : []),
+    () => (db ? groupJutsuForDisplay(db.jutsuRecords, (record) => canonJutsuById(record.canonId)?.type) : []),
     [db],
   );
 

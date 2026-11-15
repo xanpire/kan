@@ -549,6 +549,8 @@ function PaintingStages({ stage }: { stage: PaintStage }) {
   );
 }
 
+const WEB_NO_ANCHOR = { overflowAnchor: 'none' } as never;
+
 /** Kan's action and the reply as it streams. The only part of the screen that redraws while the narrator writes. */
 function LiveReply({
   db,
@@ -1088,7 +1090,7 @@ export default function StoryScreen() {
   // reply never scrolls away from where you start reading (Session 3: the
   // reply used to land below the fold, behind the composer). Scrolling up
   // yourself ends the following.
-  const followRef = useRef<{ y: number } | null>(null);
+  const followRef = useRef<{ y: number; measured: boolean } | null>(null);
 
   const followReply = useCallback(() => {
     const follow = followRef.current;
@@ -1100,7 +1102,10 @@ export default function StoryScreen() {
 
   const onActionLayout = useCallback(
     (y: number) => {
-      if (followRef.current) followRef.current.y = y;
+      // The action sits where the story ended when it was sent, which the
+      // effect below already recorded. A layout that says otherwise is the
+      // frame in which the saved turn and the pending action are both drawn.
+      void y;
       followReply();
     },
     [followReply]
@@ -1125,6 +1130,10 @@ export default function StoryScreen() {
   // streams and the screen stays wherever you put it.
   const slotId = db?.meta.slotId ?? null;
   const scrolledSlotRef = useRef<string | null>(null);
+  const slotIdRef = useRef(slotId);
+  slotIdRef.current = slotId;
+  const messageCountRef = useRef(messages.length);
+  messageCountRef.current = messages.length;
 
   // Where you left off (audit 10): when a story opens, or the app comes back,
   // a real day or more after its last turn. Gone with your first action.
@@ -1176,7 +1185,15 @@ export default function StoryScreen() {
     }
 
     // Until your action is laid out, the reply starts where the story ended.
-    followRef.current = { y: contentHeightRef.current };
+    if (messageCountRef.current === 0) {
+      // The first reply of a story replaces the opening card: read it from the top.
+      followRef.current = null;
+      scrolledSlotRef.current = slotIdRef.current;
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return;
+    }
+
+    followRef.current = { y: contentHeightRef.current, measured: false };
     requestAnimationFrame(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     });
@@ -1523,6 +1540,9 @@ export default function StoryScreen() {
           ref={scrollRef}
           scrollEventThrottle={100}
           showsVerticalScrollIndicator={false}
+          // The browser's own scroll anchoring fights the app's: when the
+          // streamed reply is swapped for the saved one it jumped to the end.
+          style={Platform.OS === 'web' ? WEB_NO_ANCHOR : undefined}
         >
           <Pressable
             accessibilityHint={jumps.length > 1 ? 'Opens the list of chapters' : undefined}
