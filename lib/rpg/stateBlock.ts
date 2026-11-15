@@ -20,7 +20,7 @@ import type {
 import { SCENE_CAST_LIMIT } from './sceneLimits';
 
 const CARRIERS = ['bird', 'ninken', 'summon', 'courier', 'dead-drop', 'hand', 'vulture'] as const;
-const AUDIENCES = ['leaf', 'sand', 'mist', 'cloud', 'stone', 'akatsuki', 'rain', 'underworld'] as const;
+const AUDIENCES = ['leaf', 'sand', 'mist', 'cloud', 'stone', 'akatsuki', 'rain', 'grass', 'underworld', 'towns', 'countryside'] as const;
 const KINDS = ['spared', 'lie', 'helped', 'witness', 'betrayal', 'humiliated', 'promise', 'debt'] as const;
 const VILLAGES = ['leaf', 'sand', 'mist', 'cloud', 'stone'] as const;
 
@@ -211,6 +211,19 @@ export function convertStateBlock(
     if (audience && name && (AUDIENCES as readonly string[]).includes(audience)) {
       diff.epithet = { audience: audience as Audience, name: name.slice(0, 60) };
     }
+  }
+
+  if (Array.isArray(block.name_out)) {
+    const out = block.name_out
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item) => ({
+        audience: (cleanString(item.who)?.toLowerCase() ?? '') as Audience,
+        how: item.how === 'recognised' || item.how === 'recognized' ? ('recognised' as const) : ('told' as const),
+      }))
+      .filter((item) => (AUDIENCES as readonly string[]).includes(item.audience))
+      .slice(0, 3);
+
+    if (out.length > 0) diff.nameOut = out;
   }
 
   if (Array.isArray(block.consequences)) {

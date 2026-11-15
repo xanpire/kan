@@ -48,18 +48,29 @@ import { appendStoryMessage } from '../lib/rpg/log';
 import { applyStateStep } from '../lib/rpg/memoryJobs';
 import { latestPov, parsePovLines, povCandidates, povInstruction, resolvePovs } from '../lib/rpg/povMemories';
 import { buildExtractionPrompt, buildNarrationPrompt, buildSceneSummaryPrompt, trackerPromptText } from '../lib/rpg/prompt';
-import { bingoListings, ensureLeafListing } from '../lib/rpg/reputation';
+import { OLD_LEAF_START_REASON, applyReputationChanges, bingoListings, formatReputationBlock, normalizeReputation } from '../lib/rpg/reputation';
 import {
+  NAME_FAMOUS,
   applyEpithet,
+  applyNameOut,
+  beliefsOf,
+  bingoPage,
+  carriedBooks,
+  civilianAudience,
   epithetLines,
   formatRenownBlock,
   knownEpithets,
-  localEpithet,
+  leafThinksDead,
+  linkedSince,
+  listingSubject,
+  localAudience,
+  normalizeRenown,
   posterLine,
   recordDeeds,
   renownOf,
+  renownStage,
   rumourOffer,
-  themeScores,
+  syncCarriedBooks,
 } from '../lib/rpg/renown';
 import { seedDatabase } from '../lib/rpg/seed';
 import { convertStateBlock } from '../lib/rpg/stateBlock';
@@ -407,61 +418,141 @@ describe('people with their own lives', () => {
   });
 });
 
-describe("rumours, posters and Kan's name", () => {
-  test("the Leaf's first word on Kan names him; the underworld picks it up", () => {
-    let db = later(seed(), 2);
-    db = ensureLeafListing(db);
+describe("rumours, posters and Kan's name (section 7)", () => {
+  const at = (db: AppDatabase, location: string, kind: AppDatabase['state']['locationKind'] = 'settlement'): AppDatabase => ({
+    ...db,
+    state: { ...db.state, location, locationKind: kind, sceneCast: [], inStoryDate: { ...db.state.inStoryDate, hour: 14 } },
+  });
+  const drained = 'Left two Sand chunin at the oasis pale and emptied, drained dry, while red vultures circled';
+  const inSand = () => at(later(seed(), 5), 'an oasis town in the Land of Wind');
+  const sandDeed = (db: AppDatabase, change = 20) =>
+    recordDeeds(applyReputationChanges(db, [{ faction: 'sand', change, reason: drained }], []), [{ faction: 'sand', change, reason: drained }]);
+
+  test('the Leaf believes Kan dead: no entry, no name, only the file', () => {
+    const db = at(later(seed(), 30), 'Tanzaku Town, Land of Fire');
+    expect(bingoListings(db)).toHaveLength(0);
+    expect(leafThinksDead(db)).toBe(true);
+    expect(renownStage(db, 'leaf')).toBe(0);
+    expect(epithetLines(db).join('\n')).toContain('Kan, missing, presumed dead');
+    expect(narratorText(db)).toContain('only Hiruzen knows better');
+  });
+
+  test('a deed grows a fixed name where it was seen; nobody links it to Kan', () => {
+    let db = sandDeed(inSand());
+    db = later(db, 2);
     db = recordDeeds(db, []);
-    expect(renownOf(db).epithets.leaf?.name).toBe("Itachi's Shadow");
-    expect(renownOf(db).epithets.underworld?.name).toBe('the Other Uchiha');
+    expect(renownStage(db, 'sand')).toBe(3);
+    expect(renownOf(db).epithets.sand).toMatchObject({ name: 'the Blood Vulture', theme: 'fixed', known: false });
+    expect(beliefsOf(db, 'sand').join(' ')).toMatch(/emptied of chakra/);
+    expect(beliefsOf(db, 'sand').join(' ')).toMatch(/vulture summoner/);
+    expect(linkedSince(db, 'sand')).toBeNull();
+    expect(listingSubject(db, 'sand')).toMatchObject({ linked: false });
+    expect(formatReputationBlock(db, (village) => listingSubject(db, village))).toContain('nobody there knows that is you');
+    // The Leaf has heard nothing yet: talk walks.
+    expect(renownStage(db, 'leaf')).toBe(0);
     expect(knownEpithets(db)).toHaveLength(0);
+    expect(epithetLines(db).join('\n')).toContain('"the Blood Vulture" (Chi-washi)');
+    expect(epithetLines(db).join('\n')).toContain('Nobody here links any of it to you');
   });
 
-  test('new deeds outgrow the old name over the years, per audience', () => {
-    let db = ensureLeafListing(later(seed(), 2));
+  test('talk travels at map speed and grows in the telling: far off, he drinks blood', () => {
+    let db = sandDeed(inSand(), 25);
+    db = sandDeed(later(db, 1), 25);
+    db = at(later(db, 200), 'Tanzaku Town, Land of Fire');
     db = recordDeeds(db, []);
-
-    for (let i = 0; i < 4; i += 1) {
-      db = later(db, 120);
-      db = recordDeeds(db, [{ faction: 'leaf', change: 10, reason: 'Burned a Leaf patrol camp to ash with Fire Style and walked away' }]);
-    }
-
-    expect(themeScores(db, 'leaf')[0].theme.id).toBe('fire');
-    expect(renownOf(db).epithets.leaf?.name).toBe('the Ash Wraith');
-    expect(renownOf(db).epithets.leaf?.history?.[0].name).toBe("Itachi's Shadow");
-    // The Rain never saw it.
-    expect(renownOf(db).epithets.rain).toBeUndefined();
+    expect(renownStage(db, 'leaf')).toBeGreaterThan(0);
+    expect(civilianAudience(db)).toBe('towns');
+    expect(renownStage(db, 'towns')).toBeGreaterThan(0);
+    expect(beliefsOf(db, 'towns').join(' ')).toContain('drinks their blood');
+    // Different villages, different names.
+    expect(renownOf(db).epithets.sand?.name).toBe('the Blood Vulture');
+    expect(renownOf(db).epithets.underworld?.name).toBe('the Vulture');
   });
 
-  test('a name the story gives Kan sticks, and Kan knows it', () => {
-    let db = ensureLeafListing(later(seed(), 2));
-    db = recordDeeds(db, []);
-    db = applyEpithet(db, { audience: 'rain', name: 'the Ghost of the Rain' });
-    expect(renownOf(db).epithets.rain).toMatchObject({ name: 'the Ghost of the Rain', theme: 'story', known: true });
-    // Hearing an engine name marks it known.
-    db = applyEpithet(db, { audience: 'underworld', name: 'The Other Uchiha' });
+  test('farmland, the Rain and the Grass have their own names', () => {
+    const farm = at(seed(), 'a rice farm outside a small village, Land of Fire', 'road');
+    expect(civilianAudience(farm)).toBe('countryside');
+    expect(localAudience(at(seed(), 'a teahouse in the Hidden Rain Village'))).toBe('rain');
+    expect(localAudience(at(seed(), 'a road in the Land of Grass', 'road'))).toBe('grass');
+    expect(localAudience(at(seed(), 'a ruined fort in the Land of Rivers', 'road'))).toBe('underworld');
+  });
+
+  test('his real name gets out: told, then recognised; the Leaf moves him into its book', () => {
+    let db = sandDeed(inSand());
+    db = applyNameOut(db, [{ audience: 'sand', how: 'told' }]);
+    expect(linkedSince(db, 'sand')?.how).toBe('told');
+    expect(listingSubject(db, 'sand').linked).toBe(true);
+    expect(bingoListings(db).find((item) => item.village === 'sand')?.heat).toBeGreaterThanOrEqual(40);
+    // The Leaf hears it only when the talk gets there.
+    expect(leafThinksDead(db)).toBe(true);
+
+    db = at(later(db, 3), 'Tanzaku Town, Land of Fire');
+    db = applyNameOut(db, [{ audience: 'leaf', how: 'recognised' }]);
+    expect(leafThinksDead(db)).toBe(false);
+    const leaf = bingoListings(db).find((item) => item.village === 'leaf');
+    expect(leaf?.rank).toBe('B');
+    expect(db.state.reputation?.villages.leaf?.namedOn).toBeDefined();
+    expect(epithetLines(db).join('\n')).not.toContain('presumed dead');
+  });
+
+  test('at the latest the Kage Summit puts his name everywhere', () => {
+    let db = sandDeed(inSand());
+    db = { ...db, state: { ...db.state, canonProgress: { ...db.state.canonProgress!, completed: [...(db.state.canonProgress?.completed ?? []), NAME_FAMOUS] } } };
+    expect(linkedSince(db, 'stone')?.how).toBe('summit');
+    expect(leafThinksDead(db)).toBe(false);
+  });
+
+  test('hearing a name teaches it; an unknown name is kept as heard', () => {
+    let db = sandDeed(inSand());
+    db = applyEpithet(db, { audience: 'sand', name: 'The Blood Vulture' });
+    expect(renownOf(db).epithets.sand?.known).toBe(true);
+    db = applyEpithet(db, { audience: 'akatsuki', name: 'the Vulture' });
     expect(renownOf(db).epithets.underworld?.known).toBe(true);
+    expect(renownOf(db).epithets.akatsuki?.known).toBe(true);
+    db = applyEpithet(db, { audience: 'towns', name: 'the Pale Man' });
+    expect(renownOf(db).heard?.map((item) => item.name)).toContain('the Pale Man');
+    expect(knownEpithets(db).map((item) => item.epithet.name)).toEqual(expect.arrayContaining(['the Blood Vulture', 'the Vulture']));
   });
 
-  test('strangers use the local name; wanted posters hang where a village lists him at B or above', () => {
-    let db = ensureLeafListing(later(seed(), 2));
-    db = recordDeeds(db, []);
-    db = { ...db, state: { ...db.state, location: 'Tanzaku Town, Land of Fire', locationKind: 'settlement', inStoryDate: { ...db.state.inStoryDate, hour: 14 } } };
-    expect(localEpithet(db)?.epithet.name).toBe("Itachi's Shadow");
-    expect(epithetLines(db)[0]).toContain("Itachi's Shadow");
-    expect(bingoListings(db).find((listing) => listing.village === 'leaf')?.rank).toBe('B');
-    expect(posterLine(db)).toContain("Hidden Leaf's poster for you hangs here");
-    expect(posterLine(db)).toContain('poor sketch');
-    expect(narratorText(db)).toContain('WANTED POSTERS');
-    // Out in the forest there are no posters.
+  test('a bingo book Kan carries keeps its page as printed, mistakes included', () => {
+    // Printed once the report has reached the Sand.
+    let db = later(sandDeed(inSand()), 3);
+    db = { ...db, state: { ...db.state, inventory: [...db.state.inventory, 'Bingo book (Hidden Sand)'] } };
+    db = syncCarriedBooks(db);
+    const [book] = carriedBooks(db);
+    expect(book.audience).toBe('sand');
+    expect(book.page).toContain('“The Blood Vulture” (Chi-washi)');
+    expect(book.page).toContain('Identity: unknown.');
+    expect(book.page).toContain('vulture summoner');
+    expect(book.page).toContain('No likeness on file.');
+    expect(renownOf(db).epithets.sand?.known).toBe(true);
+    expect(db.state.reputation?.villages.sand?.known).toBe(true);
+    // The page stays as printed after the world moves on.
+    const printed = book.page;
+    db = applyNameOut(db, [{ audience: 'sand', how: 'told' }]);
+    expect(carriedBooks(syncCarriedBooks(db))[0].page).toBe(printed);
+    expect(bingoPage(db, 'sand')).toContain('Identity: Kan');
+    // Reading it puts the page in front of the narrator, word for word.
+    expect(formatRenownBlock(db, '*You open the bingo book to your page.*')).toContain('THE BINGO BOOK YOU CARRY');
+    // Dropped from the inventory, it is gone.
+    db = { ...db, state: { ...db.state, inventory: db.state.inventory.filter((item) => !/bingo/i.test(item)) } };
+    expect(carriedBooks(syncCarriedBooks(db))).toHaveLength(0);
+  });
+
+  test('wanted posters with no face until they know it is you', () => {
+    let db = sandDeed(inSand(), 25);
+    db = sandDeed(later(db, 1), 25);
+    db = at(db, 'the market street of the Hidden Sand Village');
+    expect(posterLine(db)).toContain('with no face');
+    db = applyNameOut(db, [{ audience: 'sand', how: 'told' }]);
+    expect(posterLine(db)).toContain('as Kan, also known as "the Blood Vulture"');
     expect(posterLine({ ...db, state: { ...db.state, location: 'deep forest', locationKind: 'wilderness' } })).toBe('');
   });
 
   test('rumours travel as fast as people carry them, and grow with distance', () => {
-    let db = ensureLeafListing(later(inRain(), 2));
-    db = recordDeeds(db, []);
-    db = { ...db, state: { ...db.state, inStoryDate: { ...db.state.inStoryDate, hour: 14 } } };
-    // Fill the log so the rumour window can open.
+    let db = at(later(seed(), 5), 'Tanzaku Town, Land of Fire');
+    db = recordDeeds(db, [{ faction: 'leaf', change: 20, reason: 'Left a Leaf patrol drained and pale on the road' }]);
+    db = { ...db, state: { ...db.state, location: 'a teahouse in the Hidden Rain Village', locationKind: 'settlement' } };
     for (let i = 0; i < 12; i += 1) db = appendStoryMessage(db, 'user', 'look', null, 0, 0);
 
     const offers = [];
@@ -473,18 +564,33 @@ describe("rumours, posters and Kan's name", () => {
     }
 
     expect(offers.length).toBeGreaterThan(0);
-    // The massacre in the Leaf, told in the Rain two months on: grown in the telling.
+    expect(offers[0].audience).toBe('rain');
     expect(offers[0].level).toBe(1);
-    // Too soon: three days of road need about twelve days of talk.
-    const tooSoon = later(probe, 3);
-    expect(rumourOffer(tooSoon)).toBeNull();
-    expect(formatRenownBlock(later(probe, 60))).toBeDefined();
+    expect(rumourOffer(later(probe, 3))).toBeNull();
   });
 
-  test('the tracker can report a name, and seeing a bingo book teaches the village name', () => {
-    const { diff } = convertStateBlock({ epithet: { audience: 'rain', name: 'the Grey Fire' } });
-    expect(diff?.epithet).toEqual({ audience: 'rain', name: 'the Grey Fire' });
-    expect(TURN_STATE_SCHEMA.required).toEqual(expect.arrayContaining(['epithet', 'consequences', 'consequences_returned', 'life_events']));
+  test('old saves: the automatic Leaf entry and the theme names go', () => {
+    const date = { year: 13, month: 10, day: 2, hour: 6, minute: 0 };
+    const reputation = normalizeReputation({ villages: { leaf: { heat: 40, listedOn: date, lastDeedOn: date, lastReason: OLD_LEAF_START_REASON, known: true } }, akatsuki: { standing: 0 }, recent: [] });
+    expect(reputation.villages.leaf).toBeUndefined();
+    const renown = normalizeRenown({
+      deeds: [{ id: 'd', date, text: OLD_LEAF_START_REASON, faction: 'leaf', region: 'fire', weight: 20 }],
+      epithets: { leaf: { name: "Itachi's Shadow", since: date, theme: 'uchiha', known: true }, rain: { name: 'x', since: date, theme: 'fire', known: false } },
+    });
+    expect(renown?.deeds).toHaveLength(0);
+    expect(renown?.epithets).toEqual({});
+    expect(renown?.heard?.map((item) => item.name)).toEqual(["Itachi's Shadow"]);
+  });
+
+  test('the tracker reports names and the name getting out', () => {
+    const { diff } = convertStateBlock({
+      epithet: { audience: 'countryside', name: 'the Hungry Ghost' },
+      name_out: [{ who: 'leaf', how: 'recognized' }, { who: 'nowhere', how: 'told' }],
+    });
+    expect(diff?.epithet).toEqual({ audience: 'countryside', name: 'the Hungry Ghost' });
+    expect(diff?.nameOut).toEqual([{ audience: 'leaf', how: 'recognised' }]);
+    expect(TURN_STATE_SCHEMA.required).toEqual(expect.arrayContaining(['epithet', 'name_out', 'consequences', 'consequences_returned', 'life_events']));
+    expect(trackerText(seed(), 'They call you the Vulture.')).toContain('name_out');
   });
 });
 
@@ -531,7 +637,8 @@ describe('delayed consequences', () => {
   });
 
   test('a witness talks when the time comes: the village wants Kan more', () => {
-    let db = ensureLeafListing(later(seed(), 2));
+    let db = later(seed(), 2);
+    db = applyReputationChanges(db, [{ faction: 'leaf', change: 20, reason: 'Seen by a Leaf patrol' }], []);
     db = applyConsequences(db, [{ kind: 'witness', who: 'the chunin you left alive', what: 'A Leaf chunin saw you kill his squad and lived', faction: 'leaf', when: 'weeks' }], [], null).db;
     const heat = db.state.reputation!.villages.leaf!.heat;
     db = advanceConsequences(later(db, 60));

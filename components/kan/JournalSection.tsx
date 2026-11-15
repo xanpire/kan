@@ -16,7 +16,6 @@ import { chapterDates, hiddenThread, kanConditions, memoryTitle, storyTimeline, 
 import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
 import { formatChange, formatRyo, purseFeel, purseOf } from '@/lib/rpg/money';
 import { displayName } from '@/lib/rpg/names';
-import { AUDIENCE_NAME, knownEpithets } from '@/lib/rpg/renown';
 import type { AppDatabase, ThreadRecord } from '@/lib/rpg/types';
 import { titleAndBody } from '@/lib/rpg/util';
 import { todayNotes } from '@/lib/rpg/yearly';
@@ -203,7 +202,6 @@ function NowView({ db }: { db: AppDatabase }) {
   const today = todayNotes(db);
   const withYou = companionsOf(db);
   const conditions = kanConditions(db);
-  const names = knownEpithets(db);
   const chapter = `Chapter ${db.state.chapter}${db.state.chapterTitle ? `: ${db.state.chapterTitle}` : ''}`;
 
   return (
@@ -233,17 +231,6 @@ function NowView({ db }: { db: AppDatabase }) {
       )}
 
       <ReputationCard db={db} first={false} />
-      {names.length > 0 ? (
-        <ListCard>
-          {names.map(({ audience, epithet }) => (
-            <ListRow
-              key={audience}
-              meta={`What they call you · ${AUDIENCE_NAME[audience].charAt(0).toUpperCase()}${AUDIENCE_NAME[audience].slice(1)}`}
-              title={`“${epithet.name}”`}
-            />
-          ))}
-        </ListCard>
-      ) : null}
 
       <SectionLabel>Missions</SectionLabel>
       {missions.length > 0 ? <ThreadRows threads={missions} /> : <EmptyRow title="No missions. For now." />}

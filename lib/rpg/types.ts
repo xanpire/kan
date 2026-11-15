@@ -347,6 +347,8 @@ export type BingoEntry = {
   lastReason?: string;
   /** True once Kan has seen or been told what they wrote about him. */
   known: boolean;
+  /** When they learned the one behind their nickname is Kan and moved his real name onto the entry (renown.ts). */
+  namedOn?: CalendarDate;
 };
 
 export type ReputationState = {
@@ -433,13 +435,24 @@ export type Deed = {
   weight: number;
 };
 
-/** Who calls Kan by a name of their own. */
-export type Audience = VillageFaction | 'akatsuki' | 'rain' | 'underworld';
+/**
+ * Who calls Kan by a name of their own (section 7): the five great villages,
+ * the Rain, the Grass and Waterfall, the bounty-hunting underworld, people in
+ * towns and on the trade roads, farmland and temples, and the Akatsuki.
+ */
+export type Audience =
+  | VillageFaction
+  | 'akatsuki'
+  | 'rain'
+  | 'grass'
+  | 'underworld'
+  | 'towns'
+  | 'countryside';
 
 export type Epithet = {
   name: string;
   since: CalendarDate;
-  /** The theme it grew from (renown.ts), or 'story' when the story named him. */
+  /** 'fixed' for the audience's own name (renown.ts NICKNAMES), 'story' for an old save's story-given name. */
   theme: string;
   /** Kan has heard himself called this. */
   known: boolean;
@@ -447,9 +460,37 @@ export type Epithet = {
   history?: { name: string; since: CalendarDate }[];
 };
 
+/** Kan's real name got out: someone who lives to tell it learned that the one behind the nickname is Kan. */
+export type NameOut = {
+  date: CalendarDate;
+  how: 'told' | 'recognised';
+  /** Whose people learned it first; the rest hear it at map speed. */
+  audience: Audience;
+  /** Where it happened (geography.ts region). */
+  region?: string;
+};
+
+/** A bingo book Kan carries: the page on him as it was printed when he got it (mistakes included). */
+export type CarriedBingoBook = {
+  id: string;
+  /** The inventory item it is. */
+  item: string;
+  /** Whose book it is (a village's, or the bounty trade's copy). */
+  audience: Audience;
+  edition: CalendarDate;
+  /** The page on Kan, or null when the book has none. */
+  page: string | null;
+};
+
 export type RenownState = {
   deeds: Deed[];
   epithets: Partial<Record<Audience, Epithet>>;
+  /** Times Kan's real name got out (renown.ts linkedSince). */
+  nameOut?: NameOut[];
+  /** Other names Kan has heard himself called (an old save's story names). */
+  heard?: { name: string; since: CalendarDate }[];
+  /** Bingo books in his inventory, as printed when he got them. */
+  books?: CarriedBingoBook[];
 };
 
 /**
@@ -1325,6 +1366,8 @@ export type TurnDiff = {
   lifeEvents?: { entityId?: string; name: string; text: string }[];
   /** A name the story called Kan by this turn, and whose name it is. */
   epithet?: { audience: Audience; name: string };
+  /** People who will live to tell it learned this turn that Kan is the one behind his nickname. */
+  nameOut?: { audience: Audience; how: 'told' | 'recognised' }[];
   /** Choices this turn that could plausibly come back later. */
   consequences?: {
     kind: ConsequenceKind;

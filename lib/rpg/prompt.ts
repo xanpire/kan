@@ -25,7 +25,7 @@ import { formatLetterOffer, letterTrackingLines, turnLetterOffer } from './lette
 import { reunionNotes } from './lives';
 import { latestPov, povCandidates, povInstruction } from './povMemories';
 import { consequenceTrackingLines, formatConsequenceOffer, turnConsequenceOffer } from './consequences';
-import { epithetLines, formatRenownBlock, renownTrackingLine } from './renown';
+import { epithetLines, formatRenownBlock, listingSubject, renownTrackingLine } from './renown';
 import { regionOf, travelDaysBetween } from './geography';
 import {
   formatEncounterConditions,
@@ -179,7 +179,7 @@ const WORLD_STATE_SYSTEM = `You are the second state tracker for an interactive 
 const WORLD_AREA_RULES: Record<WorldArea, string> = {
   letters: `LETTERS: letters_sent and letters_received use character ids, by the rules under LETTERS; otherwise [].`,
   safehouse: 'SAFEHOUSE: safehouse follows the rules under SAFEHOUSES.',
-  enemies: `NAME & ENEMIES: reputation, bounty_seen, epithet, grudges, consequences, and consequences_returned follow the rules under REPUTATION & GRUDGES; otherwise [] (epithet null).`,
+  enemies: `NAME & ENEMIES: reputation, bounty_seen, epithet, name_out, grudges, consequences, and consequences_returned follow the rules under REPUTATION & GRUDGES; otherwise [] (epithet null).`,
   lives: `LIVES: life_events: {character_id, event} for something that happened in a person's own life away from you that this turn reveals as true (a promotion, an injury, a move, a new team, a wedding; their letter, or they tell you); event in a few words, third person without their name ("was promoted to jonin"); otherwise []. birthdays_learned: ids of people whose birthday you learn on the page this turn (they say it, someone tells you); otherwise [].`,
   abilities: `ABILITIES: natures_gained when you learn one of your own chakra natures (source "innate") or take one with Thousand Souls (source "thousand-souls", from = whose chakra); abilities_changed when one of your abilities awakens or changes stage (name "Sharingan" stage "1 tomoe"/"2 tomoe"/"3 tomoe"; "Mangekyō Sharingan" "awakened"; "Susanoo" "ribcage"/"full body"...). Otherwise [].`,
   canon: `CANON: canon_engaged / canon_completed / canon_passed / news_relayed use ids exactly as listed under CANON TRACKING, only when that id's rule is met; otherwise []. A catch-up report can relay several listed news ids in one turn. trial_mission is null unless an AKATSUKI TRIAL line below says how to set it.`,
@@ -358,7 +358,7 @@ export function buildNarrationPrompt(
       formatVarietyBlock(db),
       formatEncounterConditions(db),
       formatNameOutThere(db),
-      formatRenownBlock(db),
+      formatRenownBlock(db, userMessage),
       pressure,
       formatFlashbackOffer(db, memoryOffer),
       formatFlashbackReturn(db),
@@ -1323,7 +1323,7 @@ function formatNewsBlock(db: AppDatabase) {
 
 /** YOUR NAME OUT THERE, with what strangers here call Kan. */
 function formatNameOutThere(db: AppDatabase) {
-  const block = formatReputationBlock(db);
+  const block = formatReputationBlock(db, (village) => listingSubject(db, village));
   const extra = epithetLines(db).map((line) => `- ${line}`);
 
   if (extra.length === 0) return block;
@@ -1446,7 +1446,9 @@ function formatPressure(db: AppDatabase, recentText: string) {
     return comesBack;
   }
 
-  return formatHunterOffer(hunterOffer(db)) || formatReturningCharacter(db, recentText);
+  const hunter = hunterOffer(db);
+
+  return formatHunterOffer(hunter, hunter ? listingSubject(db, hunter.listing.village) : undefined) || formatReturningCharacter(db, recentText);
 }
 
 function formatEnemyTracking(db: AppDatabase) {

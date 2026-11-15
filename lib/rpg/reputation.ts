@@ -65,11 +65,18 @@ export const COOL_DAYS_PER_POINT = 20;
 const MAX_RISE = 25;
 const MAX_FALL = 15;
 
-/** The Leaf's entry: he vanished the night of the massacre (the story starts that night). */
-export const LEAF_LISTS_ON: CalendarDate = { year: 13, month: 10, day: 2, hour: 6, minute: 0 };
-export const LEAF_START_HEAT = 40;
-export const LEAF_START_REASON =
+/**
+ * The Leaf has no bingo-book entry on Kan at the start (section 7): its file
+ * says "Kan, missing, presumed dead". It only lists him by name once it learns
+ * he is alive (renown.ts). Old saves had an entry written the morning after the
+ * massacre with this reason; normalizeReputation takes it out again.
+ */
+export const OLD_LEAF_START_REASON =
   "Vanished from ANBU the night of the Uchiha massacre; wanted as Itachi Uchiha's suspected accomplice.";
+const OLD_LEAF_START_HEAT = 40;
+
+/** What the Leaf's file on Kan says while it believes him dead. */
+export const LEAF_FILE = 'Kan, missing, presumed dead';
 
 /** Bounty hunters: one optional offer per window of player turns, at most. */
 export const HUNTER_WINDOW_TURNS = 10;
@@ -87,29 +94,6 @@ function emptyReputation(): ReputationState {
   return { villages: {}, akatsuki: { standing: 0 }, recent: [] };
 }
 
-/**
- * The morning after the massacre night the Leaf finds Kan gone from ANBU and
- * writes him into its book beside Itachi. Before that, nobody has anything on
- * him. Runs every turn; an entry, once there, is never touched again here.
- */
-export function ensureLeafListing(db: AppDatabase): AppDatabase {
-  const reputation = reputationOf(db);
-
-  if (reputation.villages.leaf || dateSortValue(db.state.inStoryDate) < dateSortValue(LEAF_LISTS_ON)) {
-    return db;
-  }
-
-  const now = db.state.inStoryDate;
-
-  return withReputation(db, {
-    ...reputation,
-    villages: {
-      ...reputation.villages,
-      leaf: { heat: LEAF_START_HEAT, listedOn: now, lastDeedOn: now, lastReason: LEAF_START_REASON, known: false },
-    },
-  });
-}
-
 export function normalizeReputation(raw: unknown): ReputationState {
   if (!raw || typeof raw !== 'object') {
     return emptyReputation();
@@ -120,6 +104,17 @@ export function normalizeReputation(raw: unknown): ReputationState {
 
   for (const village of VILLAGES) {
     const entry = value.villages?.[village];
+
+    // The old automatic Leaf entry (Kan is presumed dead now), unless deeds have added to it since.
+    if (
+      village === 'leaf' &&
+      entry?.lastReason === OLD_LEAF_START_REASON &&
+      !entry.namedOn &&
+      typeof entry.heat === 'number' &&
+      entry.heat <= OLD_LEAF_START_HEAT
+    ) {
+      continue;
+    }
 
     if (entry && typeof entry.heat === 'number' && Number.isFinite(entry.heat)) {
       villages[village] = { ...entry, heat: clamp(Math.round(entry.heat), 0, 100), known: Boolean(entry.known) };
@@ -135,7 +130,7 @@ export function normalizeReputation(raw: unknown): ReputationState {
       standing: typeof standing === 'number' && Number.isFinite(standing) ? clamp(Math.round(standing), -100, 100) : 0,
     },
     recent: Array.isArray(value.recent)
-      ? value.recent.filter((item) => item && typeof item.faction === 'string').slice(-12)
+      ? value.recent.filter((item) => item && typeof item.faction === 'string' && item.reason !== OLD_LEAF_START_REASON).slice(-12)
       : [],
   };
 }
@@ -250,8 +245,6 @@ export function applyReputationChanges(
   changes: TurnDiff['reputation'],
   seen: TurnDiff['bountySeen']
 ): AppDatabase {
-  db = ensureLeafListing(db);
-
   if ((!changes || changes.length === 0) && (!seen || seen.length === 0)) {
     return db;
   }
@@ -299,6 +292,7 @@ export function applyReputationChanges(
       lastDeedOn: delta > 0 ? now : (entry?.lastDeedOn ?? now),
       lastReason: delta > 0 ? (reason ?? entry?.lastReason) : entry?.lastReason,
       known: entry?.known ?? false,
+      ...(entry?.namedOn ? { namedOn: entry.namedOn } : {}),
     };
   }
 
@@ -332,9 +326,22 @@ export function territoryHere(db: AppDatabase): VillageFaction | null {
   return TERRITORY_OF_REGION[region] ?? null;
 }
 
-function shinobiLine(name: string, listing: BingoListing | undefined) {
+/**
+ * Who a village's entry is about, as that village knows it (renown.ts
+ * listingSubject): Kan by name, or only a nickname nobody has linked to him.
+ */
+export type ListingSubject = { label: string; linked: boolean };
+
+/** Without renown's view (tests, old callers): the entry is on Kan by name. */
+const NAMED: (village: VillageFaction) => ListingSubject = () => ({ label: 'you', linked: true });
+
+function shinobiLine(name: string, listing: BingoListing | undefined, subject: ListingSubject) {
   if (!listing) {
     return `${name} has nothing on you: its shinobi see a stranger.`;
+  }
+
+  if (!subject.linked) {
+    return `${name}'s bingo book lists ${subject.label} ${listing.rank}-rank (${formatRyo(listing.bounty)}), but nobody there knows that is you: the entry has a description and a list of deeds, no face. They would only put it together if they saw you do what the entry describes.`;
   }
 
   const entry = `${name}'s bingo book lists you ${listing.rank}-rank (${formatRyo(listing.bounty)})`;
@@ -351,10 +358,10 @@ function shinobiLine(name: string, listing: BingoListing | undefined) {
   }
 }
 
-function civilianLine(listing: BingoListing | undefined, year: number, cloak: boolean) {
+function civilianLine(listing: BingoListing | undefined, year: number, cloak: boolean, linked: boolean) {
   const parts: string[] = [];
 
-  if (listing?.rank === 'S') {
+  if (listing?.rank === 'S' && linked) {
     parts.push('Your face is on wanted posters here; even civilians may recognize you and run for the guards.');
   } else {
     parts.push('Civilians do not know your face.');
@@ -399,7 +406,10 @@ function standingLine(db: AppDatabase) {
  * The narrator block: how people where Kan stands would react to him. Skipped
  * where nobody would be around, except for his standing inside the Akatsuki.
  */
-export function formatReputationBlock(db: AppDatabase): string {
+export function formatReputationBlock(
+  db: AppDatabase,
+  subjectOf: (village: VillageFaction) => ListingSubject = NAMED
+): string {
   const lines: string[] = [];
   const standing = standingLine(db);
   const risk = encounterRisk(locationKindOf(db), timeOfDayOf(db.state.inStoryDate));
@@ -411,11 +421,14 @@ export function formatReputationBlock(db: AppDatabase): string {
     const cloak = hasCloak(db);
 
     if (here) {
-      lines.push(shinobiLine(VILLAGE_NAME[here], byVillage.get(here)));
+      lines.push(shinobiLine(VILLAGE_NAME[here], byVillage.get(here), subjectOf(here)));
     } else if (listings.length > 0) {
       lines.push(
         `No great village holds this land. Bingo books still travel with bounty hunters and mercenaries: ${listings
-          .map((listing) => `${listing.name} ${listing.rank}-rank (${formatRyo(listing.bounty)})`)
+          .map((listing) => {
+            const subject = subjectOf(listing.village);
+            return `${listing.name} ${listing.rank}-rank (${formatRyo(listing.bounty)})${subject.linked ? '' : ` on ${subject.label}, not knowing it is you`}`;
+          })
           .join(', ')}.`
       );
     }
@@ -428,7 +441,7 @@ export function formatReputationBlock(db: AppDatabase): string {
       );
     }
 
-    lines.push(civilianLine(here ? byVillage.get(here) : undefined, db.state.inStoryDate.year, cloak));
+    lines.push(civilianLine(here ? byVillage.get(here) : undefined, db.state.inStoryDate.year, cloak, here ? subjectOf(here).linked : false));
   }
 
   if (standing) {
@@ -517,14 +530,16 @@ export function hunterOffer(db: AppDatabase): HunterOffer | null {
   return { listing, kind: kinds[hashText(`${db.meta.slotId}:hunter-kind:${window}`) % kinds.length] };
 }
 
-export function formatHunterOffer(offer: HunterOffer | null): string {
+export function formatHunterOffer(offer: HunterOffer | null, subject: ListingSubject = NAMED(offer?.listing.village ?? 'leaf')): string {
   if (!offer) {
     return '';
   }
 
   return [
     'A PRICE ON YOUR HEAD (optional)',
-    `${offer.listing.name} pays ${formatRyo(offer.listing.bounty)} for you. Here that could mean ${offer.kind}.`,
+    subject.linked
+      ? `${offer.listing.name} pays ${formatRyo(offer.listing.bounty)} for you. Here that could mean ${offer.kind}.`
+      : `${offer.listing.name} pays ${formatRyo(offer.listing.bounty)} for ${subject.label}; nobody knows that is you or what you look like, only what the entry says the Vulture does. Here that could mean ${offer.kind}, hunting the name, not your face: they would have to see the deeds (a drained body, the vultures) to suspect you.`,
     'If it fits the scene, bring them in: someone watching too long, a name asked at the counter, or an ambush on the road. They are this turn\'s encounter, fight at canon power for their rank, and can be bought off, outrun, fooled, or beaten. If it does not fit, ignore this.',
   ].join('\n');
 }

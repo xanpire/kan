@@ -31,7 +31,7 @@ import { applyCanonEndgames } from './canonEndgame';
 import { deliverLetters, receiveLetters, sendLetters, turnLetterOffer } from './letters';
 import { advanceLives, applyLifeEvents, markReunions } from './lives';
 import { advanceConsequences, applyConsequences, markConsequenceOffered, turnConsequenceOffer } from './consequences';
-import { applyEpithet, markEpithetsSeen, recordDeeds } from './renown';
+import { applyEpithet, applyNameOut, markEpithetsSeen, recordDeeds, syncCarriedBooks } from './renown';
 import { applyYearly, yearlyOffer } from './yearly';
 import { recordTravel } from './mapData';
 import { applyWeather, weatherFromNarration } from './weather';
@@ -478,9 +478,13 @@ export function applyStateStep(
 
   // What people saw becomes talk and a name; choices that could come back
   // are kept. The offers come from the state this turn's prompt was built on.
+  // Kan's real name getting out moves it onto the entries of those who now know.
+  next = applyNameOut(next, extraction?.nameOut);
   next = recordDeeds(next, extraction?.reputation);
   next = applyEpithet(next, extraction?.epithet);
   next = markEpithetsSeen(next, extraction?.bountySeen);
+  // A bingo book that came into his hands keeps its page as printed today.
+  next = syncCarriedBooks(next);
   const offeredSeed = turnConsequenceOffer(latest);
   const planted = applyConsequences(next, extraction?.consequences, extraction?.consequencesReturned, offeredSeed);
   next = markConsequenceOffered(planted.db, offeredSeed);

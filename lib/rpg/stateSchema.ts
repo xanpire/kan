@@ -82,7 +82,7 @@ export const VILLAGE_FACTIONS = ['leaf', 'sand', 'mist', 'cloud', 'stone'] as co
 export const GRUDGE_EVENTS = ['wronged', 'struck', 'settled', 'forgiven'] as const;
 export const THREAD_STATUSES = ['open', 'update', 'resolved'] as const;
 export const LETTER_CARRIERS = ['bird', 'ninken', 'summon', 'courier', 'dead-drop', 'hand', 'vulture'] as const;
-export const EPITHET_AUDIENCES = ['leaf', 'sand', 'mist', 'cloud', 'stone', 'akatsuki', 'rain', 'underworld'] as const;
+export const EPITHET_AUDIENCES = ['leaf', 'sand', 'mist', 'cloud', 'stone', 'akatsuki', 'rain', 'grass', 'underworld', 'towns', 'countryside'] as const;
 export const SAFEHOUSE_KINDS = ['own', 'rented', 'borrowed', 'base', 'camp'] as const;
 export const SAFEHOUSE_ENDINGS = ['expired', 'destroyed', 'compromised', 'withdrawn', 'given-up'] as const;
 export const CONSEQUENCE_KINDS = ['spared', 'lie', 'helped', 'witness', 'betrayal', 'humiliated', 'promise', 'debt'] as const;
@@ -331,6 +331,11 @@ export const TURN_STATE_SCHEMA = object({
     required: ['audience', 'name'],
     additionalProperties: false,
   },
+  // Kan's real name got out: someone who lives learned he is the one behind the nickname.
+  name_out: list({
+    who: { type: 'string', enum: [...EPITHET_AUDIENCES] },
+    how: { type: 'string', enum: ['told', 'recognised'] },
+  }),
   // Choices that could come back later, and offered ones that came back.
   consequences: list({
     kind: { type: 'string', enum: [...CONSEQUENCE_KINDS] },
@@ -364,7 +369,7 @@ export type WorldArea = (typeof WORLD_AREAS)[number];
 export const WORLD_AREA_FIELDS: Record<WorldArea, readonly string[]> = {
   letters: ['letters_sent', 'letters_received'],
   safehouse: ['safehouse'],
-  enemies: ['reputation', 'bounty_seen', 'epithet', 'consequences', 'consequences_returned', 'grudges'],
+  enemies: ['reputation', 'bounty_seen', 'epithet', 'name_out', 'consequences', 'consequences_returned', 'grudges'],
   lives: ['life_events', 'birthdays_learned'],
   abilities: ['natures_gained', 'abilities_changed'],
   canon: ['canon_engaged', 'canon_completed', 'canon_passed', 'news_relayed', 'trial_mission'],

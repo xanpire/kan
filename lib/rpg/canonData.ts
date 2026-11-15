@@ -334,10 +334,10 @@ const CORE_MILESTONES: CanonMilestone[] = [
   {
     id: 'kan-bingo-book',
     era: 'Ashes',
-    title: 'Your page in the bingo book',
+    title: "What the Leaf has on you",
     description:
-      'Someone shows you, or tells you, what the Hidden Leaf wrote about you: your name, your rank, the price on your head, next to Itachi\'s.',
-    canonPoint: 'You know you are in the Leaf\'s bingo book.',
+      'Someone who has seen the Leaf\'s records (a hunter with a copy of its bingo book, an informant, Itachi) tells you, or shows you: Itachi\'s page is there, S-rank; yours is not. The Leaf\'s file reads "Kan, missing, presumed dead". As far as the Leaf knows, you died the night of the massacre.',
+    canonPoint: 'The Leaf believes you dead: its file reads "Kan, missing, presumed dead".',
     from: { year: 13, month: 11 },
     to: { year: 16, month: 12 },
     region: 'the shinobi world',
@@ -345,8 +345,8 @@ const CORE_MILESTONES: CanonMilestone[] = [
     knowledge: 'public',
     playerDriven: true,
     after: 'itachi-bingo-book',
-    completesWhen: 'You see your own bingo-book entry on the page, or someone tells you exactly what it says (also report bounty_seen).',
-    facts: ['You know the Hidden Leaf has listed you in its bingo book.'],
+    completesWhen: 'You learn on the page that the Leaf has no bingo-book entry on you and lists you as missing, presumed dead (by reading the book or being told).',
+    facts: ['The Hidden Leaf lists you as "Kan, missing, presumed dead"; it has no bingo-book entry on you.'],
     resolvesThreadTitles: ['your name in the bingo books'],
   },
   {

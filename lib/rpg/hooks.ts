@@ -1,7 +1,7 @@
 // Story threads that open and close with the story itself, so the big
 // personal hooks are always on the page at the right time: Izumi's grave
 // once you know she is gone, surviving Kakuzu once he is your partner, your
-// bingo-book page once the Leaf has written one.
+// learning what the Leaf has on you once Itachi is in the bingo books.
 
 import { conditionHolds } from './lore';
 import { threadKey } from './facts';
@@ -51,7 +51,7 @@ export const STORY_HOOKS: StoryHook[] = [
   },
   {
     title: 'Your name in the bingo books',
-    description: 'Itachi warned you the Leaf would brand you both. You have not seen what they wrote about you.',
+    description: 'Itachi said the Leaf would brand him alone, and that to them you most likely died that night. You have not seen what they wrote.',
     type: 'mystery',
     importance: 3,
     participants: ['Kan', 'Itachi Uchiha'],

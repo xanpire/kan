@@ -86,15 +86,15 @@ const goro = (db: AppDatabase) => db.entities.find((entity) => entity.name === '
 const goroBond = (db: AppDatabase) => db.bonds.find((bond) => bond.entityId === goro(db).id)!;
 
 describe('reputation: bingo books and Akatsuki standing', () => {
-  test('the Leaf writes you into its book the morning after the massacre night, unseen by you', () => {
+  test('the Leaf believes you dead: no entry on you, the morning after or months later', () => {
     let db = fresh();
     db = turn(db, { mood: 'cold' });
     expect(bingoListings(db)).toHaveLength(0);
 
-    db = turn(later(db, 1), { mood: 'cold' });
-    const [leaf] = bingoListings(db);
-    expect(leaf).toMatchObject({ village: 'leaf', rank: 'B', known: false });
-    expect(leaf.bounty).toBe(bountyFor(leaf.heat));
+    db = turn(later(db, 40), { mood: 'cold' });
+    expect(bingoListings(db)).toHaveLength(0);
+    expect(rankFor(LIST_HEAT)).toBe('C');
+    expect(bountyFor(LIST_HEAT)).toBeGreaterThan(0);
   });
 
   test('deeds raise a village’s heat into a rank and a bounty; seeing it makes it known', () => {
@@ -129,7 +129,6 @@ describe('reputation: bingo books and Akatsuki standing', () => {
     const block = formatReputationBlock(town);
     expect(block).toContain('YOUR NAME OUT THERE');
     expect(block).toContain("Hidden Sand's bingo book lists you C-rank");
-    expect(block).toContain('Also wanted by: Hidden Leaf (B-rank)');
     expect(block).toContain('Kan has not seen what');
 
     const wilds = { ...db, state: { ...db.state, location: 'Deep forest', locationKind: 'wilderness' as const, inStoryDate: { ...db.state.inStoryDate, hour: 23 } } };
@@ -264,6 +263,6 @@ describe('grudges: the dark mirror of romance', () => {
     });
     db = normalizeDatabase(JSON.parse(JSON.stringify(db)));
     expect(goroBond(db).grudge?.reason).toBe('You killed his brother');
-    expect(bingoListings(db).map((item) => item.village)).toEqual(expect.arrayContaining(['leaf', 'stone']));
+    expect(bingoListings(db).map((item) => item.village)).toEqual(['stone']);
   });
 });
