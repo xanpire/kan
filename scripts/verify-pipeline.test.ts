@@ -943,6 +943,8 @@ describe('cross-era memory and romance', () => {
 
   test('a rejection can slowly thaw when the story earns it', () => {
     let db = loadSave();
+    // Romance waits until both are 18: years on.
+    db = { ...db, state: { ...db.state, inStoryDate: { ...db.state.inStoryDate, year: 20 } } };
     db = applyTurnDiff(db, {
       bonds: [{ character: 'Hana Inuzuka', relationship: 'rejected', attraction: 'none' }],
     });

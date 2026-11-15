@@ -1126,10 +1126,56 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(acceptedBeforeTrial(normalized))))))));
+  const withDeaths = regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized)))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;
+}
+
+export const HANA_CRUSH_TEXT =
+  'Hana Inuzuka has a secret crush on you. She has told no one and hides it behind teasing; you don’t know.';
+const KAN_CRUSH_TEXT = 'You have a crush on Hana Inuzuka and have never told her.';
+
+/**
+ * Hana's side (15 Nov 2026): she has a secret crush on Kan too, and Itachi is
+ * the one person who knows about Kan's. Old saves get both once, unless the
+ * two have already become something (romance, a refusal, exes).
+ */
+function addHanaCrush(db: AppDatabase): AppDatabase {
+  const hana = db.entities.find((entity) => entity.name === 'Hana Inuzuka');
+  if (!hana || hana.deceased) return db;
+
+  const bond = db.bonds.find((item) => item.entityId === hana.id);
+  const settled = bond?.relationship && ['romantic interest', 'lover', 'rejected', 'ex'].includes(bond.relationship);
+  const itachi = db.entities.find((entity) => entity.name === 'Itachi Uchiha');
+  let facts = db.facts;
+
+  if (itachi) {
+    facts = facts.map((fact) =>
+      fact.text === KAN_CRUSH_TEXT && fact.validTo === null && !fact.whoKnows.includes(itachi.id) && !fact.whoKnows.includes('Itachi Uchiha')
+        ? { ...fact, whoKnows: [...fact.whoKnows, itachi.id] }
+        : fact
+    );
+  }
+
+  if (!settled && !facts.some((fact) => fact.text === HANA_CRUSH_TEXT)) {
+    facts = [
+      ...facts,
+      {
+        id: makeId('fact'),
+        subjectEntityId: hana.id,
+        type: 'secret',
+        text: HANA_CRUSH_TEXT,
+        whoKnows: [hana.id],
+        validFrom: { ...db.state.inStoryDate },
+        validTo: null,
+        confidence: 'confirmed',
+        sourceEventId: null,
+      } as AppDatabase['facts'][number],
+    ];
+  }
+
+  return facts === db.facts ? db : { ...db, facts };
 }
 
 /** A saved person's gender when the save doesn't say: the canon cast's, else unknown. */

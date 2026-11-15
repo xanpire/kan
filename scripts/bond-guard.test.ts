@@ -68,7 +68,7 @@ describe('love and trust have a guard (audit 6.12)', () => {
     expect(['friendly', 'close']).toContain(hanaBond(db)!.relationship);
   });
 
-  test('romance waits until Kan is 17 with an adult, and lover waits 30 days after romantic interest', () => {
+  test('romance waits until both are 18, and lover waits 30 days after romantic interest', () => {
     let db = seed();
     const hana = db.entities.find((entity) => entity.name === 'Hana Inuzuka')!;
     const kan = db.entities.find((entity) => entity.name === 'Kan')!;
@@ -82,6 +82,10 @@ describe('love and trust have a guard (audit 6.12)', () => {
       bonds: db.bonds.map((bond) => (bond.entityId === hana.id ? { ...bond, relationship: 'close' as const } : bond)),
     };
     expect(hanaAge).toBeGreaterThan(0);
+    // At the start (both 13) romance and attraction are refused.
+    const young = seed();
+    const youngHana = young.entities.find((entity) => entity.name === 'Hana Inuzuka')!;
+    expect(romanceBlock(young, youngHana)).toContain('both adults');
 
     db = play(db, { characters_present: ['hana-inuzuka'], bonds: [{ character_id: 'hana-inuzuka', relationship: 'romantic interest' }] }).db;
     expect(hanaBond(db)!.relationship).toBe('romantic interest');

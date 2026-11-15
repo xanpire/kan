@@ -19,8 +19,8 @@ export const BOND_STEP = 2;
 export const BIG_TURN_BOND_STEP = 4;
 /** How long "romantic interest" must hold before "lover". */
 export const ROMANCE_BEFORE_LOVER_DAYS = 30;
-/** Adults keep Kan at arm's length while he is younger than this. */
-export const ROMANCE_MIN_AGE_WITH_ADULTS = 17;
+/** Romance and attraction wait until Kan and the other person are both this old. */
+export const ROMANCE_MIN_AGE = 18;
 
 /** The one ladder a relationship climbs, one step per scene. */
 export const RELATIONSHIP_LADDER: RelationshipStage[] = [
@@ -93,13 +93,12 @@ export function romanceBlock(db: AppDatabase, entity: EntityRecord): string | nu
   const kanAge = kan ? entityAge(date, kan) : undefined;
   const theirAge = entityAge(date, entity);
 
-  if (
-    kanAge !== undefined &&
-    theirAge !== undefined &&
-    kanAge < ROMANCE_MIN_AGE_WITH_ADULTS &&
-    theirAge >= 18
-  ) {
-    return `they are an adult and you are ${kanAge}`;
+  if (kanAge !== undefined && kanAge < ROMANCE_MIN_AGE) {
+    return `you are ${kanAge}; romance waits until you are both adults`;
+  }
+
+  if (theirAge !== undefined && theirAge < ROMANCE_MIN_AGE) {
+    return `they are ${theirAge}; romance waits until you are both adults`;
   }
 
   return null;
