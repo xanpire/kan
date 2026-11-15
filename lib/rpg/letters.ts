@@ -261,7 +261,9 @@ function danzoActive(db: AppDatabase) {
 
 /** The Fourth War closes every road it touches. */
 function wartime(date: CalendarDate) {
-  return date.year === 23 && (date.month === 1 || (date.month === 2 && date.day <= 15)) && !(date.month === 1 && date.day < 10);
+  // From the first day of the war (8 October, year 22) until the roads clear
+  // in mid-November.
+  return date.year === 22 && ((date.month === 10 && date.day >= 8) || (date.month === 11 && date.day <= 15));
 }
 
 const SAFETY: Partial<Record<LetterCarrierKind, number>> = { summon: 0.3, vulture: 0.4, 'dead-drop': 0.5, hand: 0.2 };

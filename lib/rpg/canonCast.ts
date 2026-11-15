@@ -390,7 +390,7 @@ const BASE_CAST: CastEntry[] = [
     name: 'Kurenai Yuhi',
     aliases: ['Kurenai'],
     birthday: { month: 6, day: 11 },
-    birthYear: -9,
+    birthYear: -10,
     role: 'Leaf jonin · genjutsu specialist',
     personality: 'Calm, caring, fiercely protective of her students.',
     speechStyle: 'Composed and warm.',
@@ -613,7 +613,7 @@ const BASE_CAST: CastEntry[] = [
     name: 'Ibiki Morino',
     aliases: ['Ibiki', 'Morino Ibiki'],
     birthday: { month: 3, day: 20 },
-    birthYear: -18,
+    birthYear: -9,
     role: 'Head of Torture and Interrogation',
     personality: 'Cold, methodical, knows where every mind breaks.',
     speechStyle: 'Deep, slow, intimidating.',
@@ -1256,11 +1256,19 @@ const BIRTHDAY_FIXES: Record<string, { from: { month: number; day: number }; to:
   Kimimaro: { from: { month: 6, day: 2 }, to: { month: 6, day: 15 } },
   'Killer Bee': { from: { month: 6, day: 23 }, to: { month: 5, day: 15 } },
   Karin: { from: { month: 3, day: 30 }, to: { month: 6, day: 20 } },
+  // The canon date grid (15 Nov 2026): Mirai is born after Pain's assault.
+  'Mirai Sarutobi': { from: { month: 11, day: 12 }, to: { month: 5, day: 12 } },
 };
 
 /** Birth years corrected against canon (14 Nov 2026), for older saves. */
 const BIRTH_YEAR_FIXES: Record<string, { from: number; to: number }> = {
   'Anko Mitarashi': { from: -11, to: -7 },
+  // The canon date grid (15 Nov 2026): Ibiki 27 and Kurenai 27–28 in Part 1,
+  // Mirai after Pain's assault, Himawari two years after Boruto.
+  'Ibiki Morino': { from: -18, to: -9 },
+  'Kurenai Yuhi': { from: -9, to: -10 },
+  'Mirai Sarutobi': { from: 21, to: 22 },
+  'Himawari Uzumaki': { from: 30, to: 29 },
 };
 
 /** Birthdays the app chose because canon gives none (the seed's people included). */

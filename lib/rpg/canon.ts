@@ -14,6 +14,7 @@ import {
   BEARERS_BY_KNOWLEDGE,
   CANON_MILESTONES,
   CANON_VERSION,
+  CANON_GRID,
   CHANNEL_BY_KNOWLEDGE,
   REGION_CHANNEL,
   type CanonJutsuGrant,
@@ -81,11 +82,12 @@ function normalizeProgress(db: AppDatabase): CanonProgress {
   const list = (value: unknown) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
   if (!progress || !Array.isArray(progress.completed)) {
-    return { version: CANON_VERSION, completed: [], active: [], engaged: [] };
+    return { version: CANON_VERSION, completed: [], active: [], engaged: [], grid: CANON_GRID };
   }
 
   return {
     version: typeof progress.version === 'number' ? progress.version : 1,
+    ...(typeof progress.grid === 'number' ? { grid: progress.grid } : {}),
     baselineDate: progress.baselineDate,
     baselineTurn: typeof progress.baselineTurn === 'number' ? progress.baselineTurn : 0,
     completed: list(progress.completed),

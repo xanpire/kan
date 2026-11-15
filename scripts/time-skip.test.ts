@@ -161,18 +161,18 @@ describe('a correction backwards takes canon back (audit 4.5)', () => {
       ...db,
       state: { ...db.state, inStoryDate: { ...db.state.inStoryDate, year, month, day, hour: 12 } },
     });
-    // Jiraiya dies in year 21, month 9.
-    let db = advanceCanon(at(base, 21, 10, 1), { inCombat: false });
+    // Jiraiya dies in year 21, month 12.
+    let db = advanceCanon(at(base, 22, 1, 1), { inCombat: false });
     const jiraiya = () => db.entities.find((entity) => entity.name === 'Jiraiya')!;
     expect(isDeceased(jiraiya())).toBe(true);
     expect(db.state.canonProgress?.completed).toContain('jiraiya-dies');
 
-    db = unfireFutureMilestones(at(db, 21, 8, 1));
+    db = unfireFutureMilestones(at(db, 21, 11, 1));
     expect(isDeceased(jiraiya())).toBe(false);
     expect(db.state.canonProgress?.completed).not.toContain('jiraiya-dies');
     expect(db.events.some((event) => event.id === 'event_canon_jiraiya-dies')).toBe(false);
 
-    db = advanceCanon(at(db, 21, 10, 1), { inCombat: false });
+    db = advanceCanon(at(db, 22, 1, 1), { inCombat: false });
     expect(isDeceased(jiraiya())).toBe(true);
   });
 });

@@ -41,18 +41,18 @@ function play(db: AppDatabase, narration: string, state: Record<string, unknown>
 
 describe('the reanimated (audit 6.9)', () => {
   test('canon brings Itachi back through Edo Tensei, and Izanami lets him go', () => {
-    let db = advanceCanon(at(seed(), 23, 1, 10), { inCombat: false });
+    let db = advanceCanon(at(seed(), 22, 10, 8), { inCombat: false });
     expect(isDeceased(itachi(db))).toBe(true);
     expect(isReanimated(itachi(db))).toBe(true);
     expect(itachi(db).reanimated?.by).toBe('Kabuto');
 
-    db = advanceCanon(at(db, 23, 1, 12), { inCombat: false });
+    db = advanceCanon(at(db, 22, 10, 9), { inCombat: false });
     expect(isReanimated(itachi(db))).toBe(false);
     expect(isDeceased(itachi(db))).toBe(true);
   });
 
   test('a reanimated person can be in the scene, is seen, and their card says what they are', () => {
-    let db = at(seed(), 23, 1, 10);
+    let db = at(seed(), 22, 10, 8);
     db = markDeceased(db, itachi(db).id, { cause: 'illness', known: false });
     db = markReanimated(db, [itachi(db).id], { by: 'Kabuto' });
     db = play(db, 'Itachi stands in front of you, his skin cracked like old paper.', {
@@ -66,7 +66,7 @@ describe('the reanimated (audit 6.9)', () => {
   });
 
   test('the tracker can reanimate and release', () => {
-    let db = at(seed(), 23, 1, 10);
+    let db = at(seed(), 22, 10, 8);
     db = markDeceased(db, itachi(db).id, { cause: 'illness', known: true });
     db = play(db, 'The coffin opens and Itachi steps out.', { reanimated: ['itachi-uchiha'], characters_present: ['itachi-uchiha'] });
     expect(isReanimated(itachi(db))).toBe(true);

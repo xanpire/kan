@@ -77,7 +77,7 @@ describe('roles move with canon', () => {
   });
 
   test('the engine moves them as milestones fire', () => {
-    let db = at(seed(), date(18, 4, 20));
+    let db = at(seed(), date(18, 9, 20));
     db = advanceCanon(db);
 
     expect(db.state.canonProgress?.completed).toContain('tsunade-hokage');
@@ -114,9 +114,9 @@ describe('roles move with canon', () => {
   });
 
   test('a clock set back takes the role back too', () => {
-    let db = advanceCanon(at(seed(), date(18, 4, 20)));
+    let db = advanceCanon(at(seed(), date(18, 9, 20)));
     expect(roleOf(db, 'Tsunade Senju')).toBe('Fifth Hokage · Legendary Sannin');
-    db = unfireFutureMilestones(at(db, date(18, 3, 1)));
+    db = unfireFutureMilestones(at(db, date(18, 8, 1)));
     expect(roleOf(db, 'Tsunade Senju')).toBe('Legendary Sannin · medical ninja');
   });
 

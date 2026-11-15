@@ -106,7 +106,7 @@ export const CAST_ADDITIONS: CastEntry[] = [
     aliases: ['Himawari', 'Uzumaki Himawari'],
     birthday: { month: 3, day: 21 },
     birthdayInvented: true,
-    birthYear: 30,
+    birthYear: 29,
     role: 'Naruto and Hinata’s daughter · a small child',
     personality: 'Sweet, gentle and cheerful; adores her family.',
     speechStyle: 'A toddler’s; polite and soft as she grows.',
@@ -645,9 +645,9 @@ export const CAST_ADDITIONS: CastEntry[] = [
   {
     name: 'Mirai Sarutobi',
     aliases: ['Mirai'],
-    birthday: { month: 11, day: 12 },
+    birthday: { month: 5, day: 12 },
     birthdayInvented: true,
-    birthYear: 21,
+    birthYear: 22,
     role: 'Asuma and Kurenai’s daughter · Hiruzen’s granddaughter',
     personality:
       'As a toddler sociable, mashing people’s names into nicknames and calling Shikamaru her big brother. As she grows she reveres the father and grandfather she never knew and pushes herself hard to live up to them.',

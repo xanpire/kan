@@ -132,19 +132,19 @@ describe('the new cast', () => {
     expect(boruto.status).toBe('Not yet met');
     expect(boruto.met).toBe(false);
     expect(boruto.romanceAccessibility).toBe('not-applicable');
-    expect(person(at({ year: 21, month: 11, day: 20, hour: 9, minute: 0 }), 'Mirai Sarutobi')?.birthYear).toBe(21);
+    expect(person(at({ year: 22, month: 5, day: 20, hour: 9, minute: 0 }), 'Mirai Sarutobi')?.birthYear).toBe(22);
     // Reloading keeps them, and a save before the birth stays without them.
     expect(person(normalizeDatabase(after), 'Boruto Uzumaki')).toBeDefined();
     expect(ensureCanonCast(before.entities, () => 'x', []).some((entity) => entity.name === 'Sarada Uchiha')).toBe(false);
   });
 
   test('the real Madara appears in the war, takes his name, and dies in the canon', () => {
-    const war = at({ year: 23, month: 1, day: 12, hour: 9, minute: 0 });
+    const war = at({ year: 22, month: 10, day: 9, hour: 9, minute: 0 });
     const madara = person(war, 'Madara Uchiha')!;
     expect(madara).toBeDefined();
     expect(resolveEntity(war, 'Madara')?.name).toBe('Madara Uchiha');
     expect(person(war, 'Kaguya Ōtsutsuki')).toBeUndefined();
-    const after = at({ year: 23, month: 2, day: 1, hour: 9, minute: 0 }, war);
+    const after = at({ year: 22, month: 11, day: 1, hour: 9, minute: 0 }, war);
     expect(person(after, 'Madara Uchiha')?.deceased).toBeDefined();
     expect(person(after, 'Kaguya Ōtsutsuki')?.status).toBe('Sealed');
     expect(person(after, 'Shukaku')?.status).toBe('Free');

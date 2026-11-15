@@ -21,7 +21,8 @@ import { makeId } from './id';
 import { playerTurnCount } from './util';
 import { isCurrentSnapshot } from './log';
 import { stripNarrationJson } from './prompt';
-import { CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from './canonData';
+import { CANON_GRID, CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from './canonData';
+import { unfireFutureMilestones } from './canon';
 import { dropBareNatureJutsu, normalizeJutsuNature } from './jutsu';
 import { dateSortValue, normalizeDate } from './calendar';
 import { GEOGRAPHY_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING, OPENING_MEMORY, seedDatabase } from './seed';
@@ -903,6 +904,7 @@ function migrateCanonV2(db: AppDatabase): AppDatabase {
         engaged: [],
         expired: [],
         heard: {},
+        grid: CANON_GRID,
       },
     },
   };
@@ -937,6 +939,23 @@ function refreshCanonEventText<T extends { tags: string[]; summary: string }>(ev
 
   const summary = `${milestone.title}: ${milestone.description}`.slice(0, 240);
   return summary === event.summary ? event : { ...event, summary };
+}
+
+/**
+ * The canon date grid moved (15 Nov 2026): Part 1 starts later and the war
+ * earlier. A save fired on the old grid gets back the world milestones whose
+ * new date is still ahead of it (with their events, facts and deaths), so they
+ * fire again on the right day; personal beats it played stay played. Once.
+ */
+function regridCanon(db: AppDatabase): AppDatabase {
+  const progress = db.state?.canonProgress;
+
+  if (!progress || (progress.grid ?? 1) >= CANON_GRID) return db;
+
+  const next = unfireFutureMilestones(db);
+  const progressNext = next.state.canonProgress ?? progress;
+
+  return { ...next, state: { ...next.state, canonProgress: { ...progressNext, grid: CANON_GRID } } };
 }
 
 export function normalizeDatabase(db: AppDatabase): AppDatabase {
@@ -1100,7 +1119,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(acceptedBeforeTrial(normalized)))))));
+  const withDeaths = regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(acceptedBeforeTrial(normalized))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;
@@ -1274,6 +1293,7 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
               state.canonProgress.heard && typeof state.canonProgress.heard === 'object'
                 ? state.canonProgress.heard
                 : {},
+            ...(typeof state.canonProgress.grid === 'number' ? { grid: state.canonProgress.grid } : {}),
           }
         : {
             version: CANON_VERSION,
@@ -1284,6 +1304,7 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
             engaged: [],
             expired: [],
             heard: {},
+            grid: CANON_GRID,
           },
     chapter: state.chapter ?? seeded.chapter,
     chapterTitle: typeof state.chapterTitle === 'string' ? state.chapterTitle : undefined,

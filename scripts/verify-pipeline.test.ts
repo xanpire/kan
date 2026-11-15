@@ -717,7 +717,8 @@ describe('canon timeline dataset', () => {
     const unmask = CANON_MILESTONES.find((m) => m.id === 'obito-unmasked');
     expect(unmask).toBeDefined();
     const unmaskYear = unmask!.from.year;
-    expect(unmaskYear).toBeGreaterThanOrEqual(23);
+    expect(unmaskYear).toBeGreaterThanOrEqual(22);
+    expect(unmask!.from.year * 12 + unmask!.from.month).toBeGreaterThanOrEqual(22 * 12 + 10);
 
     const audience = CANON_MILESTONES.find((m) => m.id === 'masked-man-audience');
     expect(audience?.description).toContain('masked');
@@ -843,7 +844,7 @@ describe('canon scheduler', () => {
       ...db,
       state: {
         ...db.state,
-        inStoryDate: { year: 19, month: 9, day: 1, hour: 22, minute: 0 },
+        inStoryDate: { year: 19, month: 10, day: 1, hour: 22, minute: 0 },
         canonProgress: { completed: [], active: ['itachi-hunt-naruto'], engaged: [] },
       },
     };
@@ -3274,7 +3275,7 @@ describe('living world timeline', () => {
 
   test('the requested canon points exist in the right years', () => {
     for (const [id, year] of [
-      ['five-tails-captured', 19],
+      ['five-tails-captured', 20],
       ['seven-tails-captured', 20],
       ['yagura-dies', 20],
       ['mei-mizukage', 20],
@@ -3283,7 +3284,7 @@ describe('living world timeline', () => {
       ['six-tails-captured', 21],
       ['taka-formed', 21],
       ['kurenai-pregnant', 21],
-      ['itachi-izanami', 23],
+      ['itachi-izanami', 22],
     ] as const) {
       expect(byId(id).from.year).toBe(year);
     }
@@ -3301,12 +3302,14 @@ describe('living world timeline', () => {
     expect(key(byId('itachi-izanami').from)).toBeLessThanOrEqual(key(byId('hokage-edo').from));
   });
 
-  test('the Fourth War lasts four days', () => {
+  test('the Fourth War runs two days and a night, ending on Naruto\'s seventeenth birthday', () => {
     const war = CANON_MILESTONES.filter((m) => m.era === 'The Fourth War' && !m.playerDriven);
     for (const m of war) {
-      expect(key(m.from)).toBeGreaterThanOrEqual(key({ year: 23, month: 1, day: 10 }));
-      expect(key(m.from)).toBeLessThanOrEqual(key({ year: 23, month: 1, day: 13 }));
+      expect(key(m.from)).toBeGreaterThanOrEqual(key({ year: 22, month: 10, day: 8 }));
+      expect(key(m.from)).toBeLessThanOrEqual(key({ year: 22, month: 10, day: 10 }));
     }
+    expect(byId('war-ends').from).toEqual({ year: 22, month: 10, day: 10 });
+    expect(byId('kaguya-sealed').from).toEqual({ year: 22, month: 10, day: 10 });
   });
 
   test('each hunt offer closes on the day its capture fires', () => {
@@ -3330,7 +3333,7 @@ describe('living world timeline', () => {
       ...db,
       state: {
         ...db.state,
-        inStoryDate: { year: 20, month: 4, day: 15, hour: 8, minute: 0, second: 0 },
+        inStoryDate: { year: 20, month: 10, day: 1, hour: 8, minute: 0, second: 0 },
         canonProgress: { version: CANON_VERSION, baselineDate: baseline, completed: [], active: [], engaged: [] },
       },
     };
@@ -3491,7 +3494,7 @@ describe('the wider canon cast', () => {
     const stranger = { ...ibiki, birthday: undefined };
 
     expect(ibiki.birthday).toEqual({ month: 3, day: 20 });
-    expect(entityAge(db.state.inStoryDate, stranger)).toBe(db.state.inStoryDate.year + 18);
+    expect(entityAge(db.state.inStoryDate, stranger)).toBe(db.state.inStoryDate.year + 9);
   });
 
   test('two-letter names count only when capitalized; IDs keep their letters', () => {

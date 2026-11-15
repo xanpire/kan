@@ -1119,6 +1119,8 @@ export type CanonProgress = {
   heard?: Record<string, { from: string; date: CalendarDate }>;
   /** True when the last advance was held back because Kan was mid-fight. */
   heldForCombat?: boolean;
+  /** Which date grid the save's fired milestones were fired on (see `CANON_GRID` in canonData). */
+  grid?: number;
 };
 
 export type { RelationshipStage } from './romance';
