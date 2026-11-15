@@ -1,3 +1,4 @@
+import { knowsKanLine } from './knowsKan';
 import { REACTION_RULES, formatReactionsBlock, shortVoiceOf, voiceOf } from './voices';
 import { isScratchedProtector } from './inventory';
 import { kanProtectorPlace } from './kanLook';
@@ -1006,7 +1007,9 @@ function formatMatchedEntities(
   const voiceLine = (entity: EntityRecord) => {
     if (!entity.companion && !presentSet.has(entity.id)) return '';
     const voice = voiceOf(entity);
-    return voice ? `\n  VOICE: ${voice}` : '';
+    // Section 12: people who knew Kan before the story.
+    const knew = knowsKanLine(db, entity);
+    return `${knew ? `\n  ${knew}` : ''}${voice ? `\n  VOICE: ${voice}` : ''}`;
   };
 
   return [
