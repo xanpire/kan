@@ -409,7 +409,8 @@ export type Letter = {
   occasion?: 'birthday';
 };
 
-export type LetterCarrierKind = 'bird' | 'ninken' | 'summon' | 'courier' | 'dead-drop' | 'hand';
+/** vulture = Okuri, Kan's own courier vulture (only for Kan's letters and the replies it waits for). */
+export type LetterCarrierKind = 'bird' | 'ninken' | 'summon' | 'courier' | 'dead-drop' | 'hand' | 'vulture';
 
 export type Interceptor = 'root' | 'akatsuki' | VillageFaction;
 

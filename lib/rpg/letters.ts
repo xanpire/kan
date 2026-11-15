@@ -23,6 +23,11 @@
 // - Delivery is always on the page: the narrator is offered the letter
 //   (A LETTER FOR YOU) and the state tracker marks it received
 //   (letters_received). Nothing ever arrives as an app notification.
+// - Okuri: Kan can send a letter with his courier vulture instead of a
+//   courier. It flies straight there at a vulture's speed, finds the reader
+//   wherever they went, can't be killed or lose the trail, waits for the
+//   answer and flies it back. It can still be seen and read on the way, and
+//   whoever receives it has now seen one of Kan's vultures.
 //
 // Everything is deterministic per save, person and day, so a regenerate gets
 // the same offer and the same road.
@@ -217,6 +222,7 @@ function writesInCipher(entity: EntityRecord) {
 /** Shinobi days times this: how fast each carrier is. */
 const CARRIER_SPEED: Record<LetterCarrierKind, number> = {
   summon: 0.3,
+  vulture: 0.35,
   bird: 0.5,
   ninken: 0.9,
   hand: 1,
@@ -229,6 +235,8 @@ export function letterDays(from: Region | null, to: Region | null, carrier: Lett
   const jitter = hashText(seed) % 3;
 
   if (!from || !to) {
+    // Okuri finds the reader by their chakra; a courier has to ask around.
+    if (carrier === 'vulture') return LETTER_MIN_DAYS + (hashText(seed) % 3);
     return UNKNOWN_MIN_DAYS + (hashText(seed) % UNKNOWN_SPREAD_DAYS);
   }
 
@@ -256,7 +264,16 @@ function wartime(date: CalendarDate) {
   return date.year === 23 && (date.month === 1 || (date.month === 2 && date.day <= 15)) && !(date.month === 1 && date.day < 10);
 }
 
-const SAFETY: Partial<Record<LetterCarrierKind, number>> = { summon: 0.3, 'dead-drop': 0.5, hand: 0.2 };
+const SAFETY: Partial<Record<LetterCarrierKind, number>> = { summon: 0.3, vulture: 0.4, 'dead-drop': 0.5, hand: 0.2 };
+
+/** What Okuri is called on the page and in the tracker's carrier text. */
+export const OKURI_CARRIER = 'Okuri, your courier vulture, flying straight to you';
+const OKURI_REPLY_CARRIER = 'Okuri, your courier vulture, who waited for their answer and flew it back to you';
+
+/** A short label for a carrier (the world clock's letters on the road). */
+export function carrierLabel(carrier: LetterCarrierKind | undefined): string | undefined {
+  return carrier === 'vulture' ? 'Okuri' : carrier;
+}
 
 /**
  * Who might read a letter between Kan and this person, with the chance in
@@ -315,7 +332,8 @@ function crossTheRoad(db: AppDatabase, letter: Letter, entity: EntityRecord): { 
 
     const known = displayName(db, entity);
     const towards = letter.direction === 'from-kan' ? `your letter to ${known}` : `${known}'s letter to you`;
-    const seized = risk.who !== 'root' && risk.who !== 'akatsuki' && roll(db, 'seized', entity.name, dayKey(letter.sentOn)) < 34;
+    // Okuri can be shot down and read, but not kept: it re-forms and flies on.
+    const seized = carrier !== 'vulture' && risk.who !== 'root' && risk.who !== 'akatsuki' && roll(db, 'seized', entity.name, dayKey(letter.sentOn)) < 34;
     const next = plantSeed(db, {
       kind: 'intercepted',
       who: interceptorName(risk.who),
@@ -344,12 +362,15 @@ function crossTheRoad(db: AppDatabase, letter: Letter, entity: EntityRecord): { 
 /** Why this letter never arrives, or null. Rolled once, when it is due. */
 function lossOnTheRoad(db: AppDatabase, letter: Letter, entity: EntityRecord): string | null {
   if (letter.carrier === 'hand') return null;
+  // Okuri never dies, never loses the trail, flies over the war and finds a
+  // reader who moved on. Only a reader who died is out of reach.
+  if (letter.carrier === 'vulture') return null;
   if (wartime(letter.sentOn) && roll(db, 'war', letter.name, dayKey(letter.sentOn)) < 25) {
     return 'the war closed the roads and it never got through';
   }
 
   const days = Math.max(0, daysBetween(letter.sentOn, letter.arrivesOn));
-  const base: Record<LetterCarrierKind, number> = { courier: 4, bird: 3, ninken: 2, 'dead-drop': 3, summon: 0, hand: 0 };
+  const base: Record<LetterCarrierKind, number> = { courier: 4, bird: 3, ninken: 2, 'dead-drop': 3, summon: 0, hand: 0, vulture: 0 };
   const chance = base[letter.carrier ?? 'courier'] + Math.floor(days / 2);
 
   if (roll(db, 'loss', letter.name, dayKey(letter.sentOn), letter.direction) < chance) {
@@ -590,7 +611,7 @@ export function letterOffer(db: AppDatabase): LetterOffer | null {
       kind: 'reply',
       entity,
       bond: bondOf(db, entity.id),
-      carrier: letterCarrier(entity),
+      carrier: letter.carrier === 'vulture' ? OKURI_REPLY_CARRIER : letterCarrier(entity),
       letter,
       answering: post.letters.find((item) => item.id === letter.replyTo),
       daysWaiting: Math.max(0, daysBetween(letter.arrivesOn, now)),
@@ -661,7 +682,9 @@ export function formatLetterOffer(offer: LetterOffer | null, address?: string, w
 
   return [
     `A LETTER FOR YOU (personal, from someone far away; never mid-fight). ${writer ?? entity.name} has written to you${answering}.`,
-    address
+    offer.letter?.carrier === 'vulture'
+      ? `It reaches you by ${offer.carrier}: Okuri always finds you, wherever you are.`
+      : address
       ? `It reaches you by ${offer.carrier}, or it was waiting for you at ${address}: they know you stay here.`
       : `It reaches you by ${offer.carrier}. You are a missing-nin with no address, so show how it found you; if nothing could have found you here, leave it for later.`,
     `Write the letter out in their own voice, in full on the page (it is kept): short, in character, about their own life and what they could know, shaped by how they feel about you (${feeling}). No canon news Kan has not heard.${life}${press}`,
@@ -670,7 +693,7 @@ export function formatLetterOffer(offer: LetterOffer | null, address?: string, w
 
 export function letterTrackingLines(offer: LetterOffer | null, idOf: (entity: EntityRecord) => string): string[] {
   const lines = [
-    "- letters_sent: {to: id, gist, text, carrier, coded} only when Kan actually writes and sends (or hands off) a letter or message to someone NOT in the scene this turn, or writes to someone dead (it is kept, never sent). gist = what it says, in a few words. text = the letter exactly as the player wrote it in Kan's input, with ONLY spelling, commas and punctuation corrected: never change a word choice, the tone or the content; null if Kan's words are not given. carrier: bird, ninken, summon (a toad, a crow, a paper butterfly), courier, dead-drop, or hand (a trusted person carries it). coded: true if it is in a cipher or code.",
+    "- letters_sent: {to: id, gist, text, carrier, coded} only when Kan actually writes and sends (or hands off) a letter or message to someone NOT in the scene this turn, or writes to someone dead (it is kept, never sent). gist = what it says, in a few words. text = the letter exactly as the player wrote it in Kan's input, with ONLY spelling, commas and punctuation corrected: never change a word choice, the tone or the content; null if Kan's words are not given. carrier: bird, ninken, summon (a toad, a crow, a paper butterfly), courier, dead-drop, hand (a trusted person carries it), or vulture (Okuri, Kan's own courier vulture: use it when the story shows Kan send it with Okuri or one of his vultures). coded: true if it is in a cipher or code.",
   ];
 
   if (offer) {
@@ -886,7 +909,7 @@ export function deliverLetters(db: AppDatabase): AppDatabase {
     next = applyFactDiff(next, {
       action: 'add',
       type: 'event',
-      text: `${displayName(db, entity)} received a ${letter.occasion === 'birthday' ? 'birthday letter' : 'letter'} from you${letter.gist ? `: ${letter.gist}` : ''}.`,
+      text: `${displayName(db, entity)} received a ${letter.occasion === 'birthday' ? 'birthday letter' : 'letter'} from you${letter.gist ? `: ${letter.gist}` : ''}.${letter.carrier === 'vulture' ? ' Okuri, a blood-red vulture, brought it and waited for an answer: they have seen one of your vultures.' : ''}`,
       subject: entity.name,
       whoKnows: [entity.name],
       validFrom: letter.arrivesOn,
@@ -894,7 +917,8 @@ export function deliverLetters(db: AppDatabase): AppDatabase {
 
     if (affinity + gain >= LETTER_REPLY_FLOOR) {
       const id = makeId('letter');
-      const [, carrier] = carrierOf(entity);
+      // Okuri waits for the answer and carries it back.
+      const carrier: LetterCarrierKind = letter.carrier === 'vulture' ? 'vulture' : carrierOf(entity)[1];
       let reply: Letter = {
         id,
         direction: 'to-kan',

@@ -19,7 +19,7 @@ import type {
 } from './types';
 import { SCENE_CAST_LIMIT } from './sceneLimits';
 
-const CARRIERS = ['bird', 'ninken', 'summon', 'courier', 'dead-drop', 'hand'] as const;
+const CARRIERS = ['bird', 'ninken', 'summon', 'courier', 'dead-drop', 'hand', 'vulture'] as const;
 const AUDIENCES = ['leaf', 'sand', 'mist', 'cloud', 'stone', 'akatsuki', 'rain', 'underworld'] as const;
 const KINDS = ['spared', 'lie', 'helped', 'witness', 'betrayal', 'humiliated', 'promise', 'debt'] as const;
 const VILLAGES = ['leaf', 'sand', 'mist', 'cloud', 'stone'] as const;

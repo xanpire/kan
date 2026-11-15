@@ -8,7 +8,7 @@ import { EmptyRow, ListCard, ListRow, SectionLabel } from '@/components/List';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { formatClock, formatDayMonth } from '@/lib/rpg/calendar';
 import { newsUrgency, worldClock } from '@/lib/rpg/canon';
-import { lettersInTransit } from '@/lib/rpg/letters';
+import { carrierLabel, lettersInTransit } from '@/lib/rpg/letters';
 import { waitingConsequences } from '@/lib/rpg/consequences';
 import { livingBearers, newsOffer } from '@/lib/rpg/newsDelivery';
 import { useGame } from '@/lib/rpg/game';
@@ -202,7 +202,7 @@ export default function WorldClockScreen() {
                   key={letter.id}
                   meta={[
                     `sent ${dateLabel(letter.sentOn)} · arrives ${dateLabel(letter.arrivesOn)}`,
-                    letter.carrier,
+                    carrierLabel(letter.carrier),
                     letter.coded ? 'coded' : null,
                     letter.interceptedBy ? `read by ${letter.interceptedBy}` : null,
                   ]

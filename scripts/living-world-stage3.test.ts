@@ -31,6 +31,7 @@ import {
   letterArchive,
   letterDays,
   letterOffer,
+  letterTrackingLines,
   receiveLetters,
   sendLetters,
   tidyLetter,
@@ -248,6 +249,39 @@ describe('better letters', () => {
     }
 
     expect(lost).toBe(true);
+  });
+
+  test('Okuri carries a letter: fastest on the map, never lost, finds a reader who moved, waits for the reply', () => {
+    expect(letterDays('rain', 'fire', 'vulture', 'x')).toBeLessThan(letterDays('rain', 'fire', 'bird', 'x'));
+    expect(letterDays(null, 'fire', 'vulture', 'x')).toBeLessThanOrEqual(3);
+
+    const db0 = inRain();
+    const hana0 = person(db0, 'Hana Inuzuka');
+    expect(interceptionRisks(db0, hana0, 'vulture', false).find((risk) => risk.who === 'root')!.chance).toBeLessThan(
+      interceptionRisks(db0, hana0, 'bird', false).find((risk) => risk.who === 'root')!.chance
+    );
+
+    for (let day = 0; day < 20; day += 1) {
+      let db = later(inRain(), day);
+      const hana = person(db, 'Hana Inuzuka');
+      db = sendLetters(db, [{ entityId: hana.id, name: hana.name, gist: 'alive', carrier: 'vulture' }]);
+      db = update(db, 'Hana Inuzuka', { whereabouts: 'on a long mission in the Land of Lightning' });
+      db = deliverLetters(later(db, 25));
+      const sent = db.state.post!.letters.find((item) => item.direction === 'from-kan')!;
+      expect(sent.status).toBe('delivered');
+      expect(db.facts.some((fact) => fact.text.includes('Okuri') && fact.whoKnows?.includes(hana.id))).toBe(true);
+      const reply = db.state.post!.letters.find((item) => item.direction === 'to-kan');
+      if (reply) {
+        expect(reply.carrier).toBe('vulture');
+        const offer = letterOffer(later(db, 25));
+        if (offer?.kind === 'reply') expect(offer.carrier).toContain('Okuri');
+      }
+    }
+  });
+
+  test('the tracker can name Okuri as the carrier', () => {
+    expect(convertStateBlock({ letters_sent: [{ to: 'Hana Inuzuka', gist: 'alive', carrier: 'vulture' }] }).diff?.lettersSent?.[0].carrier).toBe('vulture');
+    expect(letterTrackingLines(null, (entity) => entity.id)[0]).toContain('vulture (Okuri');
   });
 
   test("someone close writes for Kan's birthday, and only once that year", () => {
