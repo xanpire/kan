@@ -17,6 +17,7 @@
  *   tagged `flashback`, shared by everyone in it, and it can nudge a bond by
  *   one point at most. Each flashback plays once.
  */
+import { voiceOf } from './voices';
 import { KAN_EYES, KAN_HAIR, KAN_HAIR_AND_EYES } from './kanLook';
 import { advanceSeconds, calculateAge, daysBetween, daysFromCivil, entityAge, formatDate, timeOfDayOf } from './calendar';
 import { FLASHBACKS, FLASHBACK_BY_ID, KAN_PARENTS, type FlashbackRecord } from './flashbackData';
@@ -430,7 +431,8 @@ function castLines(db: AppDatabase, record: FlashbackRecord, date: CalendarDate)
     const dead = entity && (entity.deceased || entity.status === 'Deceased') ? ' (dead in the present; alive here)' : '';
     const role = entity?.role ? ` — ${entity.role.split('·')[0].trim()}` : '';
     const personality = entity?.personality ? `: ${entity.personality}` : '';
-    return `- ${entity?.name ?? name}${ageText}${role}${personality}${dead}`;
+    const voice = entity ? voiceOf(entity) : null;
+    return `- ${entity?.name ?? name}${ageText}${role}${personality}${dead}${voice ? `\n  VOICE: ${voice}` : ''}`;
   });
 }
 

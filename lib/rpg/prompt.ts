@@ -1,3 +1,4 @@
+import { REACTION_RULES, formatReactionsBlock, shortVoiceOf, voiceOf } from './voices';
 import { isScratchedProtector } from './inventory';
 import { kanProtectorPlace } from './kanLook';
 import { kanPowerLines } from './kanPowers';
@@ -114,6 +115,8 @@ NAMES
 - Characters say names aloud when they naturally would ("Tobi!", "Itachi-san"), each using the name THEY know the person by. A "narrator only" truth is never narrated or said by someone who couldn't know it.
 - If Kan says a name he couldn't know, he says it aloud and people react ("How do you know that name?").
 - The same goes for things: a dōjutsu, a jutsu or a technique Kan has never heard named (the Rinnegan, a stranger's signature jutsu) is described as he sees it ("ripple-patterned purple eyes") until someone names it to him.
+
+${REACTION_RULES}
 
 STYLE
 - Second person, gritty realism: weight, fatigue, injury, weather, terrain. Show moods through behavior. Quiet moments are fine.
@@ -344,6 +347,7 @@ export function buildNarrationPrompt(
         lastNarration: [...messagesForScene].reverse().find((message) => message.role === 'assistant')?.content,
         userMessage,
       }),
+      formatReactionsBlock(db, matchedEntityIds),
       formatFacts(db, facts),
       formatFigures(db),
       formatElsewhere(db),
@@ -965,18 +969,26 @@ function formatMatchedEntities(
     return ahead ? `\n  ${canonSurvivalLine(ahead)}` : '';
   };
 
+  // Section 8: each person's voice and reactions, only for those really here.
+  const voiceLine = (entity: EntityRecord) => {
+    if (!entity.companion && !presentSet.has(entity.id)) return '';
+    const voice = voiceOf(entity);
+    return voice ? `\n  VOICE: ${voice}` : '';
+  };
+
   return [
     'CHARACTERS IN SCENE',
     ...characters.map(
       (entity) =>
-        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isReanimated(entity) ? ` [REANIMATED: dead, here through Edo Tensei; ${REANIMATED_LOOK}]` : isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${feeling(entity)}${survives(entity)}`
+        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isReanimated(entity) ? ` [REANIMATED: dead, here through Edo Tensei; ${REANIMATED_LOOK}]` : isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; appearance ${truncate(entity.appearance ?? 'unknown', 80)}${entity.currentLook ? `; right now: ${truncate(entity.currentLook, 90)}` : ''}${formatLoreProfile(db, entity.name)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${feeling(entity)}${survives(entity)}${voiceLine(entity)}`
     ),
     ...(extras.length > 0
       ? [
           'ALSO HERE',
           ...extras.map((entity) => {
             const bond = bondsByEntity.get(entity.id);
-            return `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}; mood ${truncate(entity.mood ?? 'unknown', 40)}${bond ? `; ${bond.affinity}/10 toward you, ${bond.relationship ?? 'stranger'}` : ''}${survives(entity)}`;
+            const short = shortVoiceOf(entity);
+            return `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}; mood ${truncate(entity.mood ?? 'unknown', 40)}${bond ? `; ${bond.affinity}/10 toward you, ${bond.relationship ?? 'stranger'}` : ''}${short ? `; ${short}` : ''}${survives(entity)}`;
           }),
         ]
       : []),
