@@ -49,3 +49,12 @@ describe('a cost word after a comma is still a cost word', () => {
     expect(splitFightOption('Duck under the cleaver')).toEqual({ move: 'Duck under the cleaver' });
   });
 });
+
+describe('tracker wording from Session 4', () => {
+  test('Sky Burial alone is not a Thousand Souls use, and Kan\'s feelings follow only what he shows', async () => {
+    const { STATE_FIELD_RULES } = (await import('../lib/rpg/prompt')) as unknown as { STATE_FIELD_RULES?: Record<string, string> };
+    const text = (await Bun.file(new URL('../lib/rpg/prompt.ts', import.meta.url)).text()) + JSON.stringify(STATE_FIELD_RULES ?? {});
+    expect(text).toContain("Sky Burial's drain is Sky Burial alone");
+    expect(text).toContain('never warmer because they were kind to you');
+  });
+});
