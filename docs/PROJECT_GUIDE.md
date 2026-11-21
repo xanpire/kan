@@ -436,6 +436,8 @@ The current action appears **once** (it is excluded from the recent-message bloc
 
 **Companions** (v1.25.19, Session 3): Konan led Kan and Itachi to the leader, the tracker made her a companion, and since a companion is in every scene until the tracker reports them leaving, she was later "on the ridge" in the Land of Rivers. The tracker's COMPANIONS rule now says a guide, escort or host who brings Kan to where they live or stay is not a companion, and that whenever Kan sets out from a place, anyone travelling with him whom the reply doesn't show setting out with him goes in companions_left.
 
+**v1.25.20 (Session 3):** a stolen nature's source is stored as the person's name (`natureSourceName`; the Kan tab had read "from the-lean-grass-rogue"). Inside a memory, someone travelling with Kan now counts only if they are in that memory's cast (the tracker had filed "The three vultures" under Konan); the tracker's memory line says so too. Birth years corrected to databook ages (old saves through `BIRTH_YEAR_FIXES`): Deidara 2, Hidan −1, Kakuzu −70, Kisame −10, Konan and Yahiko −13, Pain (Nagato) −14, Asuma −11, Gaara 6, Haku 3. Left as they were (unsure): Chiyo, Yugito.
+
 ### State prompt (call 2)
 
 `buildExtractionPrompt` puts `STATE_SYSTEM` first as its own cacheable block (field-by-field rules, ~650 tokens: time, place, people, jutsu, memory, canon, image) and runs after **every** turn against `TURN_STATE_SCHEMA`. The canon ids the narrator no longer sees are given here in `formatCanonTracking`, each with the rule for marking it. News and canon blocks in the narrator prompt describe events in plain words only.

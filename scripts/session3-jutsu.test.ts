@@ -44,3 +44,14 @@ describe('the narrator', () => {
     expect(text).toContain('Also knows:');
   });
 });
+
+import { natureSourceName } from '../lib/rpg/abilities';
+
+describe('a stolen nature names whose it was', () => {
+  test('a known person by name; a stranger’s slug as plain words', () => {
+    const db = seed();
+    expect(natureSourceName(db, 'itachi-uchiha')).toBe('Itachi Uchiha');
+    expect(natureSourceName(db, 'the-lean-grass-rogue')).toBe('the lean grass rogue');
+    expect(natureSourceName(db, 'a Mist hunter-nin')).toBe('a Mist hunter-nin');
+  });
+});

@@ -529,7 +529,7 @@ export function flashbackTrackingLines(db: AppDatabase, offeredId: string | unde
   if (playing) {
     const age = kanAgeAt(db, playing.active.date);
     return [
-      `THIS TURN IS A MEMORY (flashback "${playing.record.title}", ${formatDate(playing.active.date)}, you are ${ageWord(age)}). Report time and location as they pass inside the memory. characters_present: who is in the memory scene (the dead are alive in it: list them). bonds: only how someone in the memory feels about you because of it, affinity_change -1..1. Leave inventory, jutsu, facts, threads, canon, news, letters, reputation, consequences, deaths, revived, companions, natures and abilities empty: the memory is recorded separately. A fight inside the memory is tracked like any fight: scene_pace, beat and fight_options as usual, with moves that fit what you could do at that age. flashback: "ended" when the reply closes the memory and brings you back to the present; otherwise null.`,
+      `THIS TURN IS A MEMORY (flashback "${playing.record.title}", ${formatDate(playing.active.date)}, you are ${ageWord(age)}). Report time and location as they pass inside the memory. characters_present: who is in the memory scene (the dead are alive in it: list them); people travelling with Kan in the present are not in it unless the memory has them. bonds: only how someone in the memory feels about you because of it, affinity_change -1..1. Leave inventory, jutsu, facts, threads, canon, news, letters, reputation, consequences, deaths, revived, companions, natures and abilities empty: the memory is recorded separately. A fight inside the memory is tracked like any fight: scene_pace, beat and fight_options as usual, with moves that fit what you could do at that age. flashback: "ended" when the reply closes the memory and brings you back to the present; otherwise null.`,
     ];
   }
 
@@ -632,9 +632,14 @@ export function applyFlashbackTurn(
     minimumSeconds: modeUsed === 'conversation' && pace === 'conversation' ? CONVERSATION_MODE_MINIMUM_SECONDS : undefined,
   });
 
+  // The tracker lists present-day companions in every scene, the memory
+  // included (Session 3: "The three vultures", with only Itachi in it, was
+  // filed as a shared memory with Konan). Inside a memory, someone travelling
+  // with Kan now counts only if they are in this memory's own cast.
   const castIds = (extraction?.state?.sceneCast ?? [])
     .map((name) => resolveEntity(latest, name))
     .filter((entity): entity is EntityRecord => Boolean(entity) && entity!.name.toLowerCase() !== 'kan')
+    .filter((entity) => !entity.companion || playing.record.cast.includes(entity.name))
     .map((entity) => entity.id);
   const nudges = { ...active.nudges };
 

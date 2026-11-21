@@ -2,11 +2,24 @@
 // reply reports them. Thousand Souls needs the list of natures to know what
 // it has taken; the Kan tab shows both.
 
+import { resolveEntity } from './entities';
 import { normalizeJutsuNature } from './jutsu';
 import type { AbilityRecord, AppDatabase, NatureRecord, TurnDiff } from './types';
 
 function sameName(a: string, b: string) {
   return a.trim().toLowerCase().replace(/ō/g, 'o') === b.trim().toLowerCase().replace(/ō/g, 'o');
+}
+
+/**
+ * Whose chakra it was, as a person's name: the tracker gives an id, and a
+ * stranger's id is a slug of their description (Session 3: the Kan tab read
+ * "from the-lean-grass-rogue").
+ */
+export function natureSourceName(db: AppDatabase, from: string): string {
+  const raw = from.trim();
+  const entity = resolveEntity(db, raw) ?? (raw.includes('-') ? resolveEntity(db, raw.replace(/-/g, ' ')) : null);
+  if (entity) return entity.name;
+  return /^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(raw) ? raw.replace(/-/g, ' ') : raw;
 }
 
 /** Applies the turn's natures_gained and abilities_changed to Kan's sheet. */
@@ -31,7 +44,7 @@ export function applyAbilityChanges(db: AppDatabase, diff: TurnDiff): AppDatabas
     natures.push({
       nature,
       source: item.source,
-      ...(item.from ? { from: item.from } : {}),
+      ...(item.from ? { from: natureSourceName(db, item.from) } : {}),
       acquiredOn: now,
     });
   }

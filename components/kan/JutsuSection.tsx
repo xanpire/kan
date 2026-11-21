@@ -17,8 +17,8 @@ import { KAN_VULTURES } from '@/lib/rpg/kanPowers';
 export function JutsuSection() {
   const { db, renameJutsu, deleteJutsu } = useGame();
   const userName = (name: string) => {
-    const entity = db ? resolveEntity(db, name) : null;
-    return entity && db ? displayName(db, entity) : name;
+    const entity = db ? resolveEntity(db, name) ?? resolveEntity(db, name.replace(/-/g, ' ')) : null;
+    return entity && db ? displayName(db, entity) : /^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(name) ? name.replace(/-/g, ' ') : name;
   };
   const [openId, setOpenId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);

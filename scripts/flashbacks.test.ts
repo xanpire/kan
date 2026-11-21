@@ -41,6 +41,7 @@ import {
   rememberChip,
 } from '../lib/rpg/flashbacks';
 import { KAN_PARENTS } from '../lib/rpg/flashbackData';
+import { startCompanion } from '../lib/rpg/companions';
 import type { AppDatabase, CalendarDate, TurnDiff } from '../lib/rpg/types';
 
 const NOW: CalendarDate = { year: 14, month: 3, day: 3, hour: 19, minute: 0, second: 0 };
@@ -387,6 +388,21 @@ describe('playing a flashback', () => {
     // Memory turns are never chapter material.
     expect(unsummarizedStory(turn).some((entry) => entry.flashback)).toBe(false);
     expect(unsummarizedStory(turn).length).toBe(unsummarizedStory(db).length + 0);
+  });
+
+  test('a present-day companion the tracker lists is not written into a memory they were never in (Session 3)', () => {
+    const base = start();
+    const konan = person(base, 'Konan');
+    const db = startCompanion(base, konan.id, 'led you to the leader');
+    const turn = playMemory(db, REMEMBER_INPUT, 'Nine years old, you stand on the training ground; Suzume looks the three of you over.', {
+      time: { elapsed: 20, unit: 'minutes', clock_time: null },
+      location: 'Training Ground 3, Hidden Leaf',
+      characters_present: ['hana-inuzuka', 'izumi-uchiha', 'suzume', 'konan'],
+      flashback: null,
+    }).db;
+    const memory = activeFlashback(turn)!.active;
+    expect(memory.castIds).toContain(person(turn, 'Suzume').id);
+    expect(memory.castIds).not.toContain(konan.id);
   });
 
   test('the weather and the ambience follow the memory; the present’s held weather is untouched', () => {
