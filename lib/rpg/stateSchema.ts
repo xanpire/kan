@@ -120,6 +120,8 @@ export const TURN_STATE_SCHEMA = object({
     chakra_nature: nullableString,
     effect: nullableString,
     visual: nullableString,
+    // This use in a few words (who or what it hit, where); the jutsu card's "Last" line.
+    this_use: nullableString,
   }),
   // People are referred to by their ID from KNOWN CHARACTERS (or, for someone
   // added this turn under new_characters, by that exact name).

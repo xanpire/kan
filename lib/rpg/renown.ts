@@ -735,7 +735,7 @@ export function epithetLines(db: AppDatabase): string[] {
     );
   }
 
-  if (!firstNight(db) && leafThinksDead(db)) {
+  if (!firstNight(db) && leafThinksDead(db) && !db.state.canonProgress?.completed.includes('kan-joins-akatsuki')) {
     // Session 3: Itachi called them both "missing-nin" on the second day.
     lines.push(
       'Nobody has declared you a missing-nin: the Leaf lists you as dead, not as a deserter. Itachi is the missing-nin; nobody (Itachi included) calls you one, or says "we" are, until the Leaf learns you are alive.'

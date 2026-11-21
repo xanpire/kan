@@ -4,7 +4,7 @@
 // said Izumi's marker had no body.
 import { describe, expect, test } from 'bun:test';
 import { normalizeDatabase } from '../lib/rpg/db';
-import { FIRST_DAWN } from '../lib/rpg/opening';
+import { FIRST_DAWN, kanRankNow } from '../lib/rpg/opening';
 import { buildNarrationPrompt, KAN_HISTORY } from '../lib/rpg/prompt';
 import { seedDatabase } from '../lib/rpg/seed';
 import type { AppDatabase } from '../lib/rpg/types';
@@ -34,5 +34,23 @@ describe('Session 3 narrator slips', () => {
 
   test('carried things stay where they were put', () => {
     expect(prompt(secondDay(seed()))).toContain('stay where they were last put');
+  });
+});
+
+describe('the sheet no longer calls Kan a missing-nin before the cloak', () => {
+
+  test('the second day: former Leaf ANBU, counted among the dead', () => {
+    const db = secondDay(seed());
+    expect(kanRankNow(db)).toBe('Former Hidden Leaf ANBU');
+    const text = prompt(db);
+    expect(text).toContain("Rank/Role: Former Hidden Leaf ANBU, counted among the massacre's dead");
+    expect(text).not.toContain('Rank/Role: Missing-nin');
+  });
+
+  test('with the cloak the rank shows it, and the line goes', () => {
+    const db = secondDay(seed());
+    const cloaked: AppDatabase = { ...db, state: { ...db.state, canonProgress: { ...db.state.canonProgress!, completed: [...db.state.canonProgress!.completed, 'kan-joins-akatsuki'] } } };
+    expect(kanRankNow(cloaked)).toBe('Akatsuki, on trial · missing-nin');
+    expect(prompt(cloaked)).not.toContain('Nobody has declared you a missing-nin');
   });
 });

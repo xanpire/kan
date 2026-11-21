@@ -27,7 +27,7 @@ export type FlashbackTriggers = {
 
 export type FlashbackRecord = {
   id: string;
-  /** Its place in Kan's life, 1–23. */
+  /** Its place in Kan's life, 1–28. */
   number: number;
   title: string;
   date: CalendarDate;
@@ -289,8 +289,33 @@ export const FLASHBACKS: FlashbackRecord[] = [
     importance: 4,
   },
   {
-    id: 'the-chains',
+    id: 'the-flicker-lessons',
     number: 10,
+    title: 'Faster than the eye',
+    date: at(10, 5, 16, 19, 30),
+    place: 'the rooftops of the Uchiha district at dusk, then the Naka River’s bank, Hidden Leaf',
+    locationKind: 'settlement',
+    cast: ['Shisui Uchiha'],
+    scene:
+      'An evening after a Team 3 day, just you and Shisui. He finds you on a rooftop and, because you asked once and he never forgets, starts teaching you the Body Flicker: not the hand seal, which is easy, but where to put your weight and your eyes so the world doesn’t blur. You fall short, land wrong, overshoot into a laundry line; he laughs and never once tells you to stop. By dark you cross one street in a single step, and he races you to the river to prove he is still faster. You talk about nothing much, sitting with your feet over the water.',
+    castNotes: [
+      'Shisui, twelve: easy, kind, teasing, already a chūnin and already fast enough to be talked about; with you he is the patient big brother, never showing off.',
+      'You are nine, a fresh genin on Team 3: quiet, stubborn, bored by easy things and secretly thrilled by this one.',
+    ],
+    hint: 'a Body Flicker, rooftops at dusk, someone patient teaching a trick, the Naka River at night, Shisui',
+    triggers: {
+      people: ['Shisui Uchiha'],
+      beats: ['shisui-truth'],
+      words: /\b(body flicker|shunshin|flicker|rooftops? at dusk)\b/i,
+    },
+    fixed: ['By the end of the evening you can Body Flicker across a street; Shisui is still far faster.', 'Itachi is away; he is not in this memory.'],
+    hidden: [NO_SHISUI_TRUTH],
+    memoryLine: 'The evening Shisui taught you the Body Flicker on the rooftops and raced you to the river.',
+    importance: 3,
+  },
+  {
+    id: 'the-chains',
+    number: 11,
     title: 'The chains',
     date: at(10, 7, 12, 2, 40),
     place: 'your room in Hazuki’s house, the Uchiha district, Hidden Leaf',
@@ -322,7 +347,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'hanas-dogs',
-    number: 11,
+    number: 12,
     title: 'Hana’s dogs',
     date: at(10, 8, 3, 7, 30),
     place: 'the forests of the Land of Fire, on a Team 3 mission',
@@ -342,7 +367,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-finals',
-    number: 12,
+    number: 13,
     title: 'The finals',
     date: at(11, 1, 24, 14),
     place: 'the Chūnin Exam arena of the Hidden Leaf, then the gate outside it',
@@ -371,7 +396,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-long-night',
-    number: 13,
+    number: 14,
     title: 'The long night',
     date: at(11, 7, 18, 21),
     place: 'the kennels of the Inuzuka compound, Hidden Leaf',
@@ -425,7 +450,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   // The ANBU years
   {
     id: 'itachi-joins-anbu',
-    number: 14,
+    number: 15,
     title: 'Itachi joins ANBU',
     date: at(11, 8, 12, 19),
     place: 'the rooftops of the Uchiha district, Hidden Leaf',
@@ -445,7 +470,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'guy-and-the-gate',
-    number: 15,
+    number: 16,
     title: 'Guy and the Gate',
     date: at(11, 11, 4, 21, 30),
     place: 'a training ground in the forest at the edge of the Hidden Leaf',
@@ -477,7 +502,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-mask',
-    number: 17,
+    number: 18,
     title: 'The mask',
     date: at(12, 7, 15, 17),
     place: 'ANBU headquarters, then the Team 3 training ground, Hidden Leaf',
@@ -501,8 +526,33 @@ export const FLASHBACKS: FlashbackRecord[] = [
     importance: 4,
   },
   {
+    id: 'the-bat-mask',
+    number: 19,
+    title: 'The bat’s first night',
+    date: at(12, 7, 16, 0, 40),
+    place: 'the forest beyond the Hidden Leaf’s northern wall, on your first ANBU mission',
+    locationKind: 'wilderness',
+    cast: ['Kakashi Hatake', 'Yamato'],
+    scene:
+      'Your first night as an ANBU, hours after you put on the bat mask: Kakashi takes his unit out on a quiet job (a courier to shadow and stop before he reaches the border, nothing more). You run the trees behind Kakashi and Tenzō, mask too new and the strap too tight, trying not to show you are twelve. Tenzō talks to you more than ANBU usually talk; Kakashi says almost nothing, watches how you move, and at the end gives you one plain word of approval you will remember.',
+    castNotes: [
+      'Kakashi, twenty, captain of Team Ro under his dog mask: laconic, sharp, unexpectedly gentle with the young ones he will never admit to looking after; he already knows Itachi and now has two Uchiha boys in his unit.',
+      'Tenzō, sixteen, under his cat mask: earnest, polite, a little stiff, glad to have someone younger than him in the unit; only his ANBU name is used.',
+      'You are twelve; the mask is a bat, and this is the first time anyone has called you by it. Itachi is on another job tonight.',
+    ],
+    hint: 'an ANBU mask, Kakashi or Tenzō in the scene, a night run through the trees, a first mission',
+    triggers: {
+      people: ['Kakashi Hatake', 'Yamato'],
+      words: /\b(anbu|team ro|bat mask|tenz[oō]|first mission)\b/i,
+    },
+    fixed: ['The mission goes cleanly; nobody dies tonight.', 'Kakashi approves of you in one word at the end.'],
+    hidden: ['the massacre and Itachi’s orders', 'Tenzō’s past in Root and his Wood Release'],
+    memoryLine: 'Your first night in the bat mask, running the trees behind Kakashi and Tenzō.',
+    importance: 3,
+  },
+  {
     id: 'her-dream',
-    number: 18,
+    number: 20,
     title: 'Her dream',
     date: at(12, 8, 14, 19),
     place: 'Hazuki’s house in the Uchiha district, Hidden Leaf: the kitchen, then the roof',
@@ -536,7 +586,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'first-kill',
-    number: 19,
+    number: 21,
     title: 'First kill',
     date: at(12, 9, 3, 2, 10),
     place: 'a pine forest on the Land of Fire’s northern border, on an ANBU mission',
@@ -555,7 +605,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-three-vultures',
-    number: 20,
+    number: 22,
     title: 'The three vultures',
     date: at(12, 10, 21, 16),
     place: 'a high crag in the mountains on the Land of Fire’s northern border, on an ANBU assignment',
@@ -583,7 +633,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'shuriken-in-the-trees',
-    number: 21,
+    number: 23,
     title: 'Shuriken in the trees',
     date: at(12, 11, 9, 16, 30),
     place: 'the training forest behind the Uchiha district, Hidden Leaf: the clearing with the hidden targets',
@@ -609,7 +659,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'shisui-of-the-body-flicker',
-    number: 16,
+    number: 17,
     title: 'Shisui of the Body Flicker',
     date: at(12, 4, 9, 6, 30),
     place: 'a training ground in the forest outside the Uchiha district, Hidden Leaf',
@@ -632,8 +682,34 @@ export const FLASHBACKS: FlashbackRecord[] = [
   // ---------------------------------------------------------------------
   // The last days (year 13)
   {
+    id: 'the-last-birthday',
+    number: 24,
+    title: 'The last birthday',
+    date: at(13, 6, 30, 19),
+    place: 'Hazuki’s house in the Uchiha district, Hidden Leaf: the kitchen and the small back garden',
+    locationKind: 'structure',
+    cast: ['Hazuki Uchiha', 'Izumi Uchiha'],
+    scene:
+      'Your thirteenth birthday, the last one under Hazuki’s roof, though nobody knows it. Hazuki has cooked what you liked when you were five and pretends it is an accident. Izumi has a present she made herself and is embarrassed about it. You come home late from ANBU and they waited. The clan’s mood leans in at the edges (a raised voice in the street, Hazuki closing the shutters a little early), but inside the house it is warm, and Izumi makes you blow out a candle like a child.',
+    castNotes: [
+      'Hazuki: warm, teasing, a little tired; uneasy about the clan in a way she will not explain, and fiercely glad you are home.',
+      'Izumi, twelve (thirteen in August): gentle, shy with others, teasing with you; she asks how ANBU really is and watches your face when you answer.',
+      'You are thirteen today; three months before the massacre.',
+    ],
+    hint: 'a birthday, a family meal, a home-made present, a candle, Hazuki or Izumi remembered',
+    triggers: {
+      dates: [{ month: 6, day: 30 }],
+      beats: ['izumi-grave', 'izumi-funeral'],
+      words: /\b(your birthday|birthday|home-?made|a candle|hazuki)\b/i,
+    },
+    fixed: ['They waited for you, and it is a happy evening.', 'Itachi is not there.'],
+    hidden: ['the coup and the massacre', 'that this is your last birthday at home'],
+    memoryLine: 'Your thirteenth birthday at Hazuki’s house, the last one at home, with Izumi’s home-made present.',
+    importance: 4,
+  },
+  {
     id: 'last-good-day',
-    number: 22,
+    number: 25,
     title: 'The last good day',
     date: at(13, 9, 14, 15),
     place: 'the banks of the Naka River, Hidden Leaf',
@@ -654,7 +730,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'shisuis-last-night',
-    number: 23,
+    number: 26,
     title: 'Shisui’s last night',
     date: at(13, 9, 20, 20),
     place: 'near the Naka Shrine, Hidden Leaf',
@@ -677,7 +753,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-week-before',
-    number: 24,
+    number: 27,
     title: 'The week before',
     date: at(13, 9, 24, 14),
     place: 'a dango shop in the Hidden Leaf',
@@ -700,7 +776,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
     // Section 17 (15 Nov 2026): Itachi tells Kan nothing; this is the last
     // time Kan sees Izumi and Hazuki alive.
     id: 'the-order',
-    number: 25,
+    number: 28,
     title: 'The order',
     date: at(13, 9, 29, 19, 30),
     place: 'Hazuki’s house in the Uchiha district, Hidden Leaf',

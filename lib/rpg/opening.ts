@@ -100,6 +100,9 @@ export function kanRankNow(db: AppDatabase): string {
   if (completed.includes('kan-accepted-akatsuki')) return 'Akatsuki · missing-nin';
   if (completed.includes('kan-joins-akatsuki')) return 'Akatsuki, on trial · missing-nin';
   if (firstNight(db) && !LORE_FLAGS.knowsIzumiDead(db)) return 'Hidden Leaf ANBU';
+  // Session 3: after that night, and until the cloak, he is not a listed
+  // deserter: the Leaf counts him among the massacre's dead.
+  if (falseOrder(db) && /missing-nin/i.test(db.state.player.rank || '')) return 'Former Hidden Leaf ANBU';
 
   return db.state.player.rank || db.state.player.role;
 }

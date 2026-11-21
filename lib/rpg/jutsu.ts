@@ -212,6 +212,16 @@ function canonLink(name: string, user: string): { canonId?: string } {
   return entry ? { canonId: entry.id } : {};
 }
 
+/** This use in a few words, when it says more than what the jutsu does. */
+export function lastUseOf(effect: string, account: string | undefined): { lastUse?: string } {
+  const text = account?.trim().replace(/\s+/g, ' ');
+
+  if (!text || jutsuKey(text) === jutsuKey(effect)) return {};
+
+  const sentence = text.split(/(?<=[.!?])\s/)[0].replace(/[.!?]+$/, '');
+  return { lastUse: sentence.length > 110 ? `${sentence.slice(0, 107).replace(/\s+\S*$/, '')}…` : sentence };
+}
+
 export function applyJutsuDiff(db: AppDatabase, jutsu: JutsuDiff): AppDatabase {
   if (!jutsu?.name || typeof jutsu.name !== 'string' || !jutsu.user) {
     return db;
@@ -268,6 +278,8 @@ export function applyJutsuDiff(db: AppDatabase, jutsu: JutsuDiff): AppDatabase {
     visual: jutsu.visual?.trim() || existing.visual,
     lastSeen: db.state.inStoryDate,
     timesUsed: existing.timesUsed + 1,
+    // Ideas for later #3: this use's own account becomes the card's "Last" line.
+    ...lastUseOf(existing.effect, jutsu.thisUse ?? jutsu.effect),
     description: jutsu.description?.trim() || existing.description,
     ...(existing.canonId ? {} : canonLink(existing.name, existing.user)),
   };

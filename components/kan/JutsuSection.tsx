@@ -11,11 +11,13 @@ import { groupJutsuForDisplay, jutsuKey } from '@/lib/rpg/jutsu';
 import { canonJutsuById } from '@/lib/rpg/jutsuList';
 import type { JutsuRecord } from '@/lib/rpg/types';
 import { resolveEntity } from '@/lib/rpg/entities';
-import { displayName } from '@/lib/rpg/names';
+import { displayName, scrubNameLeaks } from '@/lib/rpg/names';
 import { KAN_VULTURES } from '@/lib/rpg/kanPowers';
 
 export function JutsuSection() {
   const { db, renameJutsu, deleteJutsu } = useGame();
+  // The tracker writes ids now and then; never show a name Kan doesn't know (audit 6b.2).
+  const lastUseText = (text: string) => (db ? scrubNameLeaks(db, text).text : text).replace(/\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b/g, (id) => id.replace(/-/g, ' '));
   const userName = (name: string) => {
     const entity = db ? resolveEntity(db, name) ?? resolveEntity(db, name.replace(/-/g, ' ')) : null;
     return entity && db ? displayName(db, entity) : /^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(name) ? name.replace(/-/g, ' ') : name;
@@ -162,6 +164,12 @@ export function JutsuSection() {
                     }}
                     title={record.name}
                   >
+                    {record.lastUse && record.timesUsed > 1 ? (
+                      <Text numberOfLines={open ? undefined : 1} style={type.rowMeta}>
+                        <Text style={styles.label}>Last </Text>
+                        {`${lastUseText(record.lastUse)}, ${formatDayMonth(record.lastSeen)}`}
+                      </Text>
+                    ) : null}
                     {open && record.visual ? (
                       <Text style={type.rowBody}>
                         <Text style={styles.label}>Looks like </Text>

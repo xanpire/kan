@@ -346,15 +346,37 @@ export function setSceneModeOverride(db: AppDatabase, mode: SceneModeName | null
  * "Fire Style: Hell to force him off", with no such jutsu and no fire nature).
  */
 export function cleanFightOptions(options: string[] | undefined, db?: AppDatabase): string[] | undefined {
-  const cleaned = [...new Set((options ?? []).map((option) => option.trim()).filter(Boolean))]
+  const cleaned = [...new Set((options ?? []).map(normalFightOption).filter(Boolean))]
     .filter((option) => !db || !unknownJutsuInOption(db, option))
     .slice(0, MAX_FIGHT_OPTIONS);
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
+/**
+ * What a move would cost Kan, as he would feel it (ideas for later #5): the
+ * tracker may end a costly move with [draining], [heavy] or [all you have
+ * left]. Words only, never numbers; a cheap move has none.
+ */
+export const FIGHT_COSTS = ['draining', 'heavy', 'all you have left'] as const;
+export type FightCost = (typeof FIGHT_COSTS)[number];
+
+export function splitFightOption(option: string): { move: string; cost?: FightCost } {
+  const match = option.trim().match(/^(.*?)\s*[\[(]\s*([a-z0-9 %-]+?)\s*[\])]\s*[.!]?$/i);
+  const word = match?.[2].toLowerCase().replace(/^costs?\s+/, '');
+  const cost = FIGHT_COSTS.find((item) => item === word);
+  if (!match) return { move: option.trim() };
+  return cost ? { move: match[1].trim(), cost } : { move: match[1].trim() };
+}
+
+/** A move with only a cost word Kan would use kept in its brackets. */
+function normalFightOption(option: string) {
+  const { move, cost } = splitFightOption(option);
+  return move ? (cost ? `${move} [${cost}]` : move) : '';
+}
+
 /** A quick fight move as Kan's input. */
 export function fightOptionInput(option: string) {
-  const text = option.trim().replace(/^\*+|\*+$/g, '').replace(/[.!]*$/, '');
+  const text = splitFightOption(option).move.replace(/^\*+|\*+$/g, '').replace(/[.!]*$/, '');
   return `*${text}.*`;
 }
 

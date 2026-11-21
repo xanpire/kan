@@ -105,11 +105,11 @@ function playMemory(db: AppDatabase, input: string, narration: string, block: Re
   return { ...applyStateStep(next, diff, { turnLogId, userMessage: input, narration }, new Set()), prompt };
 }
 
-describe('the twenty-five flashbacks', () => {
-  test('numbered 1-25 by date with unique ids, all before the story begins', () => {
-    expect(FLASHBACKS).toHaveLength(25);
-    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(25);
-    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(25)].map((_, i) => i + 1));
+describe('the twenty-eight flashbacks', () => {
+  test('numbered 1-28 by date with unique ids, all before the story begins', () => {
+    expect(FLASHBACKS).toHaveLength(28);
+    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(28);
+    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(28)].map((_, i) => i + 1));
     // Their place in Kan's life is their order in time (v1.25.16).
     const byNumber = [...FLASHBACKS].sort((a, b) => a.number - b.number);
     for (let i = 1; i < byNumber.length; i += 1) expect(dateSortValue(byNumber[i].date)).toBeGreaterThan(dateSortValue(byNumber[i - 1].date));
@@ -556,5 +556,22 @@ describe('around the edges', () => {
     const result = applyStateStep(next, diff, { turnLogId: next.rawLog[last].id, userMessage: '"Hm."', narration: 'Nothing.' }, new Set());
     expect(result.db.state.location).toBe(db.state.location);
     expect(result.db.state.inStoryDate).toEqual(db.state.inStoryDate);
+  });
+});
+
+describe('three more flashbacks (ideas for later #4, v1.25.23)', () => {
+  test('ages fit the cast, and each sits where it belongs in time', () => {
+    const db = quietSave();
+    const flicker = FLASHBACK_BY_ID['the-flicker-lessons'];
+    const bat = FLASHBACK_BY_ID['the-bat-mask'];
+    const birthday = FLASHBACK_BY_ID['the-last-birthday'];
+    expect(kanAgeAt(db, flicker.date)).toBe(9);
+    expect(flicker.cast).toEqual(['Shisui Uchiha']);
+    expect(kanAgeAt(db, bat.date)).toBe(12);
+    expect(bat.number).toBe(FLASHBACK_BY_ID['the-mask'].number + 1);
+    expect(bat.cast).toContain('Yamato');
+    expect(kanAgeAt(db, birthday.date)).toBe(13);
+    expect(birthday.date).toMatchObject({ month: 6, day: 30 });
+    expect(birthday.number).toBe(FLASHBACK_BY_ID['last-good-day'].number - 1);
   });
 });

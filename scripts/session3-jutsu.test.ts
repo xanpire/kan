@@ -2,7 +2,7 @@
 // account; a drain named no nature; past 20 jutsu the narrator saw nothing.
 import { describe, expect, test } from 'bun:test';
 import { normalizeDatabase } from '../lib/rpg/db';
-import { applyJutsuDiff } from '../lib/rpg/jutsu';
+import { applyJutsuDiff, lastUseOf } from '../lib/rpg/jutsu';
 import { buildNarrationPrompt } from '../lib/rpg/prompt';
 import { seedDatabase } from '../lib/rpg/seed';
 
@@ -53,5 +53,23 @@ describe('a stolen nature names whose it was', () => {
     expect(natureSourceName(db, 'itachi-uchiha')).toBe('Itachi Uchiha');
     expect(natureSourceName(db, 'the-lean-grass-rogue')).toBe('the lean grass rogue');
     expect(natureSourceName(db, 'a Mist hunter-nin')).toBe('a Mist hunter-nin');
+  });
+});
+
+describe('a jutsu card keeps its latest use (ideas for later #3, v1.25.23)', () => {
+
+  test('a use that says more than the effect becomes the Last line, one sentence', () => {
+    expect(lastUseOf('Steals chakra.', "Stripped the sentry's chakra in the courtyard. He fell.")).toEqual({ lastUse: "Stripped the sentry's chakra in the courtyard" });
+  });
+
+  test('the same words as the effect, or nothing, leave it alone', () => {
+    expect(lastUseOf('Steals chakra.', 'Steals chakra.')).toEqual({});
+    expect(lastUseOf('Steals chakra.', undefined)).toEqual({});
+  });
+
+  test('a long account is cut at a word', () => {
+    const long = lastUseOf('x', 'word '.repeat(40)).lastUse ?? '';
+    expect(long.length).toBeLessThanOrEqual(110);
+    expect(long.endsWith('…')).toBe(true);
   });
 });

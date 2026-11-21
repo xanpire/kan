@@ -89,7 +89,7 @@ import { PAINT_STAGE_LABEL, storyMarkers, type PaintStage, type StoryMarker } fr
 import { chapterJumps, entriesToShow, whereYouLeftOff, type LeftOff } from '@/lib/rpg/storyNav';
 import { currentWeather, weatherPhrase } from '@/lib/rpg/weather';
 import { WeatherIcon } from '@/components/WeatherIcon';
-import { fightOptionInput, resolveTurnMode, timeSkipBlocked } from '@/lib/rpg/sceneMode';
+import { fightOptionInput, resolveTurnMode, splitFightOption, timeSkipBlocked } from '@/lib/rpg/sceneMode';
 import {
   FLASHBACK_BY_ID,
   LEAVE_MEMORY_INPUT,
@@ -733,20 +733,24 @@ const Composer = memo(
             keyboardShouldPersistTaps="handled"
             showsHorizontalScrollIndicator={false}
           >
-            {shownFightOptions.map((option) => (
-              <Pressable
-                accessibilityLabel={`Fight move: ${option}`}
-                accessibilityRole="button"
-                disabled={isNarrating}
-                key={option}
-                onPress={() => onSubmit(fightOptionInput(option))}
-                style={({ pressed }) => [styles.fightOption, pressed && styles.pressed]}
-              >
-                <Text numberOfLines={2} style={styles.fightOptionLabel}>
-                  {option}
-                </Text>
-              </Pressable>
-            ))}
+            {shownFightOptions.map((option) => {
+              const { move, cost } = splitFightOption(option);
+              return (
+                <Pressable
+                  accessibilityLabel={`Fight move: ${move}${cost ? `, ${cost}` : ''}`}
+                  accessibilityRole="button"
+                  disabled={isNarrating}
+                  key={option}
+                  onPress={() => onSubmit(fightOptionInput(option))}
+                  style={({ pressed }) => [styles.fightOption, pressed && styles.pressed]}
+                >
+                  <Text numberOfLines={2} style={styles.fightOptionLabel}>
+                    {move}
+                  </Text>
+                  {cost ? <Text style={styles.fightOptionCost}>{cost}</Text> : null}
+                </Pressable>
+              );
+            })}
           </ScrollView>
         ) : null}
         {storyStarted ? (
@@ -2716,6 +2720,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     color: colors.text,
+  },
+  fightOptionCost: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: 2,
+    color: colors.textDim,
+    fontStyle: 'italic',
   },
   sceneImageWrap: {
     width: '100%',

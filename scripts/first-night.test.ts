@@ -113,14 +113,15 @@ describe('the first night block', () => {
 });
 
 describe('who Kan is on the first night', () => {
-  test('still the Leaf’s ANBU until he knows, then a missing-nin', () => {
+  test('still the Leaf’s ANBU until he knows, then former ANBU until the cloak', () => {
     const db = seed();
     expect(kanRankNow(db)).toBe('Hidden Leaf ANBU');
     expect(dynamic(db)).toContain('Tonight the Leaf still counts you as one of its own');
     expect(dynamic(db)).not.toContain('The Leaf believes you dead');
 
     const morning = { ...db, state: { ...db.state, inStoryDate: { ...db.state.inStoryDate, day: 2, hour: 9 } } };
-    expect(kanRankNow(morning)).toBe('Missing-nin (former ANBU)');
+    // v1.25.23: not a listed missing-nin until the cloak (Session 3 slip).
+    expect(kanRankNow(morning)).toBe('Former Hidden Leaf ANBU');
   });
 
   test('the cloak and the ring show in his rank', () => {

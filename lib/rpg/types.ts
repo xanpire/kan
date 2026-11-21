@@ -894,6 +894,8 @@ export type JutsuRecord = {
   firstSeen: CalendarDate;
   lastSeen: CalendarDate;
   timesUsed: number;
+  /** The latest use in a few words ("the Grass rogue in the courtyard"), shown under what it does. */
+  lastUse?: string;
   description: string;
   tags: string[];
   /** The built-in jutsu list's entry this is (jutsuData.ts), when one matches. */
@@ -1321,6 +1323,8 @@ export type TurnDiff = {
     user: string;
     chakraNature?: string;
     effect?: string;
+    /** This use in a few words, for the card's "Last" line. */
+    thisUse?: string;
     visual?: string;
     description?: string;
   }[];

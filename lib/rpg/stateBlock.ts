@@ -554,6 +554,7 @@ export function convertStateBlock(
           chakraNature?: unknown;
           effect?: unknown;
           visual?: unknown;
+          this_use?: unknown;
         };
 
         return {
@@ -567,6 +568,7 @@ export function convertStateBlock(
                 : undefined,
           effect: typeof jutsu.effect === 'string' ? jutsu.effect : undefined,
           visual: typeof jutsu.visual === 'string' ? jutsu.visual : undefined,
+          thisUse: typeof jutsu.this_use === 'string' ? jutsu.this_use : undefined,
         };
       })
       .filter((item) => item.name.trim().length > 0);

@@ -19,7 +19,9 @@ import { applyStateStep } from '../lib/rpg/memoryJobs';
 import { NARRATION_SYSTEM, buildExtractionPrompt, buildNarrationPrompt } from '../lib/rpg/prompt';
 import {
   CONVERSATION_MODE_MINIMUM_SECONDS,
+  cleanFightOptions,
   fightOptionInput,
+  splitFightOption,
   readKanInput,
   resolveTurnMode,
   setSceneModeOverride,
@@ -300,5 +302,23 @@ describe('the mode label follows a fight that ends (Session 1, decided by Xan: k
     const text = trackerPromptText(buildExtractionPrompt(seed(), '*You block.*', 'He backs off and lowers his hand.'));
     expect(text).toContain('When the fight stops in this reply');
     expect(text).toContain('fight_options is []');
+  });
+});
+
+describe('a quick move can say what it costs, in words (ideas for later #5, v1.25.23)', () => {
+  
+
+  test('the cost word is split off and never sent as part of the move', () => {
+    expect(splitFightOption('Drain him with Thousand Souls [heavy]')).toEqual({ move: 'Drain him with Thousand Souls', cost: 'heavy' });
+    expect(splitFightOption('Duck under the threads')).toEqual({ move: 'Duck under the threads' });
+    expect(fightOptionInput('Drain him with Thousand Souls [heavy]')).toBe('*Drain him with Thousand Souls.*');
+  });
+
+  test('numbers or other words in brackets are dropped', () => {
+    expect(cleanFightOptions(['Strike low [40 chakra]', 'Block (all you have left)', 'Feint [draining]'])).toEqual([
+      'Strike low',
+      'Block [all you have left]',
+      'Feint [draining]',
+    ]);
   });
 });

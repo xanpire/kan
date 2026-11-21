@@ -832,4 +832,53 @@ export const STAGE_TWO_PERSONAL: CanonMilestone[] = [
     },
     attendanceFact: 'You had an ordinary day in peacetime.',
   },
+  // Ideas for later #2 (approved by Xan, 21 Nov 2026): Zangei's bounty office.
+  {
+    id: 'kakuzu-bounty-run',
+    era: 'The shadow war',
+    title: 'Cashing a head',
+    description:
+      "Kakuzu takes a body to a bounty exchange hidden behind a public toilet in the Land of Fire. A jittery keeper weighs the head against his ledger and pays in cash, asking nothing. The back room is full of bodies waiting for their price.",
+    canonPoint: 'You know the bounty exchange behind the public toilet in the Land of Fire.',
+    from: { year: 14, month: 1 },
+    to: { year: 16, month: 1 },
+    region: 'Land of Fire',
+    location: 'a bounty exchange behind a public toilet in the Land of Fire',
+    playerDriven: true,
+    after: 'kan-accepted-akatsuki',
+    needs: ['Kakuzu', 'Zangei'],
+    completesWhen: 'Kan walks into the bounty exchange on the page with Kakuzu (or on his own) and sees a bounty paid.',
+    facts: ['There is a bounty exchange behind a public toilet in the Land of Fire; its keeper pays for heads and asks no questions.'],
+    encounter: {
+      who: 'Kakuzu and the bounty keeper',
+      where: 'a public toilet on a Fire Country road, and the room behind it',
+      context:
+        "Kakuzu's money is how he keeps living; he counts every ryō twice and treats the keeper like furniture. The keeper is servile and terrified of him. Kan can learn the trade here: prices, who is worth what, who else comes in. It is also where Kan's own bounty could one day be cashed.",
+    },
+    attendanceFact: 'You went to the bounty exchange with Kakuzu.',
+  },
+  // Ideas for later #1 (approved by Xan, 21 Nov 2026): the anime's Three-Tails arc, optional.
+  {
+    id: 'three-tails-hunt',
+    era: 'Shippuden',
+    title: 'The lake of the Three-Tails',
+    description:
+      "At a lake in the Land of Water the Three-Tails has surfaced, and everyone wants it: Orochimaru's people with a crystal-wielding woman and a frail boy who can command the beast, a Leaf team or two, and the Akatsuki. You can be sent to help take it, or come across the hunt on your own.",
+    from: { year: 21, month: 10, day: 1 },
+    to: { year: 21, month: 10, day: 17 },
+    region: 'Land of Water',
+    location: 'a lake in the Land of Water',
+    playerDriven: true,
+    requires: { flag: 'joinedAkatsuki' },
+    needs: ['Guren', 'Yukimaru'],
+    completesWhen: 'Kan reaches the lake on the page while the beast is still free and meets one side of the hunt.',
+    facts: [],
+    encounter: {
+      who: 'Guren and Yukimaru, Orochimaru\'s men, Team Kakashi and other Leaf shinobi, Deidara and the masked man',
+      where: 'the lake and the woods around it',
+      context:
+        "Anime-only (decided by Xan: optional). Guren is fierce and proud, Yukimaru frail and devoted to her; Orochimaru wants the boy as a vessel. Canon still ends with the masked man and Deidara capturing the Three-Tails on 18 October: Kan can shape who gets hurt on the way, never who takes the beast.",
+    },
+    attendanceFact: 'You were at the lake during the hunt for the Three-Tails.',
+  },
 ];

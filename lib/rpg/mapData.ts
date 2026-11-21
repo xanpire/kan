@@ -83,6 +83,7 @@ export const MAP_PLACES: MapPlace[] = [
   { id: 'mask-shrine', name: 'Uzumaki mask shrine', region: 'fire', x: 41, y: 33.5, kind: 'shrine', parent: 'leaf', match: /\b(uzumaki )?mask shrine\b/i, note: 'Kept by the Uzumaki since Uzushio fell, on the edge of the Leaf.' },
   { id: 'valley-end', name: 'Valley of the End', region: 'fire', x: 43.05, y: 24.15, kind: 'place', match: /\bvalley of the end\b/i, note: 'On the Land of Fire’s northern border.' },
   { id: 'tanzaku', name: 'Tanzaku Town', region: 'fire', x: 37.6, y: 38.6, kind: 'place', match: /\btanzaku\b/i },
+  { id: 'bounty-exchange', name: 'Bounty exchange', region: 'fire', x: 47.2, y: 30.4, kind: 'hideout', nameAt: 'above', match: /\b(bounty (exchange|station|office)|toilet bounty)\b/i, secret: { knownFrom: 'kakuzu-bounty-run' }, note: 'Behind a public toilet on a Fire Country road: its keeper pays for heads and asks no questions.' },
   { id: 'fire-temple', name: 'Fire Temple', region: 'fire', x: 51, y: 31.5, kind: 'shrine', match: /\bfire temple\b/i },
   // The west: Wind, Rivers, Rain, Grass, Birds and Silence.
   { id: 'sand', name: 'Hidden Sand Village', region: 'wind', x: 23.5, y: 40.4, kind: 'village', match: /\b(hidden sand|sunagakure)\b/i, short: 'Sand' },
