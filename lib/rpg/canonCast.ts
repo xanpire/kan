@@ -1238,7 +1238,7 @@ export const FEMALE_CAST = new Set([
   'Sakura Haruno', 'Tsunade Senju', 'Konan', 'Hinata Hyuga', 'Anko Mitarashi', 'Kurenai Yuhi',
   'Shizune', 'Karin', 'Ino Yamanaka', 'Tenten', 'Hanabi Hyuga', 'Tsume Inuzuka', 'Koharu Utatane',
   'Ayame', 'Kushina Uzumaki', 'Mikoto Uchiha', 'Hazuki Uchiha', 'Rin Nohara', 'Temari', 'Chiyo', 'Mei Terumi',
-  'Yugito Nii', 'Karui', 'Samui', 'Kurotsuchi', 'Fū', 'Tayuya',
+  'Yugito Nii', 'Karui', 'Samui', 'Kurotsuchi', 'Fū', 'Tayuya', 'Tsunami', 'Guren', 'Yoshino Nara',
   'Kaguya Ōtsutsuki', 'Sarada Uchiha', 'Himawari Uzumaki', 'Chōchō Akimichi', 'Mirai Sarutobi',
   'Ameyuri Ringo', 'Mito Uzumaki', 'Moegi Kazamatsuri', 'Yūgao Uzuki', 'Mebuki Haruno', 'Pakura',
   'Mabui', 'Kin Tsuchi', 'Katsuyu', 'Shima',

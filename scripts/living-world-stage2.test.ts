@@ -72,8 +72,8 @@ function play(db: AppDatabase, input: string, narration: string, block: Record<s
 }
 
 describe('the new cast', () => {
-  test('67 people, and everyone but the beasts and summons has a birthday', () => {
-    expect(CAST_ADDITIONS).toHaveLength(67);
+  test('80 people, and everyone but the beasts and summons has a birthday', () => {
+    expect(CAST_ADDITIONS).toHaveLength(80);
     const without = CANON_CAST.filter((entry) => !entry.birthday).map((entry) => entry.name);
     expect(without.every((name) => CANON_CAST.find((entry) => entry.name === name)!.tags.some((tag) => tag === 'tailed-beast' || tag === 'summon'))).toBe(true);
     expect(person(seed(), 'Akamaru')?.birthday).toEqual({ month: 7, day: 7 });

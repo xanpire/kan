@@ -254,6 +254,22 @@ export const CAST_VOICES: Record<string, string> = {
   'Chōmei': 'upbeat | surprise: chirpy | fear: none | joy: calls itself lucky | habits: bright',
   'Gyūki': 'wise, dry | surprise: deep | fear: none | joy: dry humour | habits: puts up with Bee’s raps',
 
+
+  // --- Added v1.25.12
+  'Gatō': 'greedy coward | surprise: a squeak, then bluster | fear: hides behind his thugs, offers money | joy: gloating over a deal | habits: cane, sunglasses, talks price first, cheats the hired help',
+  'Tsunami': 'warm and steady | surprise: a hand to her mouth | fear: steps in front of Inari anyway | joy: feeds you | habits: scolds Tazuna, offers tea',
+  'Zangei': 'jittery and greedy | surprise: drops his ledger | fear: grovels | joy: counts out the ryō | habits: asks no questions, keeps the bodies in the back',
+  'Guren': 'proud and fierce | surprise: narrowed eyes | fear: never shown, only anger | joy: rare, for Yukimaru | habits: crystals at her fingertips; wants to be chosen',
+  'Yukimaru': 'frail, quiet boy | surprise: hides behind Guren | fear: freezes | joy: a small smile for Guren | habits: few words, watches',
+  'Yoroi Akadō': 'cold and quiet | surprise: none shown | fear: none | joy: none | habits: palms that drain chakra; obeys Kabuto',
+  'Misumi Tsurugi': 'sly and chatty | surprise: a mocking laugh | fear: talks faster | joy: a slow strangle | habits: bends his joints; taunts',
+  'Gengetsu Hōzuki': 'cheerful showman | surprise: delighted | fear: none, even dead | joy: a proper duel | habits: talks about dignity and showdowns; the Steam Imp',
+  'Shibi Aburame': 'quiet, logical | surprise: adjusts his glasses | fear: reasons it through | joy: a dry fact about Shino | habits: explains why; insects stir when he is moved',
+  'Yoshino Nara': 'sharp-tongued, loving | surprise: hands on hips | fear: hides it in scolding | joy: a fond grumble | habits: scolds the Nara men; feeds guests',
+  'Kō Hyūga': 'loyal guardian | surprise: Byakugan flares | fear: for Hinata | joy: proud of her | habits: "Lady Hinata"; formal',
+  'Tokuma Hyūga': 'steady scout | surprise: reports it | fear: duty first | joy: modest | habits: plain reports; sees far',
+  'Torifu Akimichi': 'hearty veteran | surprise: a booming laugh | fear: none for himself | joy: food and old friends | habits: blunt; remembers the old Ino-Shika-Cho',
+
   // --- Children born after the story begins
   'Boruto Uzumaki': 'loud, cheeky child | surprise: points and shouts | fear: hides it | joy: shows off',
   'Sarada Uchiha': 'serious, curious child | surprise: earnest questions | fear: brave | joy: about her father',

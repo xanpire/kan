@@ -1070,6 +1070,28 @@ export const CHARACTER_LORE: Record<string, CharacterLoreProfile> = {
     romanceAccessibility: 'not-applicable',
     orientation: 'Not applicable (a child)',
   },
+  // --- Added v1.25.12
+  'Gatō': { canonDevotion: 'Loves money and nothing else.', romanceAccessibility: 'lore-locked', orientation: 'Not interested' },
+  'Tsunami': {
+    canonDevotion: 'Still grieves Kaiza, Inari’s stepfather; her son and father come first.',
+    romanceAccessibility: 'winnable',
+    orientation: 'Attracted to men',
+  },
+  'Zangei': { canonDevotion: 'A ledger man; love is not in it.', romanceAccessibility: 'lore-locked', orientation: 'Not interested' },
+  'Guren': {
+    canonDevotion: 'Wants Orochimaru to choose her; later her love is a mother’s, for Yukimaru. Proud, slow to trust.',
+    romanceAccessibility: 'winnable',
+    orientation: 'Attracted to men',
+  },
+  'Yukimaru': { canonDevotion: 'A child who loves Guren as his mother.', romanceAccessibility: 'not-applicable', orientation: 'Not applicable (a child)' },
+  'Yoroi Akadō': { canonDevotion: 'Serves Kabuto and Orochimaru.', romanceAccessibility: 'lore-locked', orientation: 'Not interested' },
+  'Misumi Tsurugi': { canonDevotion: 'Serves Kabuto and Orochimaru.', romanceAccessibility: 'lore-locked', orientation: 'Not interested' },
+  'Gengetsu Hōzuki': { canonDevotion: 'Long dead; his heart is in a good showdown.', romanceAccessibility: 'lore-locked', orientation: 'Not interested' },
+  'Shibi Aburame': { canonDevotion: 'A clan head and Shino’s father.', romanceAccessibility: 'lore-locked', orientation: 'Attracted to women' },
+  'Yoshino Nara': { canonDevotion: 'Shikaku’s wife and Shikamaru’s mother, completely.', romanceAccessibility: 'lore-locked', orientation: 'Attracted to men (Shikaku)' },
+  'Kō Hyūga': { canonDevotion: 'Devoted to his duty to Hinata.', romanceAccessibility: 'lore-locked', orientation: 'Not interested' },
+  'Tokuma Hyūga': { canonDevotion: 'Duty to the clan first.', romanceAccessibility: 'lore-locked', orientation: 'Attracted to women' },
+  'Torifu Akimichi': { canonDevotion: 'An old soldier and clansman.', romanceAccessibility: 'lore-locked', orientation: 'Attracted to women' },
 };
 
 function loreKey(name: string) {

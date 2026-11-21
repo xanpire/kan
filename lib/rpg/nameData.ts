@@ -60,6 +60,9 @@ export const KNOWN_AT_START: Record<string, true | string[]> = {
   'Iruka Umino': true,
   Ebisu: true,
   'Shikaku Nara': true,
+  'Yoshino Nara': true,
+  'Shibi Aburame': true,
+  'Torifu Akimichi': true,
   'Inoichi Yamanaka': true,
   'Choza Akimichi': true,
   'Tsume Inuzuka': true,
@@ -232,6 +235,8 @@ export const FAME: Record<string, { level: FameLevel; from?: string }[]> = {
   Deidara: [{ level: 'heard', from: 'deidara-recruited' }],
   'Killer Bee': [{ level: 'heard' }],
   Chiyo: [{ level: 'heard' }],
+  'Gatō': [{ level: 'heard' }],
+  'Gengetsu Hōzuki': [{ level: 'heard' }],
   Mifune: [{ level: 'heard' }],
   // The Leaf: faces from his ANBU years.
   'Kakashi Hatake': [{ level: 'sight' }],
