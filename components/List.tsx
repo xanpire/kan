@@ -108,7 +108,9 @@ export function ListRow({
 
   return (
     <Pressable
-      accessibilityLabel={accessibilityLabel}
+      // On the web a row's text does not name the button (Session 3: the turn
+      // sheet read as four unnamed buttons), so the title and subtitle do.
+      accessibilityLabel={accessibilityLabel ?? ([title, body, meta].filter((part) => typeof part === 'string' && part).join('. ') || undefined)}
       accessibilityRole={accessibilityRole ?? 'button'}
       accessibilityState={accessibilityState}
       onPress={onPress}

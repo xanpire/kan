@@ -1,4 +1,4 @@
-import { advanceSeconds, shiftDate } from './calendar';
+import { advanceSeconds, secondsBetween, shiftDate } from './calendar';
 import type { CalendarDate } from './types';
 
 export type ParsedTime = {
@@ -133,6 +133,35 @@ function explicitClock(text: string): ClockReading | undefined {
 
     if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
       return { hour, minute, ambiguous: !suffix && hour >= 1 && hour <= 12 };
+    }
+  }
+
+  // "By twenty past eleven", "at half past nine", "a quarter to four"
+  // (Session 3: "By twenty past eleven" was not read, the clock took five hours).
+  const relative = /\b(?:at|by|until|till|before|around|after|it is|it's|it was|now)\s+(?:about\s+|almost\s+|nearly\s+|just\s+)?(a\s+quarter|quarter|half|five|ten|twenty|twenty-five|twenty five|\d{1,2})(?:\s+minutes)?\s+(past|after|to|before|till)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|midnight|noon|\d{1,2})(?:\s+o'clock|\s+o’clock)?\s*(am|pm|a\.m\.|p\.m\.|in the morning|in the afternoon|in the evening|at night)?(?![\w])/i.exec(text);
+
+  if (relative) {
+    const minuteWord = relative[1].toLowerCase().replace(/^a\s+/, '').replace(/\s+/g, '-');
+    const minutes = minuteWord === 'quarter' ? 15 : minuteWord === 'half' ? 30 : NUMBER_WORDS[minuteWord] ?? (minuteWord === 'twenty-five' ? 25 : Number.parseInt(minuteWord, 10));
+    const hourWord = relative[3].toLowerCase();
+    let hour = hourWord === 'midnight' ? 0 : hourWord === 'noon' ? 12 : NUMBER_WORDS[hourWord] ?? Number.parseInt(hourWord, 10);
+    const suffix = (relative[4] ?? '').toLowerCase().replace(/\./g, '');
+    const fixed = hourWord === 'midnight' || hourWord === 'noon' || Boolean(suffix);
+
+    if (minutes > 0 && minutes < 60 && hour >= 0 && hour <= 12) {
+      if (suffix === 'pm' || suffix.includes('afternoon') || suffix.includes('evening') || suffix.includes('night')) {
+        if (hour < 12) hour += 12;
+      } else if ((suffix === 'am' || suffix.includes('morning')) && hour === 12) {
+        hour = 0;
+      }
+
+      let minute = minutes;
+      if (/^(to|before|till)$/i.test(relative[2])) {
+        hour = (hour + 23) % 24;
+        minute = 60 - minutes;
+      }
+
+      return { hour, minute, ambiguous: !fixed };
     }
   }
 
@@ -317,18 +346,35 @@ function periodHintOf(text: string): ClockReading | undefined {
   return hourOfPeriod(phrase?.[1]);
 }
 
-/** "At seven" with no am/pm: the next seven ahead of `base`, never one behind it. */
-function nextOccurrence(reading: ClockReading, base: CalendarDate): { hour: number; minute: number } {
+/**
+ * "At seven" with no am/pm: of the sevens still ahead of now, the one
+ * closest to where the stated duration lands (`base`). "Nearly five hours…
+ * by twenty past eleven" from 6:32 is 11:20, not 23:20 (Session 3).
+ */
+function nextOccurrence(reading: ClockReading, base: CalendarDate, now: CalendarDate = base): { hour: number; minute: number } {
   if (!reading.ambiguous) {
     return { hour: reading.hour, minute: reading.minute };
   }
 
-  const baseSeconds = base.hour * 3600 + base.minute * 60 + (base.second ?? 0);
+  const secondsOf = (date: CalendarDate) => date.hour * 3600 + date.minute * 60 + (date.second ?? 0);
   const morningHour = reading.hour % 12;
-  const candidates = [morningHour, morningHour + 12];
-  const ahead = candidates.find((hour) => hour * 3600 + reading.minute * 60 >= baseSeconds);
+  const span = secondsBetween(now, base);
 
-  return { hour: ahead ?? morningHour, minute: reading.minute };
+  // A day or more on the road: the next one after the stated duration, as before.
+  if (span >= 20 * 3600) {
+    const ahead = [morningHour, morningHour + 12].find((hour) => hour * 3600 + reading.minute * 60 >= secondsOf(base));
+    return { hour: ahead ?? morningHour, minute: reading.minute };
+  }
+
+  const nowSeconds = secondsOf(now);
+  const baseSeconds = nowSeconds + Math.max(0, span);
+  const candidates = [morningHour, morningHour + 12, morningHour + 24, morningHour + 36]
+    .map((hour) => hour * 3600 + reading.minute * 60)
+    .filter((seconds) => seconds >= nowSeconds);
+  const best = candidates.sort((a, b) => Math.abs(a - baseSeconds) - Math.abs(b - baseSeconds))[0];
+  const hour = best === undefined ? morningHour : Math.floor(best / 3600) % 24;
+
+  return { hour, minute: reading.minute };
 }
 
 /**
@@ -455,7 +501,7 @@ export function detectNarrationTime(
   const reading = parseClock(text, arrivalReading);
 
   if (reading) {
-    clock = nextOccurrence(reading, advanceSeconds(current, elapsedSeconds));
+    clock = nextOccurrence(reading, advanceSeconds(current, elapsedSeconds), current);
   }
 
   const sleep = sleptNight ? { sleptNight: true } : {};

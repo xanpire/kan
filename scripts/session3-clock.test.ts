@@ -85,3 +85,27 @@ describe('the weather a journey ends in (Session 3)', () => {
     expect(weatherFromNarration(clear, 'The rain hammers the canopy and the mist rises off the river.')).toBe('steady rain');
   });
 });
+
+describe('spelled-out clock times (Session 3)', () => {
+  const morning = { ...date(4, 6, 32) };
+
+  test('"nearly five hours… By twenty past eleven" lands at 11:20, not 23:20', () => {
+    const { at } = land(
+      'The descent takes nearly five hours of hard pace. By twenty past eleven, the smell of river silt thickens, and Itachi slows, coming to a halt on a wide sandbar.',
+      morning,
+      { pace: 'travel', reportedSeconds: 5 * HOUR }
+    );
+    expect([at.day, at.hour, at.minute]).toEqual([4, 11, 20]);
+  });
+
+  test('half past, a quarter to, ten past', () => {
+    expect(detectNarrationTime('At half past nine you reach the gate.', morning).clock).toEqual({ hour: 9, minute: 30 });
+    expect(detectNarrationTime('It is a quarter to four when you stop.', morning).clock).toEqual({ hour: 15, minute: 45 });
+    expect(detectNarrationTime('By ten past six in the evening the light is gone.', morning).clock).toEqual({ hour: 18, minute: 10 });
+    expect(detectNarrationTime('By ten past midnight the camp is asleep.', morning).clock).toEqual({ hour: 0, minute: 10 });
+  });
+
+  test('a minute count is not a clock without a reference to an hour', () => {
+    expect(detectNarrationTime('After ten minutes of silence, he speaks.', morning).clock).toBeUndefined();
+  });
+});

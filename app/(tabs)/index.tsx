@@ -1148,6 +1148,23 @@ export default function StoryScreen() {
     setLeftOff(whereYouLeftOff(db));
   }, [db, slotId]);
 
+  // Any new reply ends it: a retry or a Wait as much as a typed action
+  // (Session 3: after a retry the card still told the replaced reply).
+  useEffect(() => {
+    if (isNarrating) setLeftOff(null);
+  }, [isNarrating]);
+
+  // An undo changes the story under it too.
+  const leftOffCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!leftOff) {
+      leftOffCountRef.current = null;
+      return;
+    }
+    if (leftOffCountRef.current === null) leftOffCountRef.current = messages.length;
+    else if (leftOffCountRef.current !== messages.length) setLeftOff(null);
+  }, [leftOff, messages.length]);
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
       const current = dbRef.current;
