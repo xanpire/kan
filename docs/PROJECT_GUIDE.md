@@ -434,6 +434,8 @@ The current action appears **once** (it is excluded from the recent-message bloc
 
 **v1.25.18 (Session 3):** a jutsu record's `effect` (what it does: the Jutsu tab's text and the narrator's list) stays as first recorded; a use updates the count, the date and the look only. The narrator's sheet has `THOUSAND_SOULS_LINE` (name the nature a drain takes, or say it only widens his reserve), and the tracker reports natures_gained whenever a drain names one Kan lacks. KAN'S JUTSU keeps 20 detailed lines and names every other jutsu Kan knows on an "Also knows" line (he starts with 28). Toasts on the Story tab sit above the composer (v1.25.17). Tests: `session3-jutsu.test.ts`.
 
+**Companions** (v1.25.19, Session 3): Konan led Kan and Itachi to the leader, the tracker made her a companion, and since a companion is in every scene until the tracker reports them leaving, she was later "on the ridge" in the Land of Rivers. The tracker's COMPANIONS rule now says a guide, escort or host who brings Kan to where they live or stay is not a companion, and that whenever Kan sets out from a place, anyone travelling with him whom the reply doesn't show setting out with him goes in companions_left.
+
 ### State prompt (call 2)
 
 `buildExtractionPrompt` puts `STATE_SYSTEM` first as its own cacheable block (field-by-field rules, ~650 tokens: time, place, people, jutsu, memory, canon, image) and runs after **every** turn against `TURN_STATE_SCHEMA`. The canon ids the narrator no longer sees are given here in `formatCanonTracking`, each with the rule for marking it. News and canon blocks in the narrator prompt describe events in plain words only.
