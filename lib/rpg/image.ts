@@ -19,7 +19,7 @@ import {
   SCRATCHED_PROTECTOR_LINE,
   type KanOutfit,
 } from './kanLook';
-import { KAN_VULTURE_LOOK } from './kanPowers';
+import { KAN_VULTURE_LOOK, kanSusanooLook } from './kanPowers';
 import type { PlannedReference } from './referencePlan';
 import { flashbackImageNote, kanAgeAt, latestReplyIsFlashback } from './flashbacks';
 import { entityAge, timeOfDayOf } from './calendar';
@@ -646,6 +646,9 @@ export function buildSceneImagePrompt(
   }
 
   lines.push(...jutsuLines(jutsu));
+  if (!memoryNote && jutsu.some((record) => record.user === 'Kan' && /susano/i.test(record.name))) {
+    lines.push(`Kan's Susanoo right now: ${kanSusanooLook(db)}. Blood red, never orange or purple.`);
+  }
 
   if (memoryNote) {
     lines.push(memoryNote);

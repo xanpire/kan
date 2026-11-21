@@ -69,9 +69,49 @@ export const KAN_MANGEKYO_PATTERN =
 export const KAN_ETERNAL_PATTERN =
   'red iris with a black pattern: three black camellia petals reaching the rim, three black half-turn spirals easing into a black rim, a solid black centre holding three red vulture bills and a red pupil';
 
-export const KAN_MANGEKYO_LINE = `Kan's Mangekyō (fixed): pattern: ${KAN_MANGEKYO_PATTERN}. Left eye: Sky Burial (Chōsō), a genjutsu needing held eye contact: the target lies out on a mountain, the circling blood-red vultures land, surround and eat them, and as they eat the target's chakra is consumed and flows into Kan; it drains a lot and, like Thousand Souls, permanently grows his reserve, but takes no chakra nature. Fused with Thousand Souls, anyone who can't break free is drained completely: whole reserve into Kan, their nature taken, and they die unless Kan stops it on purpose; a fused use counts toward Thousand Souls' ten uses. Right eye: Okuribi, a black-red flame that burns chakra, not flesh: it eats a jutsu in flight, a barrier, a chakra cloak, can put out Amaterasu; on a person it burns their chakra until they collapse empty; Kan gains nothing from it (the left eye feeds, the right only destroys); it burns until no chakra is left unless he puts it out; the right eye bleeds, and big targets (a Susanoo, a tailed beast's cloak) strain it badly. Susanoo: blood red; it starts as ribs and an arm and grows with use. Every use wears his eyes toward blindness.`;
+export const KAN_MANGEKYO_LINE = `Kan's Mangekyō (fixed): pattern: ${KAN_MANGEKYO_PATTERN}. Left eye: Sky Burial (Chōsō), a genjutsu needing held eye contact: the target lies out on a mountain, the circling blood-red vultures land, surround and eat them, and as they eat the target's chakra is consumed and flows into Kan; it drains a lot and, like Thousand Souls, permanently grows his reserve, but takes no chakra nature. Fused with Thousand Souls, anyone who can't break free is drained completely: whole reserve into Kan, their nature taken, and they die unless Kan stops it on purpose; a fused use counts toward Thousand Souls' ten uses. Right eye: Okuribi, a black-red flame that burns chakra, not flesh: it eats a jutsu in flight, a barrier, a chakra cloak, can put out Amaterasu; on a person it burns their chakra until they collapse empty; Kan gains nothing from it (the left eye feeds, the right only destroys); it burns until no chakra is left unless he puts it out; the right eye bleeds, and big targets (a Susanoo, a tailed beast's cloak) strain it badly. Susanoo: see KAN'S SUSANOO. Every use wears his eyes toward blindness.`;
 
-export const KAN_ETERNAL_LINE = `Kan's Eternal Mangekyō (fixed): Izumi's eyes, his cousin's; pattern: ${KAN_ETERNAL_PATTERN}. No more blindness: his sight is back. Sky Burial works on any eye contact and catches two or three people at once; Okuribi can be shaped (a wall, a ring, diving vultures) as Sasuke shapes Amaterasu; Perfect Susanoo becomes possible. Third ability, inherited from Izumi: the Long Dream (Nagayume): the target lives a whole happy life in a single moment, the way Izumi died inside Itachi's genjutsu; nothing hurts, and on waking they have to live with having lost it. The life it shows is the one Izumi described to Kan on the roof on her twelfth birthday; let him recognise it, never spell it out.`;
+export const KAN_ETERNAL_LINE = `Kan's Eternal Mangekyō (fixed): Izumi's eyes, his cousin's; pattern: ${KAN_ETERNAL_PATTERN}. No more blindness: his sight is back. Sky Burial works on any eye contact and catches two or three people at once; Okuribi can be shaped (a wall, a ring, diving vultures) as Sasuke shapes Amaterasu; Perfect Susanoo becomes possible (see KAN'S SUSANOO). Third ability, inherited from Izumi: the Long Dream (Nagayume): the target lives a whole happy life in a single moment, the way Izumi died inside Itachi's genjutsu; nothing hurts, and on waking they have to live with having lost it. The life it shows is the one Izumi described to Kan on the roof on her twelfth birthday; let him recognise it, never spell it out.`;
+
+// ---------------------------------------------------------------------------
+// The Susanoo (section 5's last open idea, approved by Xan 21 Nov 2026)
+
+/** His Susanoo's stages, in the order it grows; the last needs the Eternal. */
+export const KAN_SUSANOO_STAGES = [
+  {
+    stage: 'ribs and an arm',
+    look: 'a blood-red ribcage of chakra bone closing around him and one long skeletal arm ending in hooked, talon-like fingers',
+  },
+  {
+    stage: 'skeleton',
+    look: 'a blood-red skeleton to the waist with two arms; the skull’s brow and jaw are already drawn forward into a hooked vulture bill',
+  },
+  {
+    stage: 'armoured',
+    look: 'a blood-red armoured warrior from the waist up: a helm shaped like a bearded vulture’s hooked bill, a beard of chakra feathers at the chin, a mantle of long overlapping feathers on the shoulders that wraps forward into a shield, a curved talon sickle in each hand',
+  },
+  {
+    stage: 'perfect',
+    look: 'the whole giant on its own legs, mountain-tall: the feather mantle opened into vast blood-red wings, armour of layered feathers, the hooked-bill helm, two great talon sickles',
+  },
+] as const;
+
+/** How far his Susanoo has grown, from the ability's stage on his sheet (Perfect only with the Eternal). */
+export function kanSusanooStage(db: Pick<AppDatabase, 'state'>): number {
+  const ability = (db.state.player.abilities ?? []).find((item) => /susano/i.test(item.name));
+  const text = (ability?.stage ?? '').toLowerCase();
+  const stage = /perfect/.test(text) ? 3 : /armou?r|warrior|full body|helm/.test(text) ? 2 : /skeleton|torso|two arms/.test(text) ? 1 : 0;
+  return kanHasEternal(db) ? stage : Math.min(stage, 2);
+}
+
+export function kanSusanooLook(db: Pick<AppDatabase, 'state'>): string {
+  return KAN_SUSANOO_STAGES[kanSusanooStage(db)].look;
+}
+
+export function kanSusanooLine(db: Pick<AppDatabase, 'state'>): string {
+  const stages = KAN_SUSANOO_STAGES.map((item, index) => `${index + 1}. ${item.stage}`).join(', ');
+  return `KAN'S SUSANOO (fixed design): blood red, shaped like his vultures, never like Itachi's or Sasuke's. It grows through ${stages}; it moves up a stage only through use and strain on the page, and Perfect Susanoo only with the Eternal Mangekyō. Now: ${kanSusanooLook(db)}. The feather mantle is its defence, wrapping forward as a shield; the talon sickles are its weapons (no swords). Manifesting it strains his whole body and both eyes more than either eye's jutsu.`;
+}
 
 export const GYRE_LINE =
   'Gyre (Senkai), Kan’s own jutsu, open to him now that he has Wind from Thousand Souls: anything thrown or fired at him is caught in a spiral around him, circles like vultures on a thermal, and is sent back. He has to work it out and practise it on the page before he can use it in a fight.';
@@ -90,6 +130,7 @@ export function kanPowerLines(db: Pick<AppDatabase, 'state'>): string[] {
     THOUSAND_SOULS_LINE,
     KAN_VULTURES_LINE,
     kanHasEternal(db) ? KAN_ETERNAL_LINE : kanHasMangekyo(db) ? KAN_MANGEKYO_LINE : '',
+    kanHasMangekyo(db) || kanHasEternal(db) ? kanSusanooLine(db) : '',
     kanHasStolenWind(db) ? GYRE_LINE : '',
   ].filter(Boolean);
 }

@@ -637,7 +637,7 @@ export const KAN_JUTSU: CanonJutsu[] = [
   J('okuribi', 'Okuribi', 'Okuribi', 'S', ['Fire'], 'dojutsu', ['Kan'], 'huge; the right eye bleeds', 'unique', 'secret',
     'Your right Mangekyō: a black-red flame that burns chakra, not flesh, until you put it out.', 'Black-red fire on a jutsu in flight, eating it to nothing.', { kan: true }),
   J('kan-susanoo', 'Your Susanoo', 'Susanoo', 'S', [], 'dojutsu', ['Kan'], 'huge', 'kekkei-genkai', 'secret',
-    'Blood red; from ribs and an arm to more as you use it. Perfect only with the Eternal.', 'A blood-red skeleton rising around you.', { kan: true, aliases: ['Susanoo', 'Kan’s Susanoo'] }),
+    'Blood red and built like your vultures: ribs and a talon-fingered arm, then a skeleton with a hooked-bill skull, then an armoured warrior (vulture helm, a feather mantle that wraps into a shield, talon sickles). Perfect, winged and mountain-tall, only with the Eternal.', 'A blood-red skeleton with a hooked vulture bill rising around you, chakra feathers layering into armour.', { kan: true, aliases: ['Susanoo', 'Kan’s Susanoo'] }),
   J('long-dream', 'The Long Dream', 'Nagayume', 'S', ['Yin'], 'genjutsu', ['Kan'], 'huge', 'unique', 'secret',
     'Inherited from Izumi with the Eternal: the target lives a whole happy life in a single moment, the ordinary life Izumi dreamed of; on waking they have lost it.', 'Eyes going soft and far away; a quiet house, a garden, a whole life in one breath.', { kan: true }),
   J('gyre', 'Gyre', 'Senkai', 'A', ['Wind'], 'ninjutsu', ['Kan'], 'moderate', 'unique', 'secret',

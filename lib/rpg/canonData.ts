@@ -2560,10 +2560,10 @@ const PERSONAL_BEATS: CanonMilestone[] = [
         name: 'Susanoo',
         chakraNature: 'Yin',
         effect:
-          'A giant blood-red chakra warrior rises around you. It grows in stages with practice and strain: ribs and an arm first, then a skeletal torso, then a muscled warrior, then full armor. Manifesting it strains your whole body and your eyes.',
+          'A giant blood-red chakra warrior shaped like your vultures rises around you. It grows with use and strain: ribs and a talon-fingered arm, then a skeleton with a hooked-bill skull, then an armoured warrior with a vulture helm, a feather mantle that wraps into a shield and talon sickles; Perfect only with the Eternal. It strains your whole body and your eyes.',
         visual:
-          'Blood-red chakra bones knit themselves around you, then flesh, then armor, flickering at the edges like flame.',
-        description: "The Susanoo of your Mangekyō Sharingan. It starts as ribs and grows with use.",
+          'Blood-red chakra bones knit themselves around you, the skull drawn into a hooked vulture bill, feathers of chakra layering into armour, flickering at the edges like flame.',
+        description: "The Susanoo of your Mangekyō Sharingan, built like your vultures. It starts as ribs and an arm and grows with use.",
         tags: ['mangekyo', 'uchiha', 'susanoo'],
       },
     ],
