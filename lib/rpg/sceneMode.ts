@@ -361,6 +361,9 @@ export const FIGHT_COSTS = ['draining', 'heavy', 'all you have left'] as const;
 export type FightCost = (typeof FIGHT_COSTS)[number];
 
 export function splitFightOption(option: string): { move: string; cost?: FightCost } {
+  // Session 4: the tracker wrote "Great Fireball point-blank down the corridor, draining".
+  const trailing = option.trim().match(/^(.*?)\s*[,;:–—-]\s*(draining|heavy|all you have left)\s*[.!]?$/i);
+  if (trailing) return { move: trailing[1].trim(), cost: trailing[2].toLowerCase() as FightCost };
   const match = option.trim().match(/^(.*?)\s*[\[(]\s*([a-z0-9 %-]+?)\s*[\])]\s*[.!]?$/i);
   const word = match?.[2].toLowerCase().replace(/^costs?\s+/, '');
   const cost = FIGHT_COSTS.find((item) => item === word);

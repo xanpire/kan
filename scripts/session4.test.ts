@@ -39,3 +39,13 @@ describe('the Leaf never found a body', () => {
     expect(text).toContain('your body was never found');
   });
 });
+
+describe('a cost word after a comma is still a cost word', () => {
+  test('"…, draining" splits like "[draining]"', async () => {
+    const { splitFightOption, fightOptionInput } = await import('../lib/rpg/sceneMode');
+    expect(splitFightOption('Great Fireball point-blank down the corridor, draining')).toEqual({ move: 'Great Fireball point-blank down the corridor', cost: 'draining' });
+    expect(splitFightOption('Open the Gates — heavy')).toEqual({ move: 'Open the Gates', cost: 'heavy' });
+    expect(fightOptionInput('Great Fireball point-blank, draining')).toBe('*Great Fireball point-blank.*');
+    expect(splitFightOption('Duck under the cleaver')).toEqual({ move: 'Duck under the cleaver' });
+  });
+});

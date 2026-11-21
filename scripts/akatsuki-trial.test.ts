@@ -168,3 +168,17 @@ describe('older saves', () => {
     expect(trialActive(normalizeDatabase(old))).toBe(false);
   });
 });
+
+describe('one mission is counted once (Session 4)', () => {
+  test('the fight ending and the report minutes later are one mission', () => {
+    const { recordTrialMission, trialMissions } = require('../lib/rpg/akatsukiTrial') as typeof import('../lib/rpg/akatsukiTrial');
+    let db = cloaked();
+    db = recordTrialMission(db, { title: "the loyalist outpost commander's cipher scroll", importance: 3, outcome: 'well' });
+    db = { ...db, state: { ...db.state, inStoryDate: advanceSeconds(db.state.inStoryDate, 180) } };
+    db = recordTrialMission(db, { title: 'Clear the loyalist outpost', importance: 3, outcome: 'well' });
+    expect(trialMissions(db).map((mission) => mission.title)).toEqual(['Clear the loyalist outpost']);
+    db = later(db, 2);
+    db = recordTrialMission(db, { title: 'Escort the courier', importance: 2, outcome: 'mixed' });
+    expect(trialMissions(db)).toHaveLength(2);
+  });
+});

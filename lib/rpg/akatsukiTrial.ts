@@ -73,13 +73,21 @@ export function trialDue(db: Pick<AppDatabase, 'state' | 'events'>) {
   return trialActive(db) && trialDays(db) >= TRIAL_MAX_DAYS;
 }
 
+/** Two reports this close together are one mission ending, then its report. */
+export const SAME_MISSION_SECONDS = 6 * 60 * 60;
+
 /** Adds a mission the tracker reported (once per title). */
 export function recordTrialMission(db: AppDatabase, mission: TrialMission | undefined): AppDatabase {
   if (!mission || !trialActive(db)) return db;
 
   const missions = trialMissions(db);
   const key = mission.title.trim().toLowerCase();
-  const kept = missions.filter((item) => item.title.trim().toLowerCase() !== key);
+  // Session 4: one outpost came in twice, as "the commander's cipher scroll"
+  // when the fight ended and "Clear the loyalist outpost" at the report three
+  // minutes later. A mission reported within hours of the last is the same one.
+  const last = missions[missions.length - 1];
+  const sameAsLast = last?.on && secondsBetween(last.on, db.state.inStoryDate) < SAME_MISSION_SECONDS;
+  const kept = missions.filter((item) => item.title.trim().toLowerCase() !== key && !(sameAsLast && item === last));
   const since = db.state.akatsukiTrial?.since ?? trialStart(db) ?? db.state.inStoryDate;
 
   return {
@@ -135,5 +143,5 @@ export function formatTrialLine(db: AppDatabase): string {
 export function formatTrialTracking(db: AppDatabase): string {
   if (!trialActive(db)) return '';
 
-  return 'AKATSUKI TRIAL: you are on trial in the Akatsuki. trial_mission: when a mission or task you were given during the trial ends on the page this turn, {title (a few words), importance (1 an errand, 3 a real mission, 5 a mission the whole organization depends on), outcome ("well", "mixed" or "badly", by how it was carried out)}; otherwise null.';
+  return 'AKATSUKI TRIAL: you are on trial in the Akatsuki. trial_mission: once per mission, the turn it ends on the page (the deed done; reporting back to the leader is not a second mission), {title (a few words), importance (1 an errand, 3 a real mission, 5 a mission the whole organization depends on), outcome ("well", "mixed" or "badly", by how it was carried out)}; otherwise null.';
 }
