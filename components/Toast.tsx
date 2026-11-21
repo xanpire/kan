@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePathname } from 'expo-router';
 import {
   createContext,
   useCallback,
@@ -54,6 +55,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(8)).current;
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const onStory = pathname === '/' || pathname === '/index';
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((message: string, tone: ToastTone = 'info', options?: ToastOptions) => {
@@ -144,7 +147,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           style={[
             styles.toastDock,
             {
-              bottom: insets.bottom + 82,
+              // On the Story tab the composer sits right above the tab bar: a
+              // toast there covered it, and the update notice (which waits for
+              // a tap) blocked typing (Session 3).
+              bottom: insets.bottom + (onStory ? 176 : 82),
               opacity,
               transform: [{ translateY }],
             },
