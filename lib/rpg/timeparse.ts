@@ -556,7 +556,10 @@ const BEFORE_MARKER =
 // "four months ago", "a week from now", "for the next two days" are not this turn.
 const AFTER_NOT_NOW = /^[\s,]*(ago|before that|earlier|from now|away|out|off|'s|’s|of (?:stubble|beard|growth|rations|food|water|supplies|travel away))\b/;
 const BEFORE_NOT_NOW =
-  /\b(will|would|could|should|might|must|shall|need|needs|needed|going to|plan|plans|planned|hope|hopes|want|wants|had been|has been|have been|the next|the last|the past|in|within|than|every|each|per)\s+(?:\w+\s+){0,3}$/;
+  // "had": the narration is in the present tense, so the past perfect is
+  // backstory (Session 3: a flashback's "had yielded nothing for two days"
+  // moved the memory's clock a day).
+  /\b(will|would|could|should|might|must|shall|need|needs|needed|going to|plan|plans|planned|hope|hopes|want|wants|had|has been|have been|the next|the last|the past|in|within|than|every|each|per)\s+(?:\w+\s+){0,3}$/;
 
 export function applyParsedTime(current: CalendarDate, parsed: ParsedTime): CalendarDate {
   let next = current;

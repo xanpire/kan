@@ -419,6 +419,9 @@ export function rememberChip(db: AppDatabase, logId: string | undefined): Flashb
 /** What the player sends when they tap the chip. */
 export const REMEMBER_INPUT = '*You let the memory come.*';
 
+/** What the player sends to step out of a memory (the narrator closes it that reply). */
+export const LEAVE_MEMORY_INPUT = '*You pull yourself out of the memory, back to the present.*';
+
 // ---------------------------------------------------------------------------
 // The narrator while a flashback plays
 
@@ -492,7 +495,7 @@ export function formatFlashbackBlock(db: AppDatabase, weatherLine: string): stri
     `WHEN: ${formatDate(active.date)}. You are ${ageWord(age)}. It is ${timeOfDayOf(active.date)}.`,
     `WHERE: ${active.place}.`,
     weatherLine,
-    `KAN THEN: ${kanThen(age)}. No Sharingan: it awakens only in Year 13, when Itachi tells him the truth. His real strength stays hidden; never show its limit. The jutsu, abilities, inventory and wounds listed above belong to the present and do not exist here; Thousand Souls is never used or seen.`,
+    `KAN THEN: ${kanThen(age)}. No Sharingan: it awakens only on the night of the massacre (Year 13), in the fight with Itachi. His real strength stays hidden; never show its limit. The jutsu, abilities, inventory and wounds listed above belong to the present and do not exist here; Thousand Souls is never used or seen.`,
     'WHO IS THERE THEN (everyone at their age on this date, with the personality they had then; the dead are alive in this memory, so THE DEAD list does not apply inside it):',
     ...castLines(db, record, active.date),
     ...(record.castNotes ?? []).map((note) => `- ${note}`),

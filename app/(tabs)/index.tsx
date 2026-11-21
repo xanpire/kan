@@ -92,6 +92,7 @@ import { WeatherIcon } from '@/components/WeatherIcon';
 import { fightOptionInput, resolveTurnMode, timeSkipBlocked } from '@/lib/rpg/sceneMode';
 import {
   FLASHBACK_BY_ID,
+  LEAVE_MEMORY_INPUT,
   REMEMBER_INPUT,
   activeFlashback,
   flashbackDateLine,
@@ -1656,6 +1657,15 @@ export default function StoryScreen() {
                         icon={<History color={colors.memoryAccent} size={15} strokeWidth={2} />}
                         label="Remember"
                         onPress={() => void submit(REMEMBER_INPUT, remember.id)}
+                      />
+                    ) : null}
+                    {playing ? (
+                      <InlineAction
+                        accessibilityHint="Ends the memory and returns to the present"
+                        disabled={!apiKey}
+                        icon={<History color={colors.memoryAccent} size={15} strokeWidth={2} />}
+                        label="Come back"
+                        onPress={() => void submit(LEAVE_MEMORY_INPUT)}
                       />
                     ) : null}
                     <InlineAction

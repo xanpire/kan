@@ -129,3 +129,18 @@ describe('a skip cut short lands on the morning the prose ends on (Session 3)', 
     expect([at.day, at.hour]).toEqual([5, 8]);
   });
 });
+
+describe('the past perfect is backstory, not time passing (Session 3)', () => {
+  const now = { year: 12, month: 10, day: 21, hour: 16, minute: 0, second: 0 };
+
+  test('a flashback’s "had yielded nothing for two days" does not move the clock', () => {
+    expect(
+      detectNarrationTime('The assignment—a tracking sweep along the bluffs—had yielded nothing for two days. Ahead of you, Itachi pauses.', now).elapsedSeconds
+    ).toBe(0);
+    expect(detectNarrationTime('The scout had walked for three days before he found them.', now).elapsedSeconds).toBe(0);
+  });
+
+  test('the present tense still counts', () => {
+    expect(detectNarrationTime('You walk for two hours before the trees thin.', now).elapsedSeconds).toBe(7200);
+  });
+});
