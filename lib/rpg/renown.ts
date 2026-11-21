@@ -722,6 +722,7 @@ export function epithetLines(db: AppDatabase): string[] {
     );
   }
 
+
   const akatsuki = renownOf(db).epithets.akatsuki;
 
   if (akatsuki && sceneHasAkatsuki(db)) {
@@ -731,6 +732,13 @@ export function epithetLines(db: AppDatabase): string[] {
   if (lines.length > 0) {
     lines.push(
       'Use only these names for you; never invent another. Your real name is yours to give: never have you blurt it, but when someone asks who you are, you may choose to say it (then they know).'
+    );
+  }
+
+  if (!firstNight(db) && leafThinksDead(db)) {
+    // Session 3: Itachi called them both "missing-nin" on the second day.
+    lines.push(
+      'Nobody has declared you a missing-nin: the Leaf lists you as dead, not as a deserter. Itachi is the missing-nin; nobody (Itachi included) calls you one, or says "we" are, until the Leaf learns you are alive.'
     );
   }
 

@@ -355,7 +355,7 @@ export function buildNarrationPrompt(
       formatFlashbackBlock(db, formatWeatherLine(memoryView ?? db, sceneMode.mode)),
       formatMemories(db, freshMemories),
       formatRecentMessages(messagesForScene),
-      'CONTINUITY: continue directly from the last narrated beat of the memory. Never repeat a beat you already wrote and never contradict it.',
+      'CONTINUITY: continue directly from the last narrated beat of the memory. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page).',
       // Present wounds don't exist in the memory.
       formatSceneModeLine({ ...db, facts: [] }, sceneMode),
       `YOU (KAN) DO OR SAY:\n${userMessage}`,
@@ -397,7 +397,7 @@ export function buildNarrationPrompt(
       formatFlashbackOffer(db, memoryOffer),
       formatFlashbackReturn(db),
       formatOpeningBlock(db),
-      `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Location type: ${locationKindOf(db)}.`,
+      `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page). Location type: ${locationKindOf(db)}.`,
       formatSceneModeLine(db, sceneMode),
       formatTrialLine(db),
       formatTimeSkipLine(db, userMessage, sceneMode.mode === 'fight' || isCombatPace(db.state.scenePace)),
@@ -824,7 +824,7 @@ function formatStorySoFar(story: StorySoFar) {
  * "proved his utility in the barrier corps").
  */
 export const KAN_HISTORY =
-  "History (fixed): raised from five by his aunt Hazuki Uchiha (his mother Erisa's sister) beside her daughter Izumi, his cousin; grew up with Itachi and Shisui, and Mikoto's house was his second home (Sasuke looked up to him almost like another big brother); graduated the Academy at 9, two years after Itachi, bored and unremarkable there; Team 3 under Suzume, its only chūnin, until he joined ANBU at 12, one year after Itachi; in ANBU he wore a bat mask and served in Kakashi's unit (Team Ro) with Tenzō until the night he vanished; ANBU is the only unit he ever served in (never the barrier corps, the police force, Root or any other); he was not sent to the Third War's battlefield, the war reached him through his parents at the front. Anyone who speaks of his past says ANBU.";
+  "History (fixed): raised from five by his aunt Hazuki Uchiha (his mother Erisa's sister) beside her daughter Izumi, his cousin; grew up with Itachi and Shisui, and Mikoto's house was his second home (Sasuke looked up to him almost like another big brother); graduated the Academy at 9, two years after Itachi, bored and unremarkable there; Team 3 under Suzume, its only chūnin, until he joined ANBU at 12, one year after Itachi; in ANBU he wore a bat mask and served in Kakashi's unit (Team Ro) with Tenzō until the night he vanished; ANBU is the only unit he ever served in (never the barrier corps, the police force, Root or any other); he was not sent to the Third War's battlefield, the war reached him through his parents at the front. Anyone who speaks of his past says ANBU. He left the Leaf in his own black clothes: his ANBU armour and bat mask stayed behind in the village, and he never has them with him after the massacre night. Izumi and Hazuki were found at dawn and buried with the clan in the Uchiha cemetery (6 October, year 13): their graves hold their bodies.";
 
 /**
  * The forehead protector (decided by Xan, Session 1 audit 6.22): Kan carries
