@@ -123,7 +123,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'erisa-and-banri',
-    number: 2,
+    number: 3,
     title: 'Erisa and Banri',
     date: at(5, 4, 20, 10),
     place: 'your family’s house at the edge of the Uchiha district, Hidden Leaf',
@@ -147,7 +147,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-battlefield',
-    number: 3,
+    number: 2,
     title: 'The battlefield',
     date: at(4, 9, 14, 18, 30),
     place: 'your family’s house in the Uchiha district, Hidden Leaf',
@@ -265,7 +265,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'team-three',
-    number: 8,
+    number: 9,
     title: 'Team 3',
     date: at(9, 9, 20, 9),
     place: 'a training ground in the Hidden Leaf',
@@ -290,7 +290,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-chains',
-    number: 9,
+    number: 10,
     title: 'The chains',
     date: at(10, 7, 12, 2, 40),
     place: 'your room in Hazuki’s house, the Uchiha district, Hidden Leaf',
@@ -322,7 +322,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'hanas-dogs',
-    number: 10,
+    number: 11,
     title: 'Hana’s dogs',
     date: at(10, 8, 3, 7, 30),
     place: 'the forests of the Land of Fire, on a Team 3 mission',
@@ -341,8 +341,37 @@ export const FLASHBACKS: FlashbackRecord[] = [
     importance: 3,
   },
   {
+    id: 'the-finals',
+    number: 12,
+    title: 'The finals',
+    date: at(11, 1, 24, 14),
+    place: 'the Chūnin Exam arena of the Hidden Leaf, then the gate outside it',
+    locationKind: 'structure',
+    cast: ['Hana Inuzuka', 'Izumi Uchiha', 'Suzume', 'Itachi Uchiha', 'Hazuki Uchiha', 'Hiruzen Sarutobi'],
+    scene:
+      'The Chūnin Exam finals in the Leaf’s arena. Team 3 got through the forest together, but the preliminaries ended it for Hana and Izumi; only you reached the finals. Your bout is against a bigger, older genin from another village (one that fits the time: the Sand or the Waterfall). You win it the way you do everything, without letting anyone see where your limit is. Afterwards, at the gate: Hazuki proud and fussing, Izumi teasing you for looking bored the whole match, Hana pretending she isn’t jealous and failing; Suzume quietly telling you the judges saw more than you showed. Itachi, already a chūnin, watched from the stands; he says one thing to you, or nothing. The Third Hokage names you chūnin a week later: the only one on Team 3.',
+    castNotes: [
+      'You are ten, a little over a year out of the Academy; the Academy bored you and you never tried hard there, which is why this surprises people.',
+      'Hana and Izumi are ten too, genin, proud of you and stung at once; Suzume, your sensei, sees more than she says.',
+      'Itachi is ten and already a chūnin, a few months from ANBU; Hazuki is your aunt, who raised you.',
+      'The Third Hokage presides from the Kage box; you only see him from below.',
+    ],
+    hint: 'an arena, a crowd, an exam, a promotion, someone watching a match from the stands',
+    triggers: {
+      beats: ['chunin-exams', 'hana-chunin-exams', 'shikamaru-chunin'],
+      words: /(ch[uū]nin exams?|exam finals?|the finals|arena|stadium|promotion|promoted to ch[uū]nin)/i,
+    },
+    fixed: [
+      'You win your final bout and are made chūnin, the only one on Team 3; Hana and Izumi stay genin.',
+      'You never show your full strength.',
+    ],
+    hidden: ['the coup and the massacre', 'Izumi’s and Itachi’s future'],
+    memoryLine: 'The Chūnin Exam finals, and the promotion that made you the only chūnin on Team 3.',
+    importance: 3,
+  },
+  {
     id: 'the-long-night',
-    number: 11,
+    number: 13,
     title: 'The long night',
     date: at(11, 7, 18, 21),
     place: 'the kennels of the Inuzuka compound, Hidden Leaf',
@@ -373,7 +402,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'itachis-eyes',
-    number: 12,
+    number: 8,
     title: 'Itachi’s eyes',
     date: at(8, 12, 3, 20),
     place: 'the Naka Shrine grounds in the Uchiha district, Hidden Leaf',
@@ -396,7 +425,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   // The ANBU years
   {
     id: 'itachi-joins-anbu',
-    number: 13,
+    number: 14,
     title: 'Itachi joins ANBU',
     date: at(11, 8, 12, 19),
     place: 'the rooftops of the Uchiha district, Hidden Leaf',
@@ -416,7 +445,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'guy-and-the-gate',
-    number: 14,
+    number: 15,
     title: 'Guy and the Gate',
     date: at(11, 11, 4, 21, 30),
     place: 'a training ground in the forest at the edge of the Hidden Leaf',
@@ -448,7 +477,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-mask',
-    number: 15,
+    number: 17,
     title: 'The mask',
     date: at(12, 7, 15, 17),
     place: 'ANBU headquarters, then the Team 3 training ground, Hidden Leaf',
@@ -473,7 +502,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'her-dream',
-    number: 16,
+    number: 18,
     title: 'Her dream',
     date: at(12, 8, 14, 19),
     place: 'Hazuki’s house in the Uchiha district, Hidden Leaf: the kitchen, then the roof',
@@ -507,7 +536,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'first-kill',
-    number: 17,
+    number: 19,
     title: 'First kill',
     date: at(12, 9, 3, 2, 10),
     place: 'a pine forest on the Land of Fire’s northern border, on an ANBU mission',
@@ -526,7 +555,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-three-vultures',
-    number: 18,
+    number: 20,
     title: 'The three vultures',
     date: at(12, 10, 21, 16),
     place: 'a high crag in the mountains on the Land of Fire’s northern border, on an ANBU assignment',
@@ -553,8 +582,34 @@ export const FLASHBACKS: FlashbackRecord[] = [
     importance: 4,
   },
   {
+    id: 'shuriken-in-the-trees',
+    number: 21,
+    title: 'Shuriken in the trees',
+    date: at(12, 11, 9, 16, 30),
+    place: 'the training forest behind the Uchiha district, Hidden Leaf: the clearing with the hidden targets',
+    locationKind: 'wilderness',
+    cast: ['Sasuke Uchiha', 'Mikoto Uchiha'],
+    scene:
+      'Sasuke, seven, has waited by the door all afternoon for Itachi, who left on a mission again with a poke to the forehead and "next time". You find him sulking and take him to the forest behind the district, to the targets Itachi hides behind rocks and branches, and teach him to throw the way Itachi does: the angle, the ricochet, the one target you cannot see. He misses, sulks, tries again, and calls you "Kan-nii" for the first time when one finally hits. Mikoto finds you both at dusk and calls you in to eat.',
+    castNotes: [
+      'Sasuke at seven: worships Itachi, desperate to be noticed by his father, stubborn, quick to pout and quicker to try again; with you he is less on guard than with Itachi.',
+      'Mikoto: warm, amused, a little tired; Fugaku is never home before dark these days.',
+      'You are twelve, in ANBU a few months; the coup talk in the clan is only a mood yet, nothing you can name.',
+    ],
+    hint: 'a child practising with shuriken, a target behind a rock, a younger brother left behind, a boy waiting for someone who doesn’t come',
+    triggers: {
+      people: ['Sasuke Uchiha'],
+      beats: ['sasuke-defects', 'kan-intercept-sasuke', 'itachi-vs-sasuke', 'kan-sasuke-paths', 'sasuke-taka-offer'],
+      words: /(shuriken practice|hidden targets?|little brother|kan-nii)/i,
+    },
+    fixed: ['Sasuke hits the hidden target before dusk and calls you "Kan-nii".', 'Itachi is away; he is not in this memory.'],
+    hidden: ['the coup and the massacre', 'what Sasuke will become', 'Shisui’s death'],
+    memoryLine: 'The afternoon you taught seven-year-old Sasuke to throw at Itachi’s hidden targets, and he first called you Kan-nii.',
+    importance: 4,
+  },
+  {
     id: 'shisui-of-the-body-flicker',
-    number: 19,
+    number: 16,
     title: 'Shisui of the Body Flicker',
     date: at(12, 4, 9, 6, 30),
     place: 'a training ground in the forest outside the Uchiha district, Hidden Leaf',
@@ -578,7 +633,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   // The last days (year 13)
   {
     id: 'last-good-day',
-    number: 20,
+    number: 22,
     title: 'The last good day',
     date: at(13, 9, 14, 15),
     place: 'the banks of the Naka River, Hidden Leaf',
@@ -599,7 +654,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'shisuis-last-night',
-    number: 21,
+    number: 23,
     title: 'Shisui’s last night',
     date: at(13, 9, 20, 20),
     place: 'near the Naka Shrine, Hidden Leaf',
@@ -622,7 +677,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
   },
   {
     id: 'the-week-before',
-    number: 22,
+    number: 24,
     title: 'The week before',
     date: at(13, 9, 24, 14),
     place: 'a dango shop in the Hidden Leaf',
@@ -645,7 +700,7 @@ export const FLASHBACKS: FlashbackRecord[] = [
     // Section 17 (15 Nov 2026): Itachi tells Kan nothing; this is the last
     // time Kan sees Izumi and Hazuki alive.
     id: 'the-order',
-    number: 23,
+    number: 25,
     title: 'The order',
     date: at(13, 9, 29, 19, 30),
     place: 'Hazuki’s house in the Uchiha district, Hidden Leaf',

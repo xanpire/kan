@@ -104,11 +104,14 @@ function playMemory(db: AppDatabase, input: string, narration: string, block: Re
   return { ...applyStateStep(next, diff, { turnLogId, userMessage: input, narration }, new Set()), prompt };
 }
 
-describe('the twenty-three flashbacks', () => {
-  test('numbered 1-23 with unique ids, all before the story begins', () => {
-    expect(FLASHBACKS).toHaveLength(23);
-    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(23);
-    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(23)].map((_, i) => i + 1));
+describe('the twenty-five flashbacks', () => {
+  test('numbered 1-25 by date with unique ids, all before the story begins', () => {
+    expect(FLASHBACKS).toHaveLength(25);
+    expect(new Set(FLASHBACKS.map((record) => record.id)).size).toBe(25);
+    expect(FLASHBACKS.map((record) => record.number).sort((a, b) => a - b)).toEqual([...Array(25)].map((_, i) => i + 1));
+    // Their place in Kan's life is their order in time (v1.25.16).
+    const byNumber = [...FLASHBACKS].sort((a, b) => a.number - b.number);
+    for (let i = 1; i < byNumber.length; i += 1) expect(dateSortValue(byNumber[i].date)).toBeGreaterThan(dateSortValue(byNumber[i - 1].date));
 
     for (const record of FLASHBACKS) {
       expect(dateSortValue(record.date)).toBeLessThan(dateSortValue(DEFAULT_DATE));
@@ -117,13 +120,24 @@ describe('the twenty-three flashbacks', () => {
     }
   });
 
+  test('the finals and the shuriken lesson (v1.25.16): ages fit the decided birthdays', () => {
+    const db = quietSave();
+    const finals = FLASHBACK_BY_ID['the-finals'];
+    const shuriken = FLASHBACK_BY_ID['shuriken-in-the-trees'];
+    expect(kanAgeAt(db, finals.date)).toBe(10);
+    expect(dateSortValue(finals.date)).toBeLessThan(dateSortValue(FLASHBACK_BY_ID['the-long-night'].date));
+    expect(kanAgeAt(db, shuriken.date)).toBe(12);
+    expect(shuriken.cast).toContain('Sasuke Uchiha');
+    expect(shuriken.cast).not.toContain('Itachi Uchiha');
+  });
+
   test('Hana’s, Izumi’s and the vultures’ flashbacks (decided 14 Nov 2026)', () => {
     const db = quietSave();
     const hana = FLASHBACK_BY_ID['the-long-night'];
     const izumi = FLASHBACK_BY_ID['her-dream'];
     const vultures = FLASHBACK_BY_ID['the-three-vultures'];
     expect(kanAgeAt(db, hana.date)).toBe(11);
-    expect(hana.number).toBe(FLASHBACK_BY_ID['hanas-dogs'].number + 1);
+    expect(hana.number).toBe(FLASHBACK_BY_ID['the-finals'].number + 1);
     expect(hana.cast).toEqual(['Hana Inuzuka', 'Tsume Inuzuka']);
     expect(kanAgeAt(db, izumi.date)).toBe(12);
     expect(izumi.date).toMatchObject({ month: 8, day: 14 });

@@ -430,6 +430,8 @@ The current action appears **once** (it is excluded from the recent-message bloc
 
 **v1.25.15 (Session 3):** in a present-tense reply the past perfect is backstory: a duration after "had" ("had yielded nothing for two days") never moves the clock (it moved a flashback's clock a day). While a memory plays, a **Come back** button under the last reply sends `LEAVE_MEMORY_INPUT` ("You pull yourself out of the memory, back to the present."); the narrator's flashback block already ends the memory that reply when Kan pulls himself out. The flashback block's Sharingan line now says it wakes on the massacre night, in the fight with Itachi.
 
+**25 flashbacks** (v1.25.16), numbered strictly by date (the number is only their place in Kan's life; saves keep played and offered ones by id). New: **The finals** (11/1/24, the Chūnin Exam arena: only Kan reaches the finals and is made chūnin, Hana and Izumi stay genin; Itachi, already a chūnin, watches; triggers: the Part 1 exams beats, arenas, promotions) and **Shuriken in the trees** (12/11/9, the forest behind the Uchiha district: Itachi away again, Kan teaches Sasuke, seven, to hit the hidden targets and becomes "Kan-nii"; triggers: Sasuke in the scene and his big beats).
+
 ### State prompt (call 2)
 
 `buildExtractionPrompt` puts `STATE_SYSTEM` first as its own cacheable block (field-by-field rules, ~650 tokens: time, place, people, jutsu, memory, canon, image) and runs after **every** turn against `TURN_STATE_SCHEMA`. The canon ids the narrator no longer sees are given here in `formatCanonTracking`, each with the rule for marking it. News and canon blocks in the narrator prompt describe events in plain words only.
