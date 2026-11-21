@@ -76,10 +76,18 @@ export const KAN_ETERNAL_LINE = `Kan's Eternal Mangekyō (fixed): Izumi's eyes, 
 export const GYRE_LINE =
   'Gyre (Senkai), Kan’s own jutsu, open to him now that he has Wind from Thousand Souls: anything thrown or fired at him is caught in a spiral around him, circles like vultures on a thermal, and is sent back. He has to work it out and practise it on the page before he can use it in a fight.';
 
+// ---------------------------------------------------------------------------
+// Thousand Souls on the page (Session 3: a drained sentry's chakra "tasted of
+// sulfur and water", so no nature was ever recorded)
+
+export const THOUSAND_SOULS_LINE =
+  'Thousand Souls on the page (fixed): when it drains someone, name plainly the chakra nature their chakra carries as it pours into Kan (Fire, Wind, Lightning, Earth or Water; a bloodline nature only if they truly have one), because that nature becomes his for good; if it is one he already has, or the target is a civilian with no trained nature, say it only widens his reserve. Every drain stretches his reserve, painfully at first. It never takes jutsu or memories.';
+
 /** Lines for the narrator's sheet, for what Kan has now. */
 export function kanPowerLines(db: Pick<AppDatabase, 'state'>): string[] {
   return [
     KAN_FIGHTER_LINE,
+    THOUSAND_SOULS_LINE,
     KAN_VULTURES_LINE,
     kanHasEternal(db) ? KAN_ETERNAL_LINE : kanHasMangekyo(db) ? KAN_MANGEKYO_LINE : '',
     kanHasStolenWind(db) ? GYRE_LINE : '',

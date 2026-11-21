@@ -190,7 +190,7 @@ const WORLD_AREA_RULES: Record<WorldArea, string> = {
   safehouse: 'SAFEHOUSE: safehouse follows the rules under SAFEHOUSES.',
   enemies: `NAME & ENEMIES: reputation, bounty_seen, epithet, name_out, grudges, consequences, and consequences_returned follow the rules under REPUTATION & GRUDGES; otherwise [] (epithet null).`,
   lives: `LIVES: life_events: {character_id, event} for something that happened in a person's own life away from you that this turn reveals as true (a promotion, an injury, a move, a new team, a wedding; their letter, or they tell you); event in a few words, third person without their name ("was promoted to jonin"); otherwise []. birthdays_learned: ids of people whose birthday you learn on the page this turn (they say it, someone tells you); otherwise [].`,
-  abilities: `ABILITIES: natures_gained when you learn one of your own chakra natures (source "innate") or take one with Thousand Souls (source "thousand-souls", from = whose chakra); abilities_changed when one of your abilities awakens or changes stage (name "Sharingan" stage "1 tomoe"/"2 tomoe"/"3 tomoe"; "Mangekyō Sharingan" "awakened"; "Susanoo" "ribcage"/"full body"...). Otherwise [].`,
+  abilities: `ABILITIES: natures_gained when you learn one of your own chakra natures (source "innate") or take one with Thousand Souls (source "thousand-souls", from = whose chakra; whenever the reply shows Thousand Souls draining someone and names a nature Kan does not have yet, report it); abilities_changed when one of your abilities awakens or changes stage (name "Sharingan" stage "1 tomoe"/"2 tomoe"/"3 tomoe"; "Mangekyō Sharingan" "awakened"; "Susanoo" "ribcage"/"full body"...). Otherwise [].`,
   canon: `CANON: canon_engaged / canon_completed / canon_passed / news_relayed use ids exactly as listed under CANON TRACKING, only when that id's rule is met; otherwise []. A catch-up report can relay several listed news ids in one turn. trial_mission is null unless an AKATSUKI TRIAL line below says how to set it.`,
   weather: `WEATHER: weather: a few words for the sky the reply shows, whenever it differs from WEATHER NOW or changes it. If the reply describes rain, a downpour, drizzle, snow, sleet, fog, a storm, strong wind or a clear sky that WEATHER NOW does not say, set weather to it (\"heavy rain\", \"fog rolling in\"), even if it was already falling before this turn; when rain or snow stops, say so (\"the rain stops\"). Null only when the reply shows no weather or the same as WEATHER NOW. The Rain and the Mist as places are not weather.`,
   flashback: `FLASHBACK: flashback is null unless a FLASHBACK, MEMORY or THIS TURN IS A MEMORY line below says how to set it.`,
@@ -1152,7 +1152,11 @@ function formatJutsu(db: AppDatabase) {
   const isKan = (user: string) => user.trim().toLowerCase() === 'kan';
   const used = (a: JutsuRecord, b: JutsuRecord) =>
     Number(b.tags.includes('signature')) - Number(a.tags.includes('signature')) || b.timesUsed - a.timesUsed;
-  const own = db.jutsuRecords.filter((record) => isKan(record.user)).sort(used).slice(0, KAN_JUTSU_LIMIT);
+  const allOwn = db.jutsuRecords.filter((record) => isKan(record.user)).sort(used);
+  const own = allOwn.slice(0, KAN_JUTSU_LIMIT);
+  // Past the limit, every other jutsu Kan knows is still named (Session 3: he
+  // starts with 28 and the narrator saw 20, so some never came up in a fight).
+  const alsoKnows = allOwn.slice(KAN_JUTSU_LIMIT).map((record) => record.name);
 
   const people = new Map(db.entities.map((entity) => [entity.id, entity]));
   const present = sceneCastIdsOf(db)
@@ -1184,6 +1188,7 @@ function formatJutsu(db: AppDatabase) {
             `  - ${record.name}${record.tags.includes('signature') ? ' (signature)' : ''} [${normalizeJutsuNature(record.chakraNature)}${costOf(record)}]: ${truncate(record.effect, 90)}; used ${record.timesUsed}×`
         )
       : ['  None yet.']),
+    ...(alsoKnows.length > 0 ? [`  Also knows: ${alsoKnows.join(', ')}.`] : []),
     ...(theirs.length > 0 ? ['JUTSU OF PEOPLE IN THE SCENE', ...theirs] : []),
   ].join('\n');
 }

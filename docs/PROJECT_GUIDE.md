@@ -432,6 +432,8 @@ The current action appears **once** (it is excluded from the recent-message bloc
 
 **25 flashbacks** (v1.25.16), numbered strictly by date (the number is only their place in Kan's life; saves keep played and offered ones by id). New: **The finals** (11/1/24, the Chūnin Exam arena: only Kan reaches the finals and is made chūnin, Hana and Izumi stay genin; Itachi, already a chūnin, watches; triggers: the Part 1 exams beats, arenas, promotions) and **Shuriken in the trees** (12/11/9, the forest behind the Uchiha district: Itachi away again, Kan teaches Sasuke, seven, to hit the hidden targets and becomes "Kan-nii"; triggers: Sasuke in the scene and his big beats).
 
+**v1.25.18 (Session 3):** a jutsu record's `effect` (what it does: the Jutsu tab's text and the narrator's list) stays as first recorded; a use updates the count, the date and the look only. The narrator's sheet has `THOUSAND_SOULS_LINE` (name the nature a drain takes, or say it only widens his reserve), and the tracker reports natures_gained whenever a drain names one Kan lacks. KAN'S JUTSU keeps 20 detailed lines and names every other jutsu Kan knows on an "Also knows" line (he starts with 28). Toasts on the Story tab sit above the composer (v1.25.17). Tests: `session3-jutsu.test.ts`.
+
 ### State prompt (call 2)
 
 `buildExtractionPrompt` puts `STATE_SYSTEM` first as its own cacheable block (field-by-field rules, ~650 tokens: time, place, people, jutsu, memory, canon, image) and runs after **every** turn against `TURN_STATE_SCHEMA`. The canon ids the narrator no longer sees are given here in `formatCanonTracking`, each with the rule for marking it. News and canon blocks in the narrator prompt describe events in plain words only.

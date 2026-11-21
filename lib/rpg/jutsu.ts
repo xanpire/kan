@@ -261,7 +261,10 @@ export function applyJutsuDiff(db: AppDatabase, jutsu: JutsuDiff): AppDatabase {
   jutsuRecords[existingIndex] = {
     ...existing,
     chakraNature: normalizeJutsuNature(jutsu.chakraNature ?? existing.chakraNature),
-    effect: jutsu.effect?.trim() || existing.effect,
+    // What the jutsu does stays as first recorded (Kan's own were seeded with
+    // it): a use used to overwrite it with that turn's account, so the Jutsu
+    // tab and the narrator's list showed the last kill, not the jutsu (Session 3).
+    effect: existing.effect || jutsu.effect?.trim() || '',
     visual: jutsu.visual?.trim() || existing.visual,
     lastSeen: db.state.inStoryDate,
     timesUsed: existing.timesUsed + 1,

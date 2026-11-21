@@ -52,9 +52,12 @@ describe('jutsu (audit 6.13)', () => {
       db = applyJutsuDiff(db, { name, user: 'Kan', chakraNature: natures[index], effect: `effect of ${name}` });
     });
     const text = buildNarrationPrompt(db, '*I wait.*').messages.map((message) => message.content).join('\n');
-    for (const name of names) {
-      expect(text).toContain(name);
+    // A name that matches a seeded jutsu ("Fire Style: Phoenix Flower") merges
+    // into it under the first name recorded; every one of Kan's records shows.
+    for (const record of db.jutsuRecords.filter((item) => item.user === 'Kan')) {
+      expect(text).toContain(record.name);
     }
+    expect(text).toContain('Demonic Illusion: Mist Servant');
     expect(text).toContain('KAN’S JUTSU');
   });
 });
