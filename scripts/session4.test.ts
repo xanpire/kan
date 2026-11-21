@@ -20,3 +20,22 @@ describe('the Mangekyō pattern reaches the narrator with the offer', () => {
     expect(beat.onThePage).toContain('vulture bills');
   });
 });
+
+describe('the cloak is given by the Akatsuki, not carried out of the Leaf', () => {
+  test('kan-joins-akatsuki says where the cloaks come from', () => {
+    const beat = CANON_MILESTONES.find((item) => item.id === 'kan-joins-akatsuki')!;
+    expect(beat.onThePage).toContain('never on the road out of the Land of Fire');
+  });
+});
+
+describe('the Leaf never found a body', () => {
+  test('the line after the first night says so (Itachi spoke of "charred remains")', async () => {
+    const { normalizeDatabase } = await import('../lib/rpg/db');
+    const { seedDatabase } = await import('../lib/rpg/seed');
+    const { buildNarrationPrompt } = await import('../lib/rpg/prompt');
+    const db = normalizeDatabase(seedDatabase('slot_s4', 'S4'));
+    const later = { ...db, state: { ...db.state, inStoryDate: { year: 13, month: 10, day: 6, hour: 22, minute: 0, second: 0 } } };
+    const text = buildNarrationPrompt(later, 'I ask.').messages.map((m) => m.content as string).join('\n');
+    expect(text).toContain('your body was never found');
+  });
+});

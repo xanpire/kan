@@ -288,7 +288,9 @@ const CORE_MILESTONES: CanonMilestone[] = [
     major: true,
     playerDriven: true,
     completesWhen:
-      'Pain, Konan or Itachi hands you the Akatsuki cloak on the page, or the leader lets you in on trial. Agreeing to go with Itachi, travelling to the Rain or waiting to be seen is only canon_engaged.',
+      'Pain or Konan (or Itachi at their side, in the Rain or at the meeting place the Akatsuki chose) hands you the Akatsuki cloak on the page, or the leader lets you in on trial. Agreeing to go with Itachi, travelling to the Rain or waiting to be seen is only canon_engaged.',
+    onThePage:
+      'The cloaks come from the Akatsuki themselves (Konan, for the leader), in the Rain or at a meeting place of theirs, never on the road out of the Land of Fire: until then neither you nor Itachi has one, and Itachi travels in plain dark clothes.',
     facts: [
       'You went into the Akatsuki together with Itachi Uchiha.',
       'You wear an Akatsuki cloak with red clouds.',
