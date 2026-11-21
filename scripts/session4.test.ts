@@ -12,3 +12,11 @@ describe('Session 4 findings', () => {
     expect(beat.encounter?.context).toContain('make it unmistakable');
   });
 });
+
+describe('the Mangekyō pattern reaches the narrator with the offer', () => {
+  test('the beat carries the fixed pattern, black iris and red bills', () => {
+    const beat = CANON_MILESTONES.find((item) => item.id === 'kan-mangekyo')!;
+    expect(beat.onThePage).toContain('black iris with a red pattern');
+    expect(beat.onThePage).toContain('vulture bills');
+  });
+});

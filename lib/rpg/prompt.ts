@@ -1445,6 +1445,7 @@ function formatCanonBlock(db: AppDatabase) {
     lines.push(
       '  This only occurs if Kan actually does it in the scene. Never state it has happened because time passed.'
     );
+    if (beat.onThePage) lines.push(`  On the page: ${beat.onThePage}`);
   }
 
   if (active.length > 0) {
@@ -1462,6 +1463,7 @@ function formatCanonBlock(db: AppDatabase) {
       lines.push(
         '  If Kan\'s scene reaches this beat, play it out fully on the page.'
       );
+      if (milestone.onThePage) lines.push(`  On the page: ${milestone.onThePage}`);
     }
   }
 

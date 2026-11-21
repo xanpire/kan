@@ -12,6 +12,7 @@
 // The Fourth War runs on its canon clock: two days and the night between, 22/10/8 to dawn on 22/10/10 (Naruto’s seventeenth birthday).
 
 import type { CalendarDate, ThreadType } from './types';
+import { KAN_MANGEKYO_PATTERN } from './kanPowers';
 import { STAGE_TWO_PERSONAL, STAGE_TWO_WORLD } from './canonDataMore';
 
 export type CanonProgress = {
@@ -96,6 +97,12 @@ export type CanonMilestone = {
    * threads or canon point are true yet.
    */
   completesWhen?: string;
+  /**
+   * How the beat must read on the page, sent whole with the offer (the
+   * description and encounter are cut short there). Session 4: the funeral
+   * Mangekyō came out "a black pinwheel" and read as one more tomoe.
+   */
+  onThePage?: string;
   /** Jutsu Kan gains when this beat happens (recorded as signature jutsu). */
   grantsJutsu?: CanonJutsuGrant[];
   facts: string[];
@@ -2530,6 +2537,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       { name: 'Mangekyō Sharingan', stage: 'awakened' },
       { name: 'Susanoo', stage: 'ribs and an arm' },
     ],
+    onThePage: `When it wakes, make it unmistakable: the tomoe spin and fuse into his own pattern (${KAN_MANGEKYO_PATTERN}), seen in a reflection or in someone's face, and he knows it for the Mangekyō; never leave it reading as one more tomoe, and never Itachi's or Shisui's pattern. Blood from the eyes, a headache like a nail.`,
     completesWhen: "At Izumi's funeral (watching her buried, in disguise or from the treeline) or later at her grave, knowing she is dead, the grief lands and the Mangekyō awakens on the page: tomoe that spin, warp or fuse into a new shape there are this awakening, never more tomoe (then also abilities_changed: \"Mangekyō Sharingan\" \"awakened\").",
     facts: [
       "Kan awakened the Mangekyō Sharingan at Izumi Uchiha's grave.",
