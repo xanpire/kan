@@ -2530,7 +2530,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       { name: 'Mangekyō Sharingan', stage: 'awakened' },
       { name: 'Susanoo', stage: 'ribs and an arm' },
     ],
-    completesWhen: "At Izumi's funeral (watching her buried, in disguise or from the treeline) or later at her grave, knowing she is dead, the grief lands and the Mangekyō awakens on the page.",
+    completesWhen: "At Izumi's funeral (watching her buried, in disguise or from the treeline) or later at her grave, knowing she is dead, the grief lands and the Mangekyō awakens on the page: tomoe that spin, warp or fuse into a new shape there are this awakening, never more tomoe (then also abilities_changed: \"Mangekyō Sharingan\" \"awakened\").",
     facts: [
       "Kan awakened the Mangekyō Sharingan at Izumi Uchiha's grave.",
       'Kan’s Mangekyō holds Sky Burial in the left eye and Okuribi in the right, and he can manifest a blood-red Susanoo.',
@@ -2571,7 +2571,7 @@ const PERSONAL_BEATS: CanonMilestone[] = [
       who: "Izumi's grave",
       where: 'the Uchiha cemetery outside Hidden Leaf, usually at night',
       context:
-        "This only happens when Kan watches Izumi buried at her funeral (6 October, in disguise or from the treeline), or comes to her grave later, knowing she is dead, and lets the loss land. Never in a fight, and never in the first fight with Itachi, which wakes only the tomoe Sharingan. At the funeral Hana and Suzume are at the grave; later, alone, or found there by Hana or Itachi. The pattern is fixed: black iris, a red ring with three vulture bills hooking inward, three red half-turn spirals into a red rim. The left eye holds Sky Burial, the right Okuribi; the Susanoo is blood red and starts as ribs and an arm.",
+        "This only happens when Kan watches Izumi buried at her funeral (6 October, in disguise or from the treeline), or comes to her grave later, knowing she is dead, and lets the loss land. Never in a fight, and never in the first fight with Itachi, which wakes only the tomoe Sharingan. At the funeral Hana and Suzume are at the grave; later, alone, or found there by Hana or Itachi. The pattern is fixed: black iris, a red ring with three vulture bills hooking inward, three red half-turn spirals into a red rim. The left eye holds Sky Burial, the right Okuribi; the Susanoo is blood red and starts as ribs and an arm. When it wakes, make it unmistakable: the tomoe fuse into that pattern, and Kan knows it for what it is, the Mangekyō (he has heard of it in the clan); never leave it reading as one more tomoe.",
     },
   },
 
