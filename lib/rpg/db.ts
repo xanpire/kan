@@ -852,6 +852,12 @@ export async function importDatabase(
   return imported;
 }
 
+/** Session 4: a painting gave Itachi a whole Leaf plate in the Rain. His is scratched from the massacre night. */
+export function scratchItachiProtector(appearance: string): string {
+  if (/scratch/i.test(appearance)) return appearance;
+  return appearance.replace(/a Hidden Leaf forehead protector\./, 'a Hidden Leaf forehead protector with one deep scratch through the leaf (he cut it the night of the massacre).');
+}
+
 function migrateCanonV2(db: AppDatabase): AppDatabase {
   const progress = db.state?.canonProgress;
 
@@ -1018,8 +1024,10 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
           appearance:
             entity.type === 'character' && entity.name.toLowerCase() === 'kan'
               ? migrateKanEyes(entity.appearance) ?? KAN_APPEARANCE
-              : entity.appearance ??
-                (entity.type === 'character' ? 'Unknown' : undefined),
+              : entity.name === 'Itachi Uchiha' && typeof entity.appearance === 'string'
+                ? scratchItachiProtector(entity.appearance)
+                : entity.appearance ??
+                  (entity.type === 'character' ? 'Unknown' : undefined),
           gender: entity.type === 'character' ? (entity.gender ?? genderOf(entity)) : undefined,
           // Kan is straight: men are never romance options, and he has none himself.
           romanceAccessibility:

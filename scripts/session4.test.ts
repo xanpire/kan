@@ -58,3 +58,13 @@ describe('tracker wording from Session 4', () => {
     expect(text).toContain('never warmer because they were kind to you');
   });
 });
+
+describe("Itachi's protector is scratched (Session 4 painting)", () => {
+  test('old saves gain the scratch, new saves have it', async () => {
+    const { normalizeDatabase, scratchItachiProtector } = await import('../lib/rpg/db');
+    const { seedDatabase } = await import('../lib/rpg/seed');
+    expect(scratchItachiProtector('dark trousers, and a Hidden Leaf forehead protector.')).toContain('one deep scratch');
+    const db = normalizeDatabase(seedDatabase('slot_it', 'It'));
+    expect(db.entities.find((entity) => entity.name === 'Itachi Uchiha')!.appearance).toContain('one deep scratch');
+  });
+});

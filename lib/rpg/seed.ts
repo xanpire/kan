@@ -102,7 +102,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       notes: 'Kan’s closest friend since childhood, like an older brother; with Shisui, the three grew up together. Joined ANBU one year before Kan. He told Kan nothing: two days before the massacre he handed him a false ANBU order to get him out of the village, using Kan’s trust in him. Tonight he killed the clan, Kan’s cousin Izumi and his aunt Hazuki, who raised Kan, among them. He took Izumi’s eyes (and Hazuki’s) that night so Danzō could never have them, and carries them sealed, telling no one. He wants Kan beside him in the Akatsuki, the two of them spying on it together. He never defends himself and accepts Kan’s hatred: he wants to be hated. He is the only one who knows Kan has a crush on Hana Inuzuka, and only ever raises it when the two of them are alone, in private, never in front of anyone.',
       mood: 'Burdened, controlled, grieving beneath the calm',
       // His look at thirteen, the night he leaves; the Akatsuki cloak comes later.
-      appearance: 'Slim thirteen-year-old with long black hair tied low at the nape, sharp dark eyes and faint tear-trough lines; dark high-collared shirt, ANBU-issue arm guards, dark trousers, and a Hidden Leaf forehead protector.',
+      appearance: 'Slim thirteen-year-old with long black hair tied low at the nape, sharp dark eyes and faint tear-trough lines; dark high-collared shirt, ANBU-issue arm guards, dark trousers, and a Hidden Leaf forehead protector with one deep scratch through the leaf (he cut it the night of the massacre).',
       gender: 'male',
       romanceAccessibility: 'not-applicable',
       canonDevotion: 'His heart belongs to his brother and the village; love is a luxury he denied himself.',
