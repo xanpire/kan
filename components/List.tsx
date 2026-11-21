@@ -146,6 +146,7 @@ export function FilterPills<T extends string>({
 
         return (
           <Pressable
+            accessibilityLabel={option.label}
             accessibilityRole="button"
             accessibilityState={{ selected }}
             hitSlop={4}

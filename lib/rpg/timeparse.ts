@@ -207,7 +207,7 @@ function periodEventClock(text: string): ClockReading | undefined {
   // second day": the day count makes it a landing, not a plan (Session 3: the
   // run to the border landed on "Night falls a second time", at 22:00).
   for (const match of text.matchAll(
-    /\b(?:by|at|on|with|until|till)\s+(?:the\s+)?(?:(early|late|mid)[\s-]+)?(dawn|daybreak|sunrise|first light|morning|noon|midday|afternoon|dusk|sunset|evening|nightfall|night)\s+of\s+the\s+(?:next|following|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d+(?:st|nd|rd|th))\s+day\b/gi
+    /\b(?:by|at|on|with|until|till|in)\s+(?:the\s+)?(?:(early|late|mid)[\s-]+)?(?:(?!of\b)[a-z]+,?\s+)?(dawn|daybreak|sunrise|first light|morning|noon|midday|afternoon|dusk|sunset|evening|nightfall|night)\s+of\s+the\s+(?:next|following|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d+(?:st|nd|rd|th))\s+day\b/gi
   )) {
     events.push({ index: match.index ?? 0, word: match[2], shade: match[1] });
   }

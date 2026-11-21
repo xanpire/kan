@@ -251,13 +251,14 @@ export const FAME: Record<string, { level: FameLevel; from?: string }[]> = {
 
 /**
  * Names a canon beat itself gives Kan: the people who introduce themselves,
- * or are named to him, in the moment the beat completes. Pain receives Kan
- * and names his partner at the joining (its facts say so), so the goal
- * "Survive Kakuzu" can never show a name Kan hasn't heard.
+ * or are named to him, in the moment the beat completes. Since the trial
+ * (v1.24.86) the cloak can come from Konan before Kan ever sees the leader
+ * (Session 3: "Pain says" on the page with nobody having said it), so Pain's
+ * name comes with the acceptance, whose text names him, alongside Kakuzu's;
+ * before that only the story can give it.
  */
 export const INTRODUCED_AT: Record<string, string[]> = {
-  'kan-joins-akatsuki': ['Pain'],
-  'kan-accepted-akatsuki': ['Kakuzu'],
+  'kan-accepted-akatsuki': ['Pain', 'Kakuzu'],
 };
 
 /**

@@ -426,6 +426,8 @@ The current action appears **once** (it is excluded from the recent-message bloc
 
 **Spelled-out times** (v1.25.13): `explicitClock` reads "by twenty past eleven", "at half past nine", "it is a quarter to four", "ten past midnight". An hour with no am/pm is the occurrence after now closest to where the stated duration lands, for spans under 20 hours ("nearly five hours… by twenty past eleven" from 6:32 is 11:20); over that, the next one after the duration, as before. **The recap card** ("Where you left off") goes when any reply starts (a retry or Wait too) and when an undo changes the story. **List rows** name their button by title, body and meta when no label is given (the turn sheet read as four unnamed buttons).
 
+**v1.25.14 (Session 3):** `INTRODUCED_AT` no longer gives Pain's name with the cloak (Konan can hand it over before Kan sees the leader); the acceptance introduces Pain and Kakuzu. The tracker is told bond notes are shown to the player and use only what Kan knows. "By the grey morning of the next day" (one adjective before the period word) is a landing. Filter pills (the Let time pass spans, time presets) are named buttons.
+
 ### State prompt (call 2)
 
 `buildExtractionPrompt` puts `STATE_SYSTEM` first as its own cacheable block (field-by-field rules, ~650 tokens: time, place, people, jutsu, memory, canon, image) and runs after **every** turn against `TURN_STATE_SCHEMA`. The canon ids the narrator no longer sees are given here in `formatCanonTracking`, each with the rule for marking it. News and canon blocks in the narrator prompt describe events in plain words only.

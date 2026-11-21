@@ -227,7 +227,7 @@ describe('Session 1: quick actions use only what Kan has (audit 8)', () => {
 });
 
 describe('Session 1: names in what the Journal shows (audit 11d)', () => {
-  test('the cloak introduces Pain; the ring introduces Kakuzu (audit 8)', () => {
+  test('the cloak introduces no one (Session 3); the ring introduces Pain and Kakuzu (audit 8)', () => {
     const base = seed();
     const progress = base.state.canonProgress!;
     const db = { ...base, state: { ...base.state, canonProgress: { ...progress, active: ['kan-joins-akatsuki'], engaged: [...progress.engaged, 'kan-joins-akatsuki'] } } };
@@ -235,7 +235,7 @@ describe('Session 1: names in what the Journal shows (audit 11d)', () => {
       characters_present: ['pain', 'kakuzu'],
       canon_completed: ['kan-joins-akatsuki'],
     });
-    expect(displayName(result.db, person(result.db, 'Pain'))).toBe('Pain');
+    expect(displayName(result.db, person(result.db, 'Pain'))).not.toBe('Pain');
     expect(displayName(result.db, person(result.db, 'Kakuzu'))).not.toBe('Kakuzu');
     expect(result.db.threads.some((thread) => thread.title === 'Survive Kakuzu')).toBe(false);
     expect(result.events.filter((event) => event.kind === 'violation')).toEqual([]);
@@ -247,6 +247,7 @@ describe('Session 1: names in what the Journal shows (audit 11d)', () => {
       canon_completed: ['kan-accepted-akatsuki'],
     });
     expect(displayName(accepted.db, person(accepted.db, 'Kakuzu'))).toBe('Kakuzu');
+    expect(displayName(accepted.db, person(accepted.db, 'Pain'))).toBe('Pain');
     expect(accepted.db.threads.some((thread) => thread.title === 'Survive Kakuzu' && thread.status === 'open')).toBe(true);
   });
 

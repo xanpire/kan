@@ -109,3 +109,23 @@ describe('spelled-out clock times (Session 3)', () => {
     expect(detectNarrationTime('After ten minutes of silence, he speaks.', morning).clock).toBeUndefined();
   });
 });
+
+describe('a skip cut short lands on the morning the prose ends on (Session 3)', () => {
+  test('"By nightfall… By the grey morning of the next day" lands in the morning, not at nightfall', () => {
+    const current = date(4, 11, 36);
+    const text =
+      'Only one day passes on the road west. By nightfall, the flat wetlands buckle into jagged slate, the border of the Land of Rain weeping under an endless drizzle.\n\n' +
+      "By the grey morning of the next day, you are brought deep within Rain's drowned perimeter, into the hollow belly of an immense iron reservoir.";
+    const detected = detectNarrationTime(text, current);
+    const result = resolveTurnClock({
+      reportedSeconds: 86400,
+      detected,
+      pace: paceOfTurn('travel', text, undefined, detected.sleptNight),
+      sceneEnded: false,
+      current,
+      skipSeconds: 86400,
+    });
+    const at = advanceSeconds(current, result.elapsedSeconds);
+    expect([at.day, at.hour]).toEqual([5, 8]);
+  });
+});
