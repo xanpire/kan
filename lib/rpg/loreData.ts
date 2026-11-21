@@ -347,8 +347,11 @@ export const CANON_LORE: CanonLore[] = [
     title: 'The Uchiha massacre',
     topic: 'secret',
     keywords: ['massacre', 'the uchiha massacre', 'killed the clan', 'murdered his clan', 'slaughtered', 'the clan is dead', 'uchiha district'],
-    people: ['Itachi Uchiha', 'Sasuke Uchiha', 'Danzo Shimura', 'Tobi'],
-    text: 'Itachi killed the Uchiha on the elders’ order, with Danzō pressing for it and the masked man helping, to stop the coup and a civil war that would have invited the other villages in. He spared Sasuke and made the Third promise to protect him.',
+    people: ['Itachi Uchiha', 'Sasuke Uchiha', 'Danzo Shimura'],
+    // The masked man's part is its own entry (massacre-masked-man): Itachi's
+    // account in the forest leaves him out (Session 3: "What you know" named
+    // him the night Kan learned the rest).
+    text: 'Itachi killed the Uchiha on the elders’ order, with Danzō pressing for it, to stop the coup and a civil war that would have invited the other villages in. He spared Sasuke and made the Third promise to protect him.',
     belief: { text: 'Itachi Uchiha slaughtered his whole clan in one night to test his own strength, sparing only his little brother Sasuke, and fled the village.', heldBy: ['everyone'] },
     known: ['Hiruzen Sarutobi', 'Danzo Shimura', 'Homura Mitokado', 'Koharu Utatane', 'Tobi', 'Zetsu', 'Itachi Uchiha'],
     // Kan learns that it happened, and why, from Itachi in the forest, mid-fight (section 17).
@@ -356,12 +359,23 @@ export const CANON_LORE: CanonLore[] = [
     priority: 3,
   },
   {
+    id: 'massacre-masked-man',
+    title: 'The masked man on the massacre night',
+    topic: 'secret',
+    keywords: ['masked man', 'massacre night', 'helped itachi', 'the man who helped'],
+    people: ['Itachi Uchiha', 'Tobi'],
+    text: 'Itachi did not kill the clan alone: the masked man calling himself Madara helped him that night, in return for leaving the Leaf alone, and has held it over him since.',
+    known: ['Itachi Uchiha', 'Tobi', 'Zetsu'],
+    widens: [{ at: 'masked-man-truth', known: ['Sasuke Uchiha'] }],
+    priority: 2,
+  },
+  {
     id: 'shisui-death',
     title: 'Shisui’s death',
     topic: 'secret',
     keywords: ['shisui', 'naka river', 'body of shisui', 'shisui’s eye', "shisui's eye", 'body flicker'],
     people: ['Shisui Uchiha', 'Itachi Uchiha', 'Danzo Shimura'],
-    text: 'Shisui Uchiha meant to stop the coup with Kotoamatsukami, his Mangekyō’s mind-bending genjutsu; Danzō ambushed him and took his right eye. Shisui gave his left to Itachi, staged his death and drowned himself in the Naka River.',
+    text: 'Shisui Uchiha meant to stop the coup with Kotoamatsukami, his Mangekyō’s mind-bending genjutsu; Danzō ambushed him and took his right eye. Shisui gave his left to Itachi, asked him to protect the village and the clan’s name, and threw himself into the Naka River so that nothing of him could be used.',
     belief: { text: 'Shisui of the Body Flicker drowned himself in the Naka River and left a note saying he was tired of the shinobi way. Some of the clan suspected Itachi.', heldBy: ['leaf', 'uchiha'] },
     known: ['Itachi Uchiha', 'Danzo Shimura'],
     kan: 'belief',

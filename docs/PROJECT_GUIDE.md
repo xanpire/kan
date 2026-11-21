@@ -438,6 +438,8 @@ The current action appears **once** (it is excluded from the recent-message bloc
 
 **v1.25.20 (Session 3):** a stolen nature's source is stored as the person's name (`natureSourceName`; the Kan tab had read "from the-lean-grass-rogue"). Inside a memory, someone travelling with Kan now counts only if they are in that memory's cast (the tracker had filed "The three vultures" under Konan); the tracker's memory line says so too. Birth years corrected to databook ages (old saves through `BIRTH_YEAR_FIXES`): Deidara 2, Hidan −1, Kakuzu −70, Kisame −10, Konan and Yahiko −13, Pain (Nagato) −14, Asuma −11, Gaara 6, Haku 3. Left as they were (unsure): Chiyo, Yugito.
 
+**v1.25.21:** the `uchiha-massacre` lore truth no longer names the masked man (Kan learns that truth from Itachi in the forest, and "What you know" showed "the masked man helping"); his part is the new secret entry `massacre-masked-man` (Itachi, Tobi, Zetsu; Sasuke from `masked-man-truth`), learned only when someone tells Kan. `shisui-death` now says Shisui threw himself into the Naka River (not "staged his death").
+
 ### State prompt (call 2)
 
 `buildExtractionPrompt` puts `STATE_SYSTEM` first as its own cacheable block (field-by-field rules, ~650 tokens: time, place, people, jutsu, memory, canon, image) and runs after **every** turn against `TURN_STATE_SCHEMA`. The canon ids the narrator no longer sees are given here in `formatCanonTracking`, each with the rule for marking it. News and canon blocks in the narrator prompt describe events in plain words only.
