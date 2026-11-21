@@ -560,7 +560,7 @@ export function conditionFromText(text: string | undefined | null): WeatherCondi
 
 /** Weather in the prose, narrow on purpose: only what falls from the sky, or fog. */
 const PROSE_PATTERNS: [RegExp, WeatherCondition][] = [
-  [/\b(rain|downpour|drizzle)\b[^.]*\b(stops|stopped|eases off|eased off|lets up|let up|ends|ended|dies away|died away)\b/i, 'cloudy'],
+  [/\b(rain|downpour|drizzle)\b[^.]*\b(stops|stopped|eases off|eased off|lets up|let up|ends|ended|dies away|died away|dies off|died off|peters out|petered out)\b/i, 'cloudy'],
   [/\b(blizzard|white-?out)\b/i, 'blizzard'],
   [/\b(thunder|thunderclap|thunderstorm)\b/i, 'storm'],
   [/\b(downpour|pouring rain|torrential|sheets of rain|deluge|cloudburst|lashing rain)\b/i, 'downpour'],
@@ -570,8 +570,33 @@ const PROSE_PATTERNS: [RegExp, WeatherCondition][] = [
   // Rain before fog: rainy prose often has "the mist" in it, and falling
   // rain is the plainer fact (audit 7.2: a downpour was read as fog).
   [/\b(rain|raining|rainfall|rainwater)\b/i, 'rain'],
-  [/\b(fog|thick mist|the mist)\b/i, 'fog'],
+  [/\b(fog|fogbank|mist|mists)\b/i, 'fog'],
 ];
+
+/** Words that show each family in prose, to tell whether a tracker report is backed by the reply. */
+const FAMILY_WORDS: Record<string, RegExp> = {
+  wet: /\b(rain|raining|rainfall|downpour|drizzle|drizzling|deluge|torrential|storm|thunder)\b/i,
+  snow: /\b(snow|snowing|snowfall|sleet|blizzard|flurr(?:y|ies))\b/i,
+  fog: /\b(fog|fogbank|mist|mists|misty|haze)\b/i,
+};
+
+/** Splits the prose into paragraphs, last first: a reply that covers days ends in its last weather. */
+function paragraphsLastFirst(prose: string) {
+  return prose.split(/\n+/).filter((paragraph) => paragraph.trim()).reverse();
+}
+
+/**
+ * Whether the reply shows the weather the tracker reported (Session 3: the
+ * tracker said "rain easing to a cold low mist" over three days of travel,
+ * and the first paragraph's "downpour" overrode it).
+ */
+export function proseBacksWeather(narration: string, reported: string | undefined): boolean {
+  const condition = conditionFromText(reported);
+  if (!condition) return false;
+  const family = FAMILY[condition];
+  if (!family) return true;
+  return FAMILY_WORDS[family]?.test(narration) ?? true;
+}
 
 const FAMILY: Partial<Record<WeatherCondition, string>> = {
   drizzle: 'wet', rain: 'wet', downpour: 'wet', storm: 'wet',
@@ -594,20 +619,24 @@ export function weatherFromNarration(db: AppDatabase, narration: string): string
     .replace(/\b(?:Amegakure|Kirigakure)\b/gi, ' ');
   const now = currentWeather(db).condition;
 
-  for (const [pattern, condition] of PROSE_PATTERNS) {
-    const global = new RegExp(pattern.source, `${pattern.flags}g`);
+  // The last paragraph that shows any weather is where the turn ends; inside
+  // it, the order of PROSE_PATTERNS decides (rain before "the mist").
+  for (const paragraph of paragraphsLastFirst(prose)) {
+    for (const [pattern, condition] of PROSE_PATTERNS) {
+      const global = new RegExp(pattern.source, `${pattern.flags}g`);
 
-    for (const match of prose.matchAll(global)) {
-      const before = prose.slice(Math.max(0, (match.index ?? 0) - 24), match.index);
-      if (NEGATED.test(before)) continue;
+      for (const match of paragraph.matchAll(global)) {
+        const before = paragraph.slice(Math.max(0, (match.index ?? 0) - 24), match.index);
+        if (NEGATED.test(before)) continue;
 
-      if (condition === 'cloudy') {
-        return FAMILY[now] === 'wet' ? 'the rain stops' : undefined;
+        if (condition === 'cloudy') {
+          return FAMILY[now] === 'wet' ? 'the rain stops' : undefined;
+        }
+
+        if (FAMILY[condition] === FAMILY[now] && FAMILY[now]) return undefined;
+
+        return CONDITION_INFO[condition].label;
       }
-
-      if (FAMILY[condition] === FAMILY[now] && FAMILY[now]) return undefined;
-
-      return CONDITION_INFO[condition].label;
     }
   }
 

@@ -35,7 +35,7 @@ import { applyScrollCache } from './scrollCache';
 import { applyEpithet, applyNameOut, markEpithetsSeen, recordDeeds, syncCarriedBooks } from './renown';
 import { applyYearly, yearlyOffer } from './yearly';
 import { recordTravel } from './mapData';
-import { applyWeather, weatherFromNarration } from './weather';
+import { applyWeather, proseBacksWeather, weatherFromNarration } from './weather';
 import { applySafehouses } from './safehouses';
 import { applyPurse } from './money';
 import {
@@ -414,7 +414,10 @@ export function applyStateStep(
   next = applyWeather(next, extraction?.weather ?? weatherFromNarration(next, turn.narration));
   // The sky still disagrees with what the reply shows (the tracker named
   // other weather, or the scene's lock): the prose wins for this turn (audit 7.2).
-  const stillUnseen = weatherFromNarration(next, turn.narration);
+  // A tracker report the prose itself shows stands (Session 3: "rain easing to
+  // a cold low mist" at the end of a journey that began in a downpour).
+  const backed = proseBacksWeather(turn.narration, extraction?.weather ?? undefined);
+  const stillUnseen = backed ? undefined : weatherFromNarration(next, turn.narration);
   if (stillUnseen) next = applyWeather(next, stillUnseen);
 
   // One piece of news per turn (or one catch-up report); nothing in the

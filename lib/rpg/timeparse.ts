@@ -162,7 +162,7 @@ function explicitClock(text: string): ClockReading | undefined {
 function periodEventClock(text: string): ClockReading | undefined {
   // When the prose passes through several ("dusk… another dawn… by evening"),
   // the last one is where the turn ends.
-  const events: Array<{ index: number; word: string }> = [];
+  const events: Array<{ index: number; word: string; shade?: string }> = [];
   const collect = (pattern: RegExp, word?: string) => {
     for (const match of text.matchAll(pattern)) {
       events.push({ index: match.index ?? 0, word: word ?? match[1] });
@@ -174,9 +174,24 @@ function periodEventClock(text: string): ClockReading | undefined {
   collect(/\b(morning|evening|night|noon|midday|darkness)\s+(?:came|comes|fell|falls|settled|settles|arrives?|arrived)\b/gi);
   collect(/\bthe sun\s+(?:rises|rose|is rising|comes up|came up)\b/gi, 'dawn');
   collect(/\bthe sun\s+(?:sets|set|is setting|goes down|went down|sinks|sank)\b/gi, 'dusk');
+  // "By the dawn of the third day, the air carries…", "On the evening of the
+  // second day": the day count makes it a landing, not a plan (Session 3: the
+  // run to the border landed on "Night falls a second time", at 22:00).
+  for (const match of text.matchAll(
+    /\b(?:by|at|on|with|until|till)\s+(?:the\s+)?(?:(early|late|mid)[\s-]+)?(dawn|daybreak|sunrise|first light|morning|noon|midday|afternoon|dusk|sunset|evening|nightfall|night)\s+of\s+the\s+(?:next|following|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d+(?:st|nd|rd|th))\s+day\b/gi
+  )) {
+    events.push({ index: match.index ?? 0, word: match[2], shade: match[1] });
+  }
+  // A sentence that opens on it: "By dawn, the border is behind you."
+  for (const sentence of sentencesOf(text)) {
+    const opening = /^\s*(?:by|at)\s+(dawn|daybreak|sunrise|first light|morning|noon|midday|dusk|sunset|nightfall)\s*,/i.exec(sentence);
+    if (opening && !NOT_YET.test(sentence)) {
+      events.push({ index: text.indexOf(sentence), word: opening[1] });
+    }
+  }
 
   const last = events.sort((a, b) => a.index - b.index).at(-1);
-  return hourOfPeriod(last?.word);
+  return last?.shade ? shadedHour(last.shade, last.word) : hourOfPeriod(last?.word);
 }
 
 /** Time-of-day words with an early / late / mid shade ("late afternoon" ~ 16:30). */
