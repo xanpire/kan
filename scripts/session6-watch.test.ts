@@ -27,6 +27,8 @@ import { eraRoleFor } from '../lib/rpg/eraRoles';
 import { appendStoryMessage } from '../lib/rpg/log';
 import { applyStateStep } from '../lib/rpg/memoryJobs';
 import { PRIOR_BONDS } from '../lib/rpg/priorBonds';
+import { CANON_JUTSU } from '../lib/rpg/jutsuData';
+import { formatCanonJutsuEntry, kanKnowsJutsuName } from '../lib/rpg/jutsuList';
 import { KAN_FEET_LINE, KAN_HISTORY, NARRATION_SYSTEM, buildExtractionPrompt, buildNarrationPrompt, drawnToKanLine, formatHanaPrivacyLine } from '../lib/rpg/prompt';
 import { friendlyScuffle, resolveTurnMode } from '../lib/rpg/sceneMode';
 import { seedDatabase } from '../lib/rpg/seed';
@@ -325,6 +327,23 @@ describe('watch: the tracker rewriting a canon person’s role', () => {
     expect(role).toBe(eraRoleFor('Kakashi Hatake', new Set(completed))!);
     expect(role).not.toContain('ANBU captain');
     expect(role).not.toContain('Hokage');
+  });
+});
+
+describe('watch: holding back the name of a jutsu Kan has not heard', () => {
+  test('a rare jutsu stays unnamed until someone in the story says it', () => {
+    const db = at(seed(), 18, []);
+    const rare = CANON_JUTSU.find((entry) => (entry.fame === 'rare' || entry.fame === 'secret') && !entry.kan && !kanKnowsJutsuName(db, entry))!;
+    expect(rare).toBeDefined();
+    expect(formatCanonJutsuEntry(db, rare)).toContain('Kan has not heard its name');
+    // Said aloud this turn (a name Kan typed is spoken, and people react).
+    expect(formatCanonJutsuEntry(db, rare, `"Was that ${rare.name}?"`)).not.toContain('Kan has not heard its name');
+  });
+
+  test('a famous one is always named', () => {
+    const db = seed();
+    const famous = CANON_JUTSU.find((entry) => entry.fame === 'famous')!;
+    expect(formatCanonJutsuEntry(db, famous)).not.toContain('Kan has not heard its name');
   });
 });
 
