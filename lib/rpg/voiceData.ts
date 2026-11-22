@@ -268,7 +268,7 @@ export const CAST_VOICES: Record<string, string> = {
   'Yoshino Nara': 'sharp-tongued, loving | surprise: hands on hips | fear: hides it in scolding | joy: a fond grumble | habits: scolds the Nara men; feeds guests',
   'Kō Hyūga': 'loyal guardian | surprise: Byakugan flares | fear: for Hinata | joy: proud of her | habits: "Lady Hinata"; formal',
   'Tokuma Hyūga': 'steady scout | surprise: reports it | fear: duty first | joy: modest | habits: plain reports; sees far',
-  'Torifu Akimichi': 'hearty veteran | surprise: a booming laugh | fear: none for himself | joy: food and old friends | habits: blunt; remembers the old Ino-Shika-Cho',
+  'Torifu Akimichi': 'hearty veteran | surprise: a booming laugh | fear: none for himself | joy: food and old friends | habits: blunt; remembers the Second Hokage’s guard and the First War',
 
   // --- Children born after the story begins
   'Boruto Uzumaki': 'loud, cheeky child | surprise: points and shouts | fear: hides it | joy: shows off',

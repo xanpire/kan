@@ -627,7 +627,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       id: makeId('lore'),
       keywords: ['team 3', 'team-3', 'hana', 'izumi', 'suzume', 'sensei', 'teammate', 'anbu'],
       priority: 4,
-      text: 'You were on Team 3, with Hana Inuzuka and your cousin Izumi Uchiha under Suzume, your former sensei, from graduation at nine until you joined ANBU at twelve. At the Academy school bored you: you stayed quiet, didn’t try hard, and the teachers saw an average Uchiha boy; your talent showed on missions. You were Team 3’s only chūnin (at about eleven), which is what took you to ANBU. Nobody replaced you: Team 3 was just Hana and Izumi under Suzume, and you still saw them all from time to time. Izumi stayed a genin. With Izumi dead in the massacre, Team 3 no longer exists; Hana and Suzume go on as they do in canon.',
+      text: 'You were on Team 3, with Hana Inuzuka and your cousin Izumi Uchiha under Suzume, your former sensei, from graduation at nine until you joined ANBU at twelve. At the Academy school bored you: you stayed quiet, didn’t try hard, and the teachers saw an average Uchiha boy; your talent showed on missions. You were Team 3’s only chūnin (at ten), which is what took you to ANBU. Nobody replaced you: Team 3 was just Hana and Izumi under Suzume, and you still saw them all from time to time. Izumi stayed a genin. With Izumi dead in the massacre, Team 3 no longer exists; Hana and Suzume go on as they do in canon.',
       enabled: true,
     },
     {
