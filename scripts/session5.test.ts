@@ -197,3 +197,13 @@ describe('a seed finds the person it describes', () => {
     expect(presentMatch(withHunter, 'a farmer by the road', new Set(['entity_hunter']))).toBeNull();
   });
 });
+
+describe('a stranger with a hyphen in his label is found by the tracker\'s slug', () => {
+  test('"the-notched-blade-bounty-hunter"', async () => {
+    const { resolveEntity } = await import('../lib/rpg/entities');
+    const db = seeded();
+    const hunter = { ...db.entities[0], id: 'entity_hunter', name: 'the notched-blade bounty hunter', aliases: [], unnamed: true };
+    const withHunter = { ...db, entities: [...db.entities, hunter] };
+    expect(resolveEntity(withHunter, 'the-notched-blade-bounty-hunter')?.id).toBe('entity_hunter');
+  });
+});

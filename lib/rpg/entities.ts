@@ -790,7 +790,29 @@ export function resolveEntity(
     (entity) => entity.unnamed && entity.name.toLowerCase().replace(/^(?:the|a|an)\s+/, '') === bare
   );
 
-  return stranger ?? null;
+  if (stranger) return stranger;
+
+  // The tracker's slug for a stranger: "the-notched-blade-bounty-hunter" is
+  // "the notched-blade bounty hunter" (a hyphen in the name made it miss, so
+  // he was never marked met or present; Session 5).
+  const slug = slugOf(rawName);
+  const bareSlug = slug.replace(/^(?:the|a|an)-/, '');
+
+  return (
+    db.entities.find((entity) => {
+      // Strangers only: a named person's slug goes through the rules above (Madara).
+      if (entity.type !== 'character' || !(entity.unnamed || /^(?:the|a|an)\s/i.test(entity.name))) return false;
+      const own = slugOf(entity.name);
+      return own === slug || own.replace(/^(?:the|a|an)-/, '') === bareSlug;
+    }) ?? null
+  );
+}
+
+function slugOf(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 export function applyEntityDiff(
