@@ -1,5 +1,6 @@
 // Bonds: affinity, status and romance stage for each person Kan knows.
 
+import { priorBondFor } from './priorBonds';
 import { resolveEntity } from './entities';
 import { makeId } from './id';
 import { normalizeAttraction, normalizeRelationship } from './romance';
@@ -75,24 +76,22 @@ export function applyBondDiff(db: AppDatabase, bond: BondDiff, options: BondOpti
   if (existingIndex === -1) {
     const bondEntity = existingEntity;
 
-    const theirs = clamp(typeof bond.affinityDelta === 'number' ? bond.affinityDelta : 0, -10, 10);
-    const yours = clamp(typeof bond.yourDelta === 'number' ? bond.yourDelta : 0, -10, 10);
+    // Someone who knew Kan before the story starts where they left off.
+    const prior = priorBondFor(bondEntity.name);
+    const theirs = clamp((prior?.theirFeelings?.affinity ?? 0) + (typeof bond.affinityDelta === 'number' ? bond.affinityDelta : 0), -10, 10);
+    const yours = clamp((prior?.yourFeelings?.affinity ?? 0) + (typeof bond.yourDelta === 'number' ? bond.yourDelta : 0), -10, 10);
     const newBond = {
       id: makeId('bond'),
-      theirFeelings: { affinity: theirs, note: bond.note?.trim() || '' },
-      yourFeelings: { affinity: yours, note: bond.yourNote?.trim() || '' },
+      theirFeelings: { affinity: theirs, note: bond.note?.trim() || prior?.note || '' },
+      yourFeelings: { affinity: yours, note: bond.yourNote?.trim() || prior?.yourFeelings?.note || '' },
       entityId: bondEntity.id,
       characterName: bondEntity.name,
-      affinity: clamp(
-        typeof bond.affinityDelta === 'number' ? bond.affinityDelta : 0,
-        -10,
-        10
-      ),
-      status: bond.status?.trim() || 'Acquaintance',
+      affinity: theirs,
+      status: bond.status?.trim() || prior?.status || 'Acquaintance',
       lastKeyEventId: null,
-      note: bond.note?.trim() || '',
+      note: bond.note?.trim() || prior?.note || '',
       isMajor: Boolean(bond.isMajor),
-      relationship: normalizeRelationship(bond.relationship),
+      relationship: normalizeRelationship(bond.relationship) ?? prior?.relationship,
       attraction: normalizeAttraction(bond.attraction),
       romanceNote: bond.romanceNote?.trim() || undefined,
       updatedInStoryDate: db.state.inStoryDate,

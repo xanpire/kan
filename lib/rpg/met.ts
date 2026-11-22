@@ -4,6 +4,7 @@
 // fact or a character update leaves someone unmet.
 
 import { makeId } from './id';
+import { priorBondFor } from './priorBonds';
 import type { AppDatabase, BondRecord, EntityRecord } from './types';
 
 export const UNMET_STATUS = 'Not yet met';
@@ -41,6 +42,8 @@ function newBond(db: AppDatabase, entity: EntityRecord): BondRecord {
     relationship: 'stranger',
     attraction: 'none',
     updatedInStoryDate: db.state.inStoryDate,
+    // Someone who knew Kan before the story starts where they left off.
+    ...(priorBondFor(entity.name) ?? {}),
   };
 }
 

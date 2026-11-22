@@ -45,6 +45,22 @@ export function timeOfDayOf(date: CalendarDate): DayPeriod {
   return 'night';
 }
 
+/**
+ * Where the day stands, for the narrator (Session 5: Kakuzu complained of
+ * "six hours of daylight wasted" at 6 AM). Dawn is 6 AM and dusk 7 PM, the
+ * same hours the rest of the app uses.
+ */
+export function daylightNote(date: CalendarDate): string {
+  const hour = clampHour(date.hour) + clampMinute(date.minute) / 60;
+  if (hour < 5) return 'deep night, hours before dawn';
+  if (hour < 6) return 'the last of the night, first light coming';
+  if (hour >= 19) return hour < 20 ? 'dusk, the light going' : 'night, the day\'s light gone';
+  const left = Math.round(19 - hour);
+  const used = Math.round(hour - 6);
+  if (used <= 1) return `the day has just begun: about ${left} hours of daylight ahead`;
+  return `about ${used} hour${used === 1 ? '' : 's'} of daylight gone, about ${left} left`;
+}
+
 export function formatClock(date: CalendarDate) {
   const hour = clampHour(date.hour);
   const minute = clampMinute(date.minute);

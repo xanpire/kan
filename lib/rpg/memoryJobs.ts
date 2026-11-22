@@ -59,7 +59,7 @@ import { buildIndices } from './db';
 import { makeId } from './id';
 import { paceOfTurn, resolveTurnClock } from './pacing';
 import { recordTrialMission } from './akatsukiTrial';
-import { CONVERSATION_MODE_MINIMUM_SECONDS, applySceneBeat, cleanFightOptions } from './sceneMode';
+import { CONVERSATION_MODE_MINIMUM_SECONDS, applySceneBeat, cleanFightOptions, friendlyScuffle } from './sceneMode';
 import { resolveEntity } from './entities';
 import { applyNameStep, displayName, nameLeaks, scrubNameLeaks } from './names';
 import { fallbackDiffFromProse, preferPlayerJutsuNames } from './proseFallback';
@@ -288,18 +288,40 @@ export function applyStateStep(
   // Kan called in his own message. Clock and pace come from the prose below.
   // Kan's jutsu always keep the names the player wrote.
   const events: DebugEvent[] = [];
-  const extraction = stateReply
+  let extraction = stateReply
     ? preferPlayerJutsuNames(latest, stateReply, turn.userMessage)
     : fallbackDiffFromProse(latest, turn);
   const beforeDate = latest.state.inStoryDate;
   const parsedTime = detectNarrationTime(turn.narration, beforeDate, { action: turn.userMessage });
   const reportedSeconds = extraction?.state?.elapsedSeconds ?? 0;
-  const pace = paceOfTurn(
+  let pace = paceOfTurn(
     extraction?.state?.scenePace,
     turn.narration,
     extraction ? { fightOptions: extraction.fightOptions?.length ?? 0, jutsuUsed: extraction.jutsuUsed?.length ?? 0 } : undefined,
     parsedTime.sleptNight
   );
+
+  // Play between friends is not a fight (Session 6: Hana's tackle in the straw).
+  if (
+    extraction &&
+    (isCombatPace(pace) || extraction.beat?.kind === 'combat') &&
+    friendlyScuffle(latest, {
+      input: turn.userMessage,
+      narration: turn.narration,
+      cast: extraction.state?.sceneCast ?? latest.state.sceneCast ?? [],
+      jutsuUsed: extraction.jutsuUsed?.length ?? 0,
+    })
+  ) {
+    const cast = (extraction.state?.sceneCast ?? latest.state.sceneCast ?? []).filter((name) => name.toLowerCase() !== 'kan');
+    pace = 'conversation';
+    extraction = {
+      ...extraction,
+      state: { ...(extraction.state ?? {}), scenePace: 'conversation' },
+      beat: { kind: 'exchange', with: extraction.beat?.with?.length ? extraction.beat.with : cast },
+      fightOptions: undefined,
+    };
+    events.push({ kind: 'fallback', text: 'Not a fight: play between friends, so no Fight mode.' });
+  }
   const sceneEnded = extraction?.scene?.ended ?? false;
   // The mode the reply was narrated in (set when it was saved).
   const modeUsed = latest.rawLog.find((entry) => entry.id === turn.turnLogId)?.sceneMode;

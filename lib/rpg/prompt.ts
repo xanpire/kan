@@ -1,11 +1,11 @@
 import { knowsKanLine } from './knowsKan';
 import { formatScrollCacheLine, formatScrollCacheTracking } from './scrollCache';
-import { REACTION_RULES, formatReactionsBlock, shortVoiceOf, voiceOf } from './voices';
+import { REACTION_RULES, formatReactionsBlock, roomVoices } from './voices';
 import { isScratchedProtector } from './inventory';
-import { kanProtectorPlace } from './kanLook';
+import { kanAgeNow, kanProtectorPlace } from './kanLook';
 import { kanPowerLines } from './kanPowers';
 import { riceFieldsNameLine } from './geography';
-import { advanceSeconds, calculateAge, dateSortValue, daysBetween, entityAge, formatClock, formatDate } from './calendar';
+import { advanceSeconds, calculateAge, dateSortValue, daysBetween, entityAge, daylightNote, formatClock, formatDate } from './calendar';
 import { paceMinimumSeconds } from './pacing';
 import { normalizeJutsuNature } from './jutsu';
 import { ROMANCE_RULES, eraNoteFor, loreProfileFor } from './romance';
@@ -98,7 +98,7 @@ CORE
 - Kan carries only what CURRENT STATE lists under Inventory: never give him a weapon, tool or item he does not have, and when he uses one up or loses it, show it.
 - Kan's money is the Purse in CURRENT STATE. He can never pay more than he has; when he is short, the seller says so. Whenever money changes hands for Kan (he pays, is paid, finds, wins, loses or is robbed), say how much in ryō, at believable prices. Someone else may pay for him. ${PRICE_GUIDE}
 - Characters have the age, rank, and knowledge they would have on the current date, and goals of their own: they can refuse, lie, or leave. Canon power levels hold, with no power creep or nerfing. Trust and love are earned.
-- A fight needs a reason that someone in the scene would really have: a threat, an order, a grudge, a betrayal, Kan's own attack. Never start one to fill a beat. Someone who has just agreed to join, obey or follow is not attacked for it; a test of a new ally is spoken, set as a task, or watched, not a blow out of nowhere.
+- A fight needs a reason that someone in the scene would really have: a threat, an order, a grudge, a betrayal, Kan's own attack. Never start one to fill a beat. Someone who has just agreed to join, obey or follow is not attacked for it; a test of a new ally is spoken, set as a task, or watched, not a blow out of nowhere. Play between friends (a shove, a tackle in fun, wrestling, a hug) and an argument are not fights. Kan's plain words or plans ("I stay until four") are never turned into someone grabbing, tackling or attacking him.
 ${KAN_FATE_RULE}
 - The supplied state, characters, bonds, facts, threads, summaries, and memories are truth, and win over canon where they differ. Characters know only the secrets they learned in this story. Open threads are binding: never change a mission's goal, destination, or allies unless Kan does.
 
@@ -149,7 +149,7 @@ OUTPUT
 
 const STATE_SYSTEM = `You are the state tracker for an interactive Naruto novel; the player is Kan. Read the narrator's latest turn and return one JSON object matching the schema. Never write story text. A second tracker records letters, safehouses, reputation, grudges, canon, news, weather, natures and abilities; leave those to it.
 
-TIME: time.elapsed + time.unit is the in-story time this turn covered, read from the prose. Blows take seconds, talks minutes, battles minutes to hours, a nap under an hour, a night's sleep 8-9 hours, travel minutes to days, and a time skip Kan asked for (weeks, months, years) exactly as long as the prose says passed; a new day must be covered. Count only what the narration shows happening: plans or times spoken in dialogue ("walk until nightfall", "we leave at dawn") have not happened and add nothing. time.clock_time stays null unless the narration itself names the hour ("at noon", "by dusk", "3 PM"); never guess it. The one exception is a time skip Kan asked for: then always give clock_time, the time of day the scene the reply lands in is set at (read it from the prose; morning 08:00, evening 19:00 and so on if it only names a period). TIME BEFORE THIS TURN is the clock the turn starts from, so a clock_time must fit it plus time.elapsed. scene_pace: combat (any fight or ambush, even a short one, while blows are still being traded at the end of the reply), chase, conversation, travel (only moving from place to place with no fight), or downtime (rest, sleep, waiting).
+TIME: time.elapsed + time.unit is the in-story time this turn covered, read from the prose. Blows take seconds, talks minutes, battles minutes to hours, a nap under an hour, a night's sleep 8-9 hours, travel minutes to days, and a time skip Kan asked for (weeks, months, years) exactly as long as the prose says passed; a new day must be covered. Count only what the narration shows happening: plans or times spoken in dialogue ("walk until nightfall", "we leave at dawn") have not happened and add nothing. time.clock_time stays null unless the narration itself names the hour ("at noon", "by dusk", "3 PM"); never guess it. The one exception is a time skip Kan asked for: then always give clock_time, the time of day the scene the reply lands in is set at (read it from the prose; morning 08:00, evening 19:00 and so on if it only names a period). TIME BEFORE THIS TURN is the clock the turn starts from, so a clock_time must fit it plus time.elapsed. scene_pace: combat (any fight or ambush, even a short one, while blows are still being traded at the end of the reply; never play between friends or an argument), chase, conversation, travel (only moving from place to place with no fight), or downtime (rest, sleep, waiting).
 
 - Prefer null to a guess. A wrong value does more harm than a missing one.
 - Report only what THIS turn shows changed: null when unchanged, [] when empty. Never invent anything or contradict the state below.
@@ -169,7 +169,7 @@ JUTSU: jutsu_used lists every named jutsu, by anyone, and every use of one of yo
 
 MEMORY: facts are what actually happened or is now true, never what someone merely said. Every fact has entity (who it is about; "kan" for you), a type, and who_knows (ids of people who know it, or group names like "Hidden Leaf leadership"). Types: death (someone died), injury (a wound to someone's body), condition (a passing state: chakra drain, exhaustion, soaked, a headache, Sharingan active), secret, knowledge (someone learned something), membership (joined or left a group), possession (an item gained, lost or changed: tying or scratching a headband is possession, never injury), relationship, plan (an intention or travel plan), figure (a number stated in the story: a bounty, a price, a distance, a deadline, a travel time, word for word), event (anything else that happened; "the clan is dead" is an event, not a death fact about whoever did it). A boast, rumor or claim gets claimed_by (the speaker's id), or is left out. lasts: "until_rest" for a condition that a night's sleep ends, "days" (with days) for an injury or plan with an expected length, "lasting" otherwise. When a fact replaces an ACTIVE FACT (you learned what you did not know, a plan changed, a wound healed), list that fact's ref in supersedes; list refs that simply stopped being true in facts_ended. threads are promises, debts, grudges, mysteries, quests, or goals, with type (quest: a mission or task to carry out; goal: something you want to achieve; promise; debt; mystery: a question you want answered; grudge; other), importance (1 small to 5 life-defining), and participants (ids of who it involves besides you): "open" only for something no OPEN THREAD already covers (if one does, "update" it under its exact title, even when the wording differs); "update" or "resolved" reuse the exact title. scene_ended is true only when the scene clearly concluded. scene_title names the scene in 2-5 words (like "Ambush at the river ford"), only when this turn starts a new scene (Kan reaches a new place, a new day begins, a new encounter or conversation takes over) or the current Scene name no longer fits; otherwise null. chapter_title (3-6 words) only when this turn truly opens a new chapter of the story: a major milestone has just been reached, Kan arrives somewhere far from where the chapter began (a new country, the Akatsuki's hideout), or a long time skip; most turns, and most new scenes, are null. A chapter is long: many scenes, often days of story.
 
-BEAT: beat tags how this turn played, from Kan's input and the reply together: exchange (back-and-forth talk, including small moves in place or a silence the other person reacts to while still talking: a look, a touch, a gesture, sitting or standing, stepping closer, turning away, pouring tea, a flash of the Sharingan), instruction (someone tells Kan to do something that leads into action: "follow me", "wait here"), remark (a one-off line in passing), action (a move that changes the scene: leaving, going somewhere, a jutsu that changes the situation, someone new taking over), travel, or combat (any fight, even a short one, still going at the end of the reply). When the fight stops in this reply (the opponent backs off, breaks away, is beaten or flees, or the blows stop and talk takes over), the beat is exchange, remark or action, not combat, scene_pace is not combat, and fight_options is []. beat_with: ids of the people Kan is talking with (exchange, instruction, remark); otherwise []. fight_options: only when the fight goes on and the reply ends on an opponent's move: 3-4 short moves Kan could make next (under 10 words, starting with a verb, no "I" or "you": "Duck under the threads and close in"), fitting the moment and what he can really do (dodge, block, counter, and at least one jutsu from KAN’S JUTSU when he has one that fits); a move may name only jutsu on that list and natures he has, never one he doesn't know; a move that would cost Kan a lot ends with its cost as he would feel it, in brackets: [draining], [heavy] or [all you have left] (a cheap move has none; never numbers); otherwise [].
+BEAT: beat tags how this turn played, from Kan's input and the reply together: exchange (back-and-forth talk, including small moves in place or a silence the other person reacts to while still talking: a look, a touch, a gesture, sitting or standing, stepping closer, turning away, pouring tea, a flash of the Sharingan), instruction (someone tells Kan to do something that leads into action: "follow me", "wait here"), remark (a one-off line in passing), action (a move that changes the scene: leaving, going somewhere, a jutsu that changes the situation, someone new taking over), travel, or combat (any fight, even a short one, still going at the end of the reply: someone trying to hurt, catch or beat someone, or a spar Kan agreed to; play between friends, a hug or an argument is never combat). When the fight stops in this reply (the opponent backs off, breaks away, is beaten or flees, or the blows stop and talk takes over), the beat is exchange, remark or action, not combat, scene_pace is not combat, and fight_options is []. beat_with: ids of the people Kan is talking with (exchange, instruction, remark); otherwise []. fight_options: only when the fight goes on and the reply ends on an opponent's move: 3-4 short moves Kan could make next (under 10 words, starting with a verb, no "I" or "you": "Duck under the threads and close in"), fitting the moment and what he can really do (dodge, block, counter, and at least one jutsu from KAN’S JUTSU when he has one that fits); a move may name only jutsu on that list and natures he has, never one he doesn't know; a move that would cost Kan a lot ends with its cost as he would feel it, in brackets: [draining], [heavy] or [all you have left] (a cheap move has none; never numbers); otherwise [].
 
 IMAGE: image_worthy is true only for visually striking moments, never pure dialogue.`;
 
@@ -399,6 +399,7 @@ export function buildNarrationPrompt(
       formatOpeningBlock(db),
       `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page). When Kan goes off alone, let him be alone: a companion does not follow him into every scene or walk in on him unless he asks for them or the story gives a real reason. Location type: ${locationKindOf(db)}.`,
       formatSceneModeLine(db, sceneMode),
+      formatHanaPrivacyLine(db),
       formatTrialLine(db),
       formatTimeSkipLine(db, userMessage, sceneMode.mode === 'fight' || isCombatPace(db.state.scenePace)),
       `YOU (KAN) DO OR SAY:\n${userMessage}`,
@@ -824,7 +825,7 @@ function formatStorySoFar(story: StorySoFar) {
  * "proved his utility in the barrier corps").
  */
 export const KAN_HISTORY =
-  "History (fixed): raised from five by his aunt Hazuki Uchiha (his mother Erisa's sister) beside her daughter Izumi, his cousin; grew up with Itachi and Shisui, and Mikoto's house was his second home (Sasuke looked up to him almost like another big brother); graduated the Academy at 9, two years after Itachi, bored and unremarkable there; Team 3 under Suzume, its only chūnin, until he joined ANBU at 12, one year after Itachi; in ANBU he wore a bat mask and served in Kakashi's unit (Team Ro) with Tenzō until the night he vanished; ANBU is the only unit he ever served in (never the barrier corps, the police force, Root or any other); he was not sent to the Third War's battlefield, the war reached him through his parents at the front. Anyone who speaks of his past says ANBU. He left the Leaf in his own black clothes: his ANBU armour and bat mask stayed behind in the village, and he never has them with him after the massacre night. Izumi and Hazuki were found at dawn and buried with the clan in the Uchiha cemetery (6 October, year 13): their graves hold their bodies.";
+  "History (fixed): raised from five by his aunt Hazuki Uchiha (his mother Erisa's sister) beside her daughter Izumi, his cousin; grew up with Itachi and Shisui, and Mikoto's house was his second home (Sasuke looked up to him almost like another big brother); graduated the Academy at 9, two years after Itachi, bored and unremarkable there; Team 3 under Suzume, its only chūnin, until he joined ANBU at 12, one year after Itachi; in ANBU he wore a bat mask and served in Kakashi's unit (Team Ro) with Tenzō until the night he vanished (Kakashi was its captain; Kan was one of its members and never led it); ANBU is the only unit he ever served in (never the barrier corps, the police force, Root or any other); he was not sent to the Third War's battlefield, the war reached him through his parents at the front. Anyone who speaks of his past says ANBU. He left the Leaf in his own black clothes: his ANBU armour and bat mask stayed behind in the village, and he never has them with him after the massacre night. Izumi and Hazuki were found at dawn and buried with the clan in the Uchiha cemetery (6 October, year 13): their graves hold their bodies.";
 
 /**
  * The forehead protector (decided by Xan, Session 1 audit 6.22): Kan carries
@@ -846,7 +847,7 @@ export function kanProtectorLine(db: AppDatabase) {
 }
 
 /** Decided by Xan (14 Nov 2026): boots in every era. */
-export const KAN_FEET_LINE = 'Kan wears boots, never sandals; never mention sandals on him.';
+export const KAN_FEET_LINE = 'Kan wears boots, never sandals; never mention sandals on him. His boots stay on (asleep too) until the page shows him take them off.';
 
 /** A false-order story after the first night, before Kan takes the cloak. */
 function beforeTheCloak(db: AppDatabase) {
@@ -985,6 +986,8 @@ function formatMatchedEntities(
   const characters = ranked.slice(0, FULL_CARD_LIMIT);
   // Anyone else in the room still gets a line: name Kan knows, role, mood, feeling.
   const extras = ranked.slice(FULL_CARD_LIMIT).filter((entity) => entity.companion || presentSet.has(entity.id));
+  // One voice each: nobody in the room shares a temperament with someone else here.
+  const voices = roomVoices(ranked.filter((entity) => entity.companion || presentSet.has(entity.id)), db);
 
   if (characters.length === 0) {
     return '';
@@ -1029,10 +1032,11 @@ function formatMatchedEntities(
   // Section 8: each person's voice and reactions, only for those really here.
   const voiceLine = (entity: EntityRecord) => {
     if (!entity.companion && !presentSet.has(entity.id)) return '';
-    const voice = voiceOf(entity, db);
+    const voice = voices.get(entity.id) ?? null;
     // Section 12: people who knew Kan before the story.
     const knew = knowsKanLine(db, entity);
-    return `${knew ? `\n  ${knew}` : ''}${voice ? `\n  VOICE: ${voice}` : ''}`;
+    const drawn = drawnToKanLine(db, entity, bondsByEntity.get(entity.id));
+    return `${knew ? `\n  ${knew}` : ''}${voice ? `\n  VOICE: ${voice}` : ''}${drawn ? `\n  ${drawn}` : ''}`;
   };
 
   return [
@@ -1046,7 +1050,7 @@ function formatMatchedEntities(
           'ALSO HERE',
           ...extras.map((entity) => {
             const bond = bondsByEntity.get(entity.id);
-            const short = shortVoiceOf(entity, db);
+            const short = voices.get(entity.id)?.split('|')[0].trim() ?? null;
             return `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}; mood ${truncate(entity.mood ?? 'unknown', 40)}${bond ? `; ${bond.affinity}/10 toward you, ${bond.relationship ?? 'stranger'}` : ''}${short ? `; ${short}` : ''}${survives(entity)}`;
           }),
         ]
@@ -1239,6 +1243,39 @@ function formatBonds(db: AppDatabase) {
 }
 
 /** How a bond reads to the narrator: feeling both ways, relationship, status, notes, grudge stage. */
+function idHash(text: string) {
+  let value = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    value ^= text.charCodeAt(i);
+    value = Math.imul(value, 16777619);
+  }
+  return value >>> 0;
+}
+
+/**
+ * Women pursue Kan too (15 Nov 2026, v1.25.6): some, not every woman, find
+ * him handsome or his power striking and show it their own way. The rule
+ * alone never said which woman in the room that was, so nobody did. One
+ * eligible woman in three is drawn to him (fixed per person), and any woman
+ * already romantically interested is too. Never a lore-locked heart, an ex,
+ * someone who turned him down, or anyone while either is under 18. Hana has
+ * her own secret crush, which she hides, so she gets no cue.
+ */
+export function drawnToKanLine(db: AppDatabase, entity: EntityRecord, bond: BondRecord | undefined): string {
+  if (entity.gender !== 'female' || entity.name === 'Hana Inuzuka' || isDeceased(entity)) return '';
+  if (entity.romanceAccessibility !== 'winnable') return '';
+  if (kanAgeNow(db) < 18) return '';
+  const age = entityAge(db.state.inStoryDate, entity);
+  if (age === undefined || age < 18) return '';
+  if (bond?.grudge || (bond?.relationship && ['rejected', 'ex', 'enemy', 'family'].includes(bond.relationship))) return '';
+  if ((bond?.theirFeelings?.affinity ?? bond?.affinity ?? 0) < -2) return '';
+  const already = bond?.relationship === 'romantic interest' || bond?.relationship === 'lover' || bond?.attraction === 'strong';
+  if (!already && idHash(entity.id) % 3 !== 0) return '';
+  return already
+    ? 'DRAWN TO YOU: she wants you and shows it her own way when the moment fits, without waiting for you to make every move.'
+    : 'DRAWN TO YOU: she finds you handsome, or your power striking. When the moment fits, she shows it her own way and takes the first step herself (a look held too long, wanting to know you, flirting, trying to kiss you), at her pace and in character; never every turn, and you can say no.';
+}
+
 function formatBondLine(db: AppDatabase, bond: BondRecord) {
   return `(they feel ${bond.affinity}/10 toward you; you feel ${bond.yourFeelings?.affinity ?? bond.affinity}/10 toward them): ${truncate(bond.status ?? 'unknown', 50)}. ${truncate(bond.note, 80)}${bond.yourFeelings?.note ? ` You: ${truncate(bond.yourFeelings.note, 60)}` : ''}${bond.relationship ? ` [relationship: ${bond.relationship}${bond.attraction && bond.attraction !== 'none' ? `, attraction: ${bond.attraction}` : ''}]` : ''}${bond.grudge ? ` [grudge: ${grudgeStage(db, bond)}, ${truncate(bond.grudge.reason, 60)}]` : ''}`;
 }
@@ -1681,6 +1718,32 @@ function formatRecentMessages(messages: RawLogEntry[]) {
   ].join('\n');
 }
 
+/**
+ * Itachi and Kan's crush on Hana (15 Nov 2026, v1.25.7): he raises it only
+ * when the two are alone, in private, from 18. The rule alone was the same
+ * prompt with Kisame standing there, so this says which one it is now.
+ */
+export function formatHanaPrivacyLine(db: AppDatabase): string {
+  const itachi = db.entities.find((entity) => entity.name === 'Itachi Uchiha');
+  if (!itachi || isDeceased(itachi)) return '';
+  const cast = (db.state.sceneCast ?? []).filter((name) => name.toLowerCase() !== 'kan');
+  const present = cast.map((name) => resolveEntity(db, name)).filter((entity): entity is EntityRecord => Boolean(entity));
+  if (!present.some((entity) => entity.id === itachi.id)) return '';
+  const crush = db.facts.some((fact) => fact.validTo === null && /crush on Hana/i.test(fact.text) && fact.whoKnows.some((who) => who === itachi.id || who === 'Itachi Uchiha'));
+  if (!crush) return '';
+  const others = present.filter((entity) => entity.id !== itachi.id && !isDeceased(entity));
+  const crowded = locationKindOf(db) === 'settlement' && /\b(market|street|square|tea ?house|inn's (?:main|common) room|common room|bar|restaurant|festival|crowd)/i.test(db.state.location ?? '');
+
+  if (others.length > 0 || crowded) {
+    const who = others.length > 0 ? others.map((entity) => narratorName(db, entity)).join(', ') : 'strangers within earshot';
+    return `NOT PRIVATE: ${who} can hear. Itachi never mentions or hints at your crush on Hana now, not even a look that gives it away.`;
+  }
+
+  return kanAgeNow(db) >= 18
+    ? 'PRIVATE: you and Itachi are alone. He may raise your crush on Hana if the moment fits (rarely, never twice in a scene); it stays up to you.'
+    : 'You and Itachi are alone, but you are under 18: he does not raise your crush on Hana yet.';
+}
+
 function formatTimeLine(db: AppDatabase, audience: 'narrator' | 'state' = 'narrator', mode?: SceneModeName) {
   const stalled = db.state.turnsWithoutTimeChange ?? 0;
   const nudge =
@@ -1702,7 +1765,7 @@ function formatTimeLine(db: AppDatabase, audience: 'narrator' | 'state' = 'narra
     mode === 'conversation' ? CONVERSATION_MODE_MINIMUM_SECONDS : mode === 'fight' ? paceMinimumSeconds('combat') : paceMinimumSeconds(pace)
   );
 
-  return `${label}\n${formatDate(db.state.inStoryDate)} (exactly ${formatClock(db.state.inStoryDate)}; at this pace this reply ends no earlier than ${formatClock(ends)})${nudge}`;
+  return `${label}\n${formatDate(db.state.inStoryDate)} (exactly ${formatClock(db.state.inStoryDate)}, ${daylightNote(db.state.inStoryDate)}; at this pace this reply ends no earlier than ${formatClock(ends)})${nudge}`;
 }
 
 /** Numbers the story has already stated (bounties, distances, deadlines): they stay the same. */

@@ -24,7 +24,7 @@ export const CAST_VOICES: Record<string, string> = {
   'Itachi Uchiha':
     'still water | surprise: a half-second pause, nothing more | fear: never for himself; for you or Sasuke, a quiet hardening | joy: the smallest softening, a two-finger poke to the forehead | grief: hidden behind calm, a cough he turns away from | worries about you without a word; few words, each one chosen; when he owes you an answer he gives it as plain facts and no more; never excuses himself, never defends himself against your hatred and never asks you to forgive him: he lets you hate him',
   'Hana Inuzuka':
-    'loud and warm, a pack animal | surprise: out loud, a laugh or a curse | fear: turns to anger and protectiveness at once | joy: shoves, teases, grins wide | grief: goes short and busy, works through it with her hands | teases you about everything; talks to the Haimaru brothers as if they were people; smells things before she trusts them',
+    'loud and warm, a pack animal | surprise: out loud, a laugh or a curse | fear: turns to anger and protectiveness at once | joy: shoves, teases, grins wide | grief: goes short and busy, works through it with her hands | teases you about everything; talks to the Haimaru brothers (three separate grey dogs, never one three-headed dog) as if they were people; smells things before she trusts them',
   'Izumi Uchiha':
     'gentle and bright, stubborn underneath | surprise: covers her mouth, then laughs at herself | fear: goes very still and holds someone’s sleeve | joy: hums, teases softly | grief: quiet tears she apologises for | notices small things about people; teases you warmly; talks about an ordinary life as if it were close',
   'Suzume':

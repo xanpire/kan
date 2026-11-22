@@ -17,6 +17,8 @@
 // turn, not a jarring change. The player can force or switch off a mode from
 // the chip on the Story screen (`override`).
 
+import { heldFeelingsCeiling } from './bondGuard';
+import { priorBondFor } from './priorBonds';
 import { unknownJutsuInOption } from './jutsu';
 import { resolveEntity } from './entities';
 import { displayName } from './names';
@@ -241,6 +243,54 @@ function resolvePartners(db: AppDatabase, raw: string[]): string[] {
     .filter((value) => value && value !== 'kan');
 
   return [...new Set(ids)].slice(0, 6);
+}
+
+// Real harm on the page, outside speech: weapons, blood, a jutsu, killing.
+const REAL_HARM =
+  /\b(kunai|shuriken|senbon|blades?|swords?|katana|tant[oō]|blood|bleed(?:s|ing)?|bled|kill(?:s|ed|ing)?|killing intent|wound(?:s|ed)?|jutsu|ambush(?:es|ed)?|enem(?:y|ies)|stab(?:s|bed)?|slash(?:es|ed)?|chokes?|choked|strangle[sd]?|sharingan|mangeky[oō]|genjutsu|bone(?:s)? (?:crack|snap)s?)\b/i;
+// A fight both sides agreed to (a spar, a test) is a real fight in the app.
+const AGREED_FIGHT = /\b(spar(?:s|ring|red)?|duel|fight me|come at me|test me|hit me|train(?:ing)? with (?:me|you|her|him|them)|a bout)\b/i;
+const HOSTILE_RELATIONSHIPS = new Set(['enemy', 'rival', 'rejected']);
+
+/** Someone on Kan's side: travelling with him, or both sides warm and no grudge. */
+function isFriend(db: AppDatabase, name: string) {
+  const entity = resolveEntity(db, name);
+  if (!entity || entity.name.toLowerCase() === 'kan') return false;
+  const bond = db.bonds.find((item) => item.entityId === entity.id);
+  if (bond?.grudge || (bond?.relationship && HOSTILE_RELATIONSHIPS.has(bond.relationship))) return false;
+  // A wound Kan holds (Itachi after the night) caps his side, whatever the bond says.
+  const ceiling = heldFeelingsCeiling(db, entity);
+  if (ceiling !== null) return false;
+  if (entity.companion) return (bond?.yourFeelings?.affinity ?? 0) >= 0;
+  // Someone who knew Kan before the story, met again for the first time.
+  const feelings = bond ?? priorBondFor(entity.name);
+  if (!feelings) return false;
+  const theirs = feelings.theirFeelings?.affinity ?? feelings.affinity;
+  const yours = feelings.yourFeelings?.affinity ?? theirs;
+  return theirs >= 1 && yours >= 0;
+}
+
+/**
+ * The tracker called a turn combat, but it was play between friends: no fight
+ * was on, Kan attacked nobody, nothing on the page outside speech can really
+ * hurt (no weapon, blood or jutsu), no spar was agreed, and everyone in the
+ * scene is on Kan's side (Session 6: "I stay until four" became Hana tackling
+ * Kan into the straw, and the app put the next turn in Fight mode against her).
+ */
+export function friendlyScuffle(
+  db: AppDatabase,
+  options: { input: string; narration: string; cast: string[]; jutsuUsed?: number }
+): boolean {
+  if (fightGoingOn(db) || sceneModeOf(db).override === 'fight') return false;
+  if ((options.jutsuUsed ?? 0) > 0) return false;
+  const kan = readKanInput(options.input);
+  if (kan.attacks || AGREED_FIGHT.test(options.input)) return false;
+  const page = options.narration
+    .replace(/"[^"\n]*(?:"|(?=\n)|$)/g, ' ')
+    .replace(/“[^”\n]*(?:”|(?=\n)|$)/g, ' ');
+  if (REAL_HARM.test(page) || AGREED_FIGHT.test(page)) return false;
+  const people = options.cast.filter((name) => name && name.toLowerCase() !== 'kan');
+  return people.length > 0 && people.every((name) => isFriend(db, name));
 }
 
 /** When the tracker gave no beat: read it from the pace and Kan's input. */

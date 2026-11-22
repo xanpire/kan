@@ -10,6 +10,7 @@
 import { daysBetween, entityAge } from './calendar';
 import { hasHeardNews } from './canon';
 import { endgamePhase } from './canonEndgame';
+import { isCanonCharacter } from './canonPeople';
 import { kanKnowsDeath } from './deaths';
 import { loreProfileFor, normalizeAttraction, normalizeRelationship, ROMANTIC_STAGES, type Attraction, type RelationshipStage } from './romance';
 import type { AppDatabase, BondRecord, CalendarDate, EntityRecord, TurnDiff } from './types';
@@ -138,6 +139,35 @@ export function romanceBlock(db: AppDatabase, entity: EntityRecord): string | nu
   return null;
 }
 
+const TITLE_WORDS =
+  /\b(hokage|kazekage|mizukage|raikage|tsuchikage|kage|sannin|jinch[uū]riki|j[oō]nin|ch[uū]nin|genin|captain|leader|head of|elder|lord|daimy[oō]|sensei|commander)\b/gi;
+
+/**
+ * Section 1 watch item (the tracker rewriting a canon person's role): the
+ * role itself is locked (entities.ts), but the bond's status label is the
+ * tracker's to write, so "Hokage" could land on Kakashi in year 13. A title
+ * in the new label that is in neither their era role nor the label they
+ * already had is refused; "former" or "old" in front of it is history and
+ * passes. Returns the title, or null.
+ */
+export function canonTitleOutOfEra(entity: EntityRecord, existing: BondRecord | undefined, status: string | undefined): string | null {
+  if (!status?.trim() || !isCanonCharacter(entity)) return null;
+  const allowed = `${entity.role ?? ''} ${existing?.status ?? ''}`.toLowerCase();
+
+  for (const match of status.matchAll(TITLE_WORDS)) {
+    const word = match[1].toLowerCase();
+    const before = status.slice(Math.max(0, (match.index ?? 0) - 24), match.index ?? 0);
+    if (/\b(former|old|ex-?|once|retired|late)\b[^,;]*$/i.test(before)) continue;
+    const stem = word.replace(/[uū]/g, '[uū]').replace(/[oō]/g, '[oō]');
+    if (new RegExp(`\\b${stem}`, 'i').test(allowed)) continue;
+    // The Kage titles are all "Kage" too.
+    if (word === 'kage' && /kage\b/.test(allowed)) continue;
+    return match[1];
+  }
+
+  return null;
+}
+
 export function guardBondDiff(
   db: AppDatabase,
   entity: EntityRecord,
@@ -162,6 +192,13 @@ export function guardBondDiff(
     refused.push(`${who}: ${side} ${value > 0 ? '+' : ''}${value} held to ${kept > 0 ? '+' : ''}${kept} for one turn.`);
     return kept;
   };
+
+  // A canon person's label never gives them a rank or title they don't hold now.
+  const title = canonTitleOutOfEra(entity, existing, bond.status);
+  if (title) {
+    refused.push(`${who}: status "${bond.status}" dropped (${title} is not who they are now).`);
+    next.status = undefined;
+  }
 
   next.affinityDelta = clampDelta(bond.affinityDelta, 'their feelings');
   next.yourDelta = clampDelta(bond.yourDelta, 'your feelings');

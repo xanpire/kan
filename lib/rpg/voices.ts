@@ -6,7 +6,7 @@
 import { dateSortValue } from './calendar';
 import { isDeceased } from './deaths';
 import { kanAgeNow } from './kanLook';
-import { happened } from './names';
+import { displayName, happened } from './names';
 import type { AppDatabase, EntityRecord } from './types';
 import { CAST_VOICES, EARLY_VOICES, TEMPERAMENTS } from './voiceData';
 
@@ -37,6 +37,44 @@ function hash(text: string) {
 
 export function temperamentFor(id: string): string {
   return TEMPERAMENTS[hash(id) % TEMPERAMENTS.length];
+}
+
+/**
+ * Everyone's voice in one room, with no two people sharing a temperament:
+ * two strangers who hashed to the same one would react the same way, which
+ * REACTION_RULES forbids ("never the same reaction twice in a room"). The
+ * cast's own voices never change; a repeated temperament steps to the next.
+ */
+export function roomVoices(entities: Pick<EntityRecord, 'id' | 'name'>[], db?: AppDatabase): Map<string, string | null> {
+  const voices = new Map<string, string | null>();
+  const used = new Set<string>();
+
+  for (const entity of entities) {
+    const voice = voiceOf(entity, db);
+    if (voice) used.add(voice);
+    voices.set(entity.id, voice);
+  }
+
+  const seen = new Set<string>();
+  for (const entity of entities) {
+    const voice = voices.get(entity.id);
+    if (!voice || !voice.startsWith('temperament: ')) continue;
+    if (!seen.has(voice)) {
+      seen.add(voice);
+      continue;
+    }
+    const start = hash(entity.id) % TEMPERAMENTS.length;
+    for (let step = 1; step < TEMPERAMENTS.length; step += 1) {
+      const next = `temperament: ${TEMPERAMENTS[(start + step) % TEMPERAMENTS.length]}`;
+      if (!seen.has(next) && !used.has(next)) {
+        voices.set(entity.id, next);
+        seen.add(next);
+        break;
+      }
+    }
+  }
+
+  return voices;
 }
 
 /** The short form for a crowded room: the first part of the line. */
@@ -151,6 +189,8 @@ export function formatReactionsBlock(db: AppDatabase, ids: ReadonlySet<string>):
   const people = db.entities.filter(
     (entity) => entity.type === 'character' && ids.has(entity.id) && entity.name.toLowerCase() !== 'kan' && !isDeceased(entity)
   );
+  const cast = new Set((db.state.sceneCast ?? []).map((name) => name.toLowerCase()));
+  const here = people.filter((entity) => entity.companion || cast.has(entity.name.toLowerCase()));
   const changed = lastChakraChange(db);
   const senseLines = people.flatMap((entity) => {
     const senses = sensesNow(db, entity);
@@ -170,6 +210,9 @@ export function formatReactionsBlock(db: AppDatabase, ids: ReadonlySet<string>):
 
   return [
     'HOW YOU READ TO OTHERS (narrator only)',
+    here.length >= 2
+      ? `${here.length} people here (${here.map((entity) => displayName(db, entity)).join(', ')}): when something happens, each reacts differently, in their own VOICE and at their own speed (one speaks first, another goes quiet, another only watches); never a shared reaction or the same words.`
+      : '',
     people.length > 0 ? naturesReadLine(db) : '',
     ...(senseLines.length > 0 ? ['Who can perceive more:', ...senseLines] : []),
     samehadaLine(db, ids),
