@@ -15,7 +15,7 @@ import { latestCharacterPortraitMap } from '@/lib/rpg/characterPortrait';
 import { useStoredImage } from '@/lib/rpg/imageStore';
 import { upcomingBirthdays, type UpcomingBirthday } from '@/lib/rpg/yearly';
 import type { AppDatabase, BondRecord, CalendarDate, EntityRecord } from '@/lib/rpg/types';
-import { displayName, searchableNames } from '@/lib/rpg/names';
+import { displayName, searchableNames, titleName } from '@/lib/rpg/names';
 
 type BondEntry = {
   entity: EntityRecord;
@@ -222,7 +222,7 @@ export function BondsSection() {
     >
       <View style={styles.nameRow}>
         <Text numberOfLines={1} style={[styles.name, entry.dead && styles.nameDead]}>
-          {displayName(db, entry.entity)}
+          {titleName(db, entry.entity)}
         </Text>
         {entry.entity.companion && !entry.dead && query ? <Text style={styles.major}>With you</Text> : null}
         {entry.bond?.grudge && grudgeKnown(entry.bond.grudge) && !entry.dead ? (

@@ -51,7 +51,7 @@ export function chapterJumps(db: AppDatabase): ChapterJump[] {
   for (const entry of story) {
     const chapter = markers.get(entry.id)?.chapter;
     if (chapter && !jumps.some((jump) => jump.number === chapter.number)) {
-      jumps.push({ number: chapter.number, title: chapter.title, line: chapter.line, entryId: entry.id });
+      jumps.push({ number: chapter.number, title: chapter.title ?? `Chapter ${chapter.number}`, line: chapter.line, entryId: entry.id });
     }
   }
 

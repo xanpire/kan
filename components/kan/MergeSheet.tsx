@@ -16,7 +16,7 @@ import { Avatar } from '@/components/kan/BondsSection';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { dateSortValue } from '@/lib/rpg/calendar';
 import type { AppDatabase, EntityRecord } from '@/lib/rpg/types';
-import { alsoKnownAs, displayName, searchableNames } from '@/lib/rpg/names';
+import { alsoKnownAs, displayName, searchableNames, titleName } from '@/lib/rpg/names';
 
 type MergeSheetProps = {
   visible: boolean;
@@ -182,7 +182,7 @@ export function MergeSheet({ visible, db, entity, onCancel, onMerge }: MergeShee
                           leading={<Avatar name={displayName(db, item)} size={34} />}
                           meta={meta || null}
                           onPress={() => choose(item)}
-                          title={displayName(db, item)}
+                          title={titleName(db, item)}
                           titleLines={1}
                         />
                       );
@@ -215,7 +215,7 @@ export function MergeSheet({ visible, db, entity, onCancel, onMerge }: MergeShee
                       leading={<Avatar name={displayName(db, item)} size={34} />}
                       meta={item.met === false ? 'Not met yet' : (item.role ?? null)}
                       onPress={() => setKeepId(item.id)}
-                      title={displayName(db, item)}
+                      title={titleName(db, item)}
                       titleLines={1}
                       trailing={
                         <View style={[styles.radio, selected && styles.radioOn]}>

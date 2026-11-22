@@ -5,6 +5,7 @@
 import { dateSortValue, monthName } from './calendar';
 import { localizePlaceNames } from './glossary';
 import type { AppDatabase, CalendarDate, RawLogEntry } from './types';
+import { chapterName } from './util';
 
 /** The three stages the Story screen names while a scene is painted. */
 export type PaintStage = 'framing' | 'painting' | 'checking';
@@ -16,7 +17,8 @@ export const PAINT_STAGE_LABEL: Record<PaintStage, string> = {
 };
 
 export type StoryMarker = {
-  chapter?: { number: number; title: string; line: string };
+  /** title is null for a chapter that has no name of its own yet. */
+  chapter?: { number: number; title: string | null; line: string };
   /** "17 October", with the year when it changed. */
   day?: string;
   place?: string;
@@ -44,8 +46,8 @@ function placeAt(db: AppDatabase, date: CalendarDate) {
 }
 
 function chapterTitle(db: AppDatabase, number: number) {
-  if (number === db.state.chapter) return db.state.chapterTitle?.trim() || null;
-  return db.state.chapters?.find((item) => item.chapter === number)?.title?.trim() || null;
+  if (number === db.state.chapter) return chapterName(db.state.chapterTitle);
+  return chapterName(db.state.chapters?.find((item) => item.chapter === number)?.title);
 }
 
 /**
@@ -71,7 +73,7 @@ export function storyMarkers(db: AppDatabase): Map<string, StoryMarker> {
       const place = placeAt(db, entry.inStoryDate);
       marker.chapter = {
         number: entry.chapter,
-        title: chapterTitle(db, entry.chapter) ?? `Chapter ${entry.chapter}`,
+        title: chapterTitle(db, entry.chapter),
         line: [dayLine(entry.inStoryDate, entry.inStoryDate.year !== previous.inStoryDate.year), place ? localizePlaceNames(place) : null]
           .filter(Boolean)
           .join(' · '),

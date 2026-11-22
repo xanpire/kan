@@ -1030,3 +1030,9 @@ export function applyNameStep(
 }
 
 export type { CalendarDate };
+
+/** displayName at the start of a row or a heading: "The woman with the paper flower". */
+export function titleName(db: AppDatabase, entity: EntityRecord): string {
+  const name = displayName(db, entity);
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}

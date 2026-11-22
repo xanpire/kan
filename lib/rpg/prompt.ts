@@ -209,7 +209,7 @@ Write a 100-150 word summary of the supplied scene.
 
 Reply in exactly this format, nothing else:
 TITLE: a 2-6 word name for this stretch of story, no ending punctuation
-MEMORY: one or two short sentences (under 40 words), second person, on what you will remember of it
+MEMORY: one or two short sentences (under 40 words), second person, present tense: the moment itself as it stays with you ("The pierced man holds out the ring…"), never opening with "You will remember"
 SUMMARY: the 100-150 word summary`;
 
 const ARC_SUMMARY_SYSTEM = `You are a story archivist for a long-running interactive novel.

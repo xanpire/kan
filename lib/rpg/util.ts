@@ -46,6 +46,36 @@ export function keepablePartial(text: string): string | null {
   return trimmed;
 }
 
+/**
+ * A chapter's own name, or null when it has none: a chapter opened without a
+ * title used to store "Chapter 5" as its title, which read "Chapter 5 · Chapter 5".
+ */
+export function chapterName(title: string | null | undefined): string | null {
+  const trimmed = title?.trim();
+  return trimmed && !/^chapter\s+\d+$/i.test(trimmed) ? trimmed : null;
+}
+
+export const LOCATION_LIMIT = 100;
+const DANGLING_WORDS = /\s+(a|an|the|of|to|toward|towards|on|in|at|near|by|and|with|from|beneath|under|over|into|onto|past|beside)$/i;
+
+/**
+ * A place as the save keeps it: at most LOCATION_LIMIT characters, cut at a
+ * word and never mid-word ("…toward an abandoned outpo") or on a dangling "of".
+ */
+export function clipLocation(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= LOCATION_LIMIT) return trimmed;
+  let cut = trimmed.slice(0, LOCATION_LIMIT + 1);
+  const space = cut.lastIndexOf(' ');
+  cut = space > 40 ? cut.slice(0, space) : trimmed.slice(0, LOCATION_LIMIT);
+  let previous = '';
+  while (previous !== cut) {
+    previous = cut;
+    cut = cut.replace(/[\s,;:–—-]+$/, '').replace(DANGLING_WORDS, '');
+  }
+  return cut;
+}
+
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(value)));
 }
@@ -150,6 +180,17 @@ export type TitledSummary = {
  * Reads a summary reply written as TITLE / MEMORY / SUMMARY lines. A reply
  * without the labels is taken as the summary itself.
  */
+/**
+ * A memory line as it should read: "You remember…", never "You will
+ * remember…" (the prompt's "what you will remember" leaked into 13 of 22
+ * memories in Session 4).
+ */
+export function plainMemory(text: string): string {
+  return text.replace(/^\s*you(?:\s+will|['’]ll)\s+(always\s+|forever\s+)?remember\b/i, (_m, adverb?: string) =>
+    adverb && /always|forever/i.test(adverb) ? 'You always remember' : 'You remember'
+  );
+}
+
 export function parseTitledSummary(raw: string): TitledSummary | null {
   const text = raw.replace(/\r/g, '').trim();
   const label = /^\s*\**\s*(TITLE|MEMORY|SUMMARY|POV)\s*\**\s*:\s*\**\s*/gim;
@@ -184,7 +225,7 @@ export function parseTitledSummary(raw: string): TitledSummary | null {
     .replace(/[.!?]+$/, '')
     .trim()
     .slice(0, 60);
-  const memory = fields.MEMORY ? trimToSentence(fields.MEMORY.replace(/\s+/g, ' ')) : '';
+  const memory = fields.MEMORY ? plainMemory(trimToSentence(fields.MEMORY.replace(/\s+/g, ' '))) : '';
 
   return {
     title: title.length >= 2 ? title : null,

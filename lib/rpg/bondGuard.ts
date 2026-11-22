@@ -8,7 +8,9 @@
 // refused (for the Debug panel).
 
 import { daysBetween, entityAge } from './calendar';
+import { hasHeardNews } from './canon';
 import { endgamePhase } from './canonEndgame';
+import { kanKnowsDeath } from './deaths';
 import { loreProfileFor, normalizeAttraction, normalizeRelationship, type Attraction, type RelationshipStage } from './romance';
 import type { AppDatabase, BondRecord, CalendarDate, EntityRecord, TurnDiff } from './types';
 
@@ -53,6 +55,38 @@ const ATTRACTION_ORDER: Attraction[] = ['none', 'warm', 'strong'];
 function rungOf(stage: RelationshipStage) {
   const onLadder = RELATIONSHIP_LADDER.indexOf(stage);
   return onLadder !== -1 ? onLadder : (SIDEWAYS_RUNG[stage] ?? 1);
+}
+
+/**
+ * The highest Kan's own feelings can reach toward someone he holds a wound
+ * against, or null when nothing holds them. Itachi (decided by Xan, 15 Nov
+ * 2026): once Kan knows Izumi and Hazuki are dead, the bond is hatred, cold
+ * partnership and cracks, and "softens only for real story reasons, slowly".
+ * The tracker kept warming it a point a turn because Itachi was steady beside
+ * him (Session 4: 3 to 9 in four days), so the engine holds it at a cold
+ * working level until Kan learns of the illness or Itachi dies.
+ */
+export const HELD_FEELINGS_CEILING = 3;
+/** The status Itachi's bond is seeded with, from before the night. */
+const ITACHI_SEEDED_STATUS = /^closest friend, like an older brother$/i;
+export const ITACHI_AFTER_THE_NIGHT = 'He killed Izumi and Hazuki. You go with him anyway.';
+
+export function heldFeelingsCeiling(db: AppDatabase, entity: EntityRecord): number | null {
+  if (entity.name !== 'Itachi Uchiha' || entity.deceased || entity.status === 'Deceased') {
+    return null;
+  }
+
+  const izumi = db.entities.find((item) => item.name === 'Izumi Uchiha');
+
+  if (!izumi || !kanKnowsDeath(db, izumi)) {
+    return null;
+  }
+
+  if (hasHeardNews(db, 'itachi-illness') || db.state.canonProgress?.completed?.includes('itachi-illness')) {
+    return null;
+  }
+
+  return HELD_FEELINGS_CEILING;
 }
 
 export type BondMarks = Pick<BondRecord, 'stepSceneSeq' | 'attractionSceneSeq' | 'romanticSince'>;
@@ -131,6 +165,24 @@ export function guardBondDiff(
 
   next.affinityDelta = clampDelta(bond.affinityDelta, 'their feelings');
   next.yourDelta = clampDelta(bond.yourDelta, 'your feelings');
+
+  // A wound Kan holds keeps his side down, whatever the tracker says.
+  const ceiling = heldFeelingsCeiling(db, entity);
+
+  if (ceiling !== null) {
+    const now = existing?.yourFeelings?.affinity ?? existing?.affinity ?? 0;
+    const after = now + (next.yourDelta ?? 0);
+
+    if (after > ceiling) {
+      const kept = Math.min(next.yourDelta ?? 0, ceiling - now);
+      refused.push(`${who}: your feelings held at ${ceiling} or below (what you hold against them has not softened).`);
+      next.yourDelta = kept;
+    }
+
+    if (existing?.status && ITACHI_SEEDED_STATUS.test(existing.status.trim()) && !next.status) {
+      next.status = ITACHI_AFTER_THE_NIGHT;
+    }
+  }
 
   // Relationship: one rung up per scene; down or sideways freely.
   const current: RelationshipStage = existing?.relationship ?? 'stranger';

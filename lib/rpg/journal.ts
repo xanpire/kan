@@ -184,6 +184,38 @@ function staleCondition(fact: AppDatabase['facts'][number], today: AppDatabase['
   return fact.untilRest ? age > 2 : age > 3;
 }
 
+const CONDITION_STOPWORDS = new Set(['your', 'you', 'with', 'from', 'into', 'that', 'this', 'have', 'has', 'been', 'their', 'them', 'they', 'there', 'beside', 'still', 'after', 'over', 'under', 'sits']);
+
+function conditionWords(text: string) {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[’']s\b/g, '')
+      .split(/[^\p{L}]+/u)
+      .filter((word) => word.length >= 4 && !CONDITION_STOPWORDS.has(word))
+  );
+}
+
+/**
+ * The tracker files the same state again each turn in new words (Session 4:
+ * three lines about the left eye, two about the stolen Water). Newest first,
+ * a line that mostly repeats a newer one is left out.
+ */
+function newestOfASort() {
+  const kept: Set<string>[] = [];
+  return (fact: { text: string }) => {
+    const words = conditionWords(fact.text);
+    const repeats = kept.some((other) => {
+      let shared = 0;
+      for (const word of words) if (other.has(word)) shared += 1;
+      return words.size > 0 && shared / Math.min(words.size, other.size) >= 0.4;
+    });
+    if (repeats) return false;
+    kept.push(words);
+    return true;
+  };
+}
+
 export function kanConditions(db: AppDatabase): KanCondition[] {
   const today = db.state.inStoryDate;
 
@@ -196,8 +228,9 @@ export function kanConditions(db: AppDatabase): KanCondition[] {
         (!fact.expiresAt || dateSortValue(fact.expiresAt) >= dateSortValue(today)) &&
         !staleCondition(fact, today)
     )
-    .slice(-8)
     .reverse()
+    .filter(newestOfASort())
+    .slice(0, 8)
     .map((fact) => {
       const days = fact.expiresAt ? Math.max(0, Math.ceil(daysBetween(today, fact.expiresAt))) : null;
       const lasts = fact.untilRest

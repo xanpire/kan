@@ -16,9 +16,9 @@ import { chapterDates, hiddenThread, kanConditions, memoryTitle, storyTimeline, 
 import { letterArchive, type ArchivedLetter } from '@/lib/rpg/letters';
 import { whatYouKnow } from '@/lib/rpg/loreList';
 import { formatChange, formatRyo, purseFeel, purseOf } from '@/lib/rpg/money';
-import { displayName } from '@/lib/rpg/names';
+import { displayName, titleName } from '@/lib/rpg/names';
 import type { AppDatabase, ThreadRecord } from '@/lib/rpg/types';
-import { titleAndBody } from '@/lib/rpg/util';
+import { chapterName, titleAndBody } from '@/lib/rpg/util';
 import { todayNotes } from '@/lib/rpg/yearly';
 
 // Three views, not six (audit 11a): Now, Story (one timeline of what
@@ -203,7 +203,7 @@ function NowView({ db }: { db: AppDatabase }) {
   const today = todayNotes(db);
   const withYou = companionsOf(db);
   const conditions = kanConditions(db);
-  const chapter = `Chapter ${db.state.chapter}${db.state.chapterTitle ? `: ${db.state.chapterTitle}` : ''}`;
+  const chapter = `Chapter ${db.state.chapter}${chapterName(db.state.chapterTitle) ? `: ${chapterName(db.state.chapterTitle)}` : ''}`;
 
   return (
     <>
@@ -213,7 +213,7 @@ function NowView({ db }: { db: AppDatabase }) {
           title={localizePlaceNames(db.state.location)}
         />
         {withYou.map((entity) => (
-          <ListRow key={entity.id} meta="With you" title={displayName(db, entity)} />
+          <ListRow key={entity.id} meta="With you" title={titleName(db, entity)} />
         ))}
         {today.length > 0 ? <ListRow body={today.join(' · ')} bodyLines={2} title="Today" /> : null}
       </ListCard>

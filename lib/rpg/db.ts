@@ -18,7 +18,7 @@ import { classifyThread, knowersOf } from './facts';
 
 import { DEFAULT_SETTINGS, emptyIndex, normalizePromptBudget } from './defaults';
 import { makeId } from './id';
-import { playerTurnCount } from './util';
+import { plainMemory, playerTurnCount } from './util';
 import { isCurrentSnapshot } from './log';
 import { stripNarrationJson } from './prompt';
 import { CANON_GRID, CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from './canonData';
@@ -1049,7 +1049,11 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
       ? db.events.map((event) =>
           typeof event.summary === 'string' && event.summary.startsWith(LEGACY_OPENING_SUMMARY_START)
             ? { ...event, summary: OPENING_MEMORY_TOLD, narratorNote: OPENING_BRIEFING_TOLD }
-            : refreshCanonEventText(event)
+            : refreshCanonEventText(
+                typeof event.summary === 'string' && /^\s*you(\s+will|['’]ll)\s/i.test(event.summary)
+                  ? { ...event, summary: plainMemory(event.summary) }
+                  : event
+              )
         )
       : [],
     eventEntities: Array.isArray(db.eventEntities) ? db.eventEntities : [],

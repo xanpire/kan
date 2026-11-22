@@ -182,7 +182,7 @@ export function PortraitHeader() {
             Age {age} · {kanRankNow(db)}
           </Text>
           <Text numberOfLines={2} style={type.rowMeta}>
-            {db.state.mood}
+            {db.state.mood ? db.state.mood.charAt(0).toUpperCase() + db.state.mood.slice(1) : null}
           </Text>
           <View style={styles.spacer} />
           <View style={styles.statusRow}>

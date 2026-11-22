@@ -49,7 +49,7 @@ import {
 } from '@/lib/rpg/safehouses';
 import type { Safehouse } from '@/lib/rpg/types';
 import { DOUBLE_TAP_SPAN, NAMES_SPAN, WHOLE_MAP, boardPoint, boardTouchAction, panBy, pinchStep, viewOrigin, zoomTo, type MapView } from '@/lib/rpg/mapView';
-import { displayName } from '@/lib/rpg/names';
+import { displayName, titleName } from '@/lib/rpg/names';
 
 type Selection = { kind: 'place'; id: string } | { kind: 'region'; id: Region };
 
@@ -422,7 +422,7 @@ function PersonRows({ entries }: { entries: KnownWhereabouts[] }) {
           key={entry.entity.id}
           meta={entry.detail}
           onPress={() => router.push({ pathname: '/bond/[id]', params: { id: entry.entity.id } })}
-          title={db ? displayName(db, entry.entity) : entry.entity.name}
+          title={db ? titleName(db, entry.entity) : entry.entity.name}
         />
       ))}
     </ListCard>
@@ -692,7 +692,7 @@ export function MapSection() {
           title={localizePlaceNames(db.state.location)}
         />
         {withYou.length > 0 ? (
-          <ListRow meta="Travelling with you" title={withYou.map((entry) => displayName(db, entry.entity)).join(', ')} />
+          <ListRow meta="Travelling with you" title={withYou.map((entry) => titleName(db, entry.entity)).join(', ')} />
         ) : null}
       </ListCard>
 

@@ -4,6 +4,7 @@
  * (what reached Kan shows in Debug only), and the export line counts "1 turn".
  */
 import { describe, expect, mock, test } from 'bun:test';
+import { chapterName } from '../lib/rpg/util';
 
 mock.module('@react-native-async-storage/async-storage', () => ({
   default: {
@@ -55,12 +56,15 @@ describe('a new chapter does not keep the old scene name (S1)', () => {
     expect(after.state.chapterTitle).toBe('The Rain border');
   });
 
-  test('without a title or a new scene the chapter is called by its number, never the old scene', () => {
+  test('without a title or a new scene the chapter has no name yet, never the old scene', () => {
     const before = longChapter();
     const turnLogId = before.rawLog[before.rawLog.length - 1].id;
     const after = applyChapterBreak(before, before, turnLogId, { majorCompleted: true });
 
-    expect(after.state.chapterTitle).toBe(`Chapter ${before.state.chapter + 1}`);
+    // Session 5: storing "Chapter 6" as its title read "Chapter 6 · Chapter 6".
+    expect(after.state.chapterTitle).toBeUndefined();
+    expect(chapterName('Chapter 6')).toBeNull();
+    expect(chapterName('The bridge over the Naka')).toBe('The bridge over the Naka');
   });
 });
 

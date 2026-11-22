@@ -100,7 +100,10 @@ const DESERT_WORDS = /\b(desert|dunes?|sands|wasteland|badlands)\b/i;
 const WATERFALL_WORDS = /\b(waterfall|waterfalls|falls|cascade)\b/i;
 const RIVER_WORDS = /\b(river|riverbank|riverside|rapids)\b/i;
 const STREAM_WORDS = /\b(stream|creek|brook|spring|hot springs?|onsen|pond|lake|lakeshore|lakeside)\b/i;
-const SEA_WORDS = /\b(sea|seaside|ocean|coast|coastal|shore|shoreline|beach|cove|bay|harbou?r|port|docks?|pier|island|cliffs? over the sea|whirlpools?|boat|ship|ferry)\b/i;
+// "Dock" alone is the sea only when it isn't a building's: the Rain's
+// "cargo dock beneath the zinc overhang" two hundred feet up a tower played
+// the sea (Session 5).
+const SEA_WORDS = /\b(sea|seaside|ocean|coast|coastal|shore|shoreline|beach|cove|bay|harbou?r|port|(?<!(?:cargo|loading|supply|freight|service|delivery|landing)\s)docks?|pier|island|cliffs? over the sea|whirlpools?|boat|ship|ferry)\b/i;
 
 const WATERFALL_PLACES = new Set(['valley-end', 'waterfall']);
 const RIVER_PLACES = new Set(['naka-river']);

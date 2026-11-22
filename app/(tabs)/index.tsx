@@ -69,8 +69,9 @@ import {
   formatStoryDate,
   timeOfDayOf,
 } from '@/lib/rpg/calendar';
+import { chapterName } from '@/lib/rpg/util';
 import { narrationSegments, playerSegments } from '@/lib/rpg/narrationText';
-import { scrubNameLeaks } from '@/lib/rpg/names';
+import { scrubNameLeaks, titleName } from '@/lib/rpg/names';
 import { testOpenRouterKey } from '@/lib/openrouter';
 import { useReadingType } from '@/lib/reading';
 import { localizePlaceNames } from '@/lib/rpg/glossary';
@@ -504,7 +505,7 @@ function StoryMarkerView({ marker }: { marker: StoryMarker }) {
     return (
       <View accessibilityRole="header" style={styles.chapterCard}>
         <Text style={styles.chapterEyebrow}>Chapter {marker.chapter.number}</Text>
-        <Text style={styles.chapterCardTitle}>{marker.chapter.title}</Text>
+        {marker.chapter.title ? <Text style={styles.chapterCardTitle}>{marker.chapter.title}</Text> : null}
         {marker.chapter.line ? <Text style={styles.chapterLine}>{marker.chapter.line}</Text> : null}
       </View>
     );
@@ -1576,7 +1577,7 @@ export default function StoryScreen() {
             style={({ pressed }) => [styles.chapterLabel, pressed && styles.pressed]}
           >
             <Text numberOfLines={1} style={[type.sectionLabel, styles.chapterLabelText]}>
-              Chapter {db.state.chapter} · {db.state.chapterTitle || db.state.scene}
+              {chapterLabel(db.state.chapter, chapterName(db.state.chapterTitle) || db.state.scene)}
             </Text>
             {jumps.length > 0 ? <ChevronDown color={colors.textMeta} size={14} strokeWidth={2.2} /> : null}
           </Pressable>
@@ -1876,7 +1877,7 @@ export default function StoryScreen() {
                 )}
                 title={location}
               />
-              <ListRow meta="Mood" title={state.mood} />
+              <ListRow meta="Mood" title={capitalize(state.mood)} />
               {db ? (
                 <ListRow
                   meta={`Weather · ${weather.seasonLabel}`}
@@ -1886,10 +1887,14 @@ export default function StoryScreen() {
               {db && companionsOf(db).length > 0 ? (
                 <ListRow
                   meta="Travelling with you"
-                  title={companionsOf(db).map((entity) => displayName(db, entity)).join(', ')}
+                  title={companionsOf(db).map((entity) => titleName(db, entity)).join(', ')}
                 />
               ) : null}
-              <ListRow meta={`Chapter ${state.chapter}`} title={state.scene || state.chapterTitle || `Chapter ${state.chapter}`} />
+              {state.scene || chapterName(state.chapterTitle) ? (
+                <ListRow meta={`Chapter ${state.chapter}`} title={state.scene || chapterName(state.chapterTitle) || ''} />
+              ) : (
+                <ListRow title={`Chapter ${state.chapter}`} />
+              )}
             </ListCard>
             {skipBlocked ? (
               <>
@@ -3075,6 +3080,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+/** "Chapter 5 · The bridge", or just "Chapter 5" while it has no name. */
+function chapterLabel(number: number, name: string | null | undefined) {
+  return name?.trim() ? `Chapter ${number} · ${name.trim()}` : `Chapter ${number}`;
+}
 
 function capitalize(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);

@@ -730,7 +730,9 @@ export function applyChapterBreak(
   // The old chapter's scene name never carries into the new chapter (S1): a
   // scene named this turn stays, otherwise it waits for the tracker's next one.
   const freshScene = after.state.scene && after.state.scene !== before.state.scene ? after.state.scene : '';
-  const title = reason.title?.trim() || freshScene || `Chapter ${chapter + 1}`;
+  // No name yet: the chapter waits for one (the next scene's name) instead of
+  // storing "Chapter N" as its title.
+  const title = reason.title?.trim() || freshScene || undefined;
   const index = after.rawLog.findIndex((entry) => entry.id === turnLogId);
   const userIndex = index > 0 && after.rawLog[index - 1].role === 'user' ? index - 1 : -1;
   const turnNumber = after.rawLog[userIndex !== -1 ? userIndex : index]?.turn ?? 0;

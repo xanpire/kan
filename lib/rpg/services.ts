@@ -37,7 +37,7 @@ import {
   worldStateSchema,
   type WorldArea,
 } from './stateSchema';
-import { type TitledSummary, parseTitledSummary, uniqueList } from './util';
+import { type TitledSummary, chapterName, clipLocation, parseTitledSummary, uniqueList } from './util';
 import type { AppDatabase, CalendarDate, RawLogEntry, TurnDiff } from './types';
 import { SCENE_CAST_LIMIT } from './sceneLimits';
 
@@ -187,7 +187,7 @@ export function applyTurnDiff(
   }
 
   if (Array.isArray(diff.jutsuUsed)) {
-    for (const jutsu of diff.jutsuUsed) {
+    for (const jutsu of withoutSkyBurialAsThousandSouls(diff.jutsuUsed)) {
       next = applyJutsuDiff(next, jutsu);
     }
   }
@@ -368,7 +368,10 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
   }
 
   if (typeof state.location === 'string' && state.location.trim()) {
-    const moved = state.location.trim().toLowerCase() !== (db.state.location ?? '').trim().toLowerCase();
+    // Compare the stored form: a long place was cut on the way in, so the
+    // full text never equalled it and every turn there counted as a move.
+    const location = clipLocation(state.location);
+    const moved = location.toLowerCase() !== (db.state.location ?? '').trim().toLowerCase();
 
     // Kan left, and the tracker didn't say who came along: only companions
     // (added back by the caller) are with him now.
@@ -376,7 +379,7 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
       next.state.sceneCast = [];
     }
 
-    next.state.location = state.location.trim().slice(0, 100);
+    next.state.location = location;
     next.state.locationKind = validateLocationKind(next.state.location, state.locationKind);
   } else if (state.locationKind) {
     next.state.locationKind = state.locationKind;
@@ -409,6 +412,11 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
 
   if (typeof state.scene === 'string' && state.scene.trim()) {
     next.state.scene = state.scene.trim().slice(0, 60);
+
+    // A chapter that opened without a name takes its first scene's.
+    if (!chapterName(next.state.chapterTitle)) {
+      next.state.chapterTitle = next.state.scene;
+    }
   }
 
   return next;
@@ -734,5 +742,31 @@ export async function rollArcSummary(options: {
     temperature: 0.2,
     maxTokens: ARC_SUMMARY_MAX_TOKENS,
     reasoning: { effort: 'low', exclude: true },
+  });
+}
+
+/**
+ * Sky Burial drains chakra too, and the tracker filed its drain as a Thousand
+ * Souls use (Session 4: the convoy leader's drain went down as the second of
+ * ten). Only a fused use counts (Xan, 14 Nov 2026): a Thousand Souls line that
+ * describes Sky Burial, or comes with Sky Burial in the same turn, without
+ * saying the two were fused, is Sky Burial's alone.
+ */
+export function withoutSkyBurialAsThousandSouls<T extends { name: string; user?: string; effect?: string; thisUse?: string; visual?: string }>(
+  used: T[]
+): T[] {
+  const isThousandSouls = (item: T) => /thousand\s+souls/i.test(item.name);
+  const isSkyBurial = (item: T) => /sky\s+burial|chōsō|choso/i.test(item.name);
+  const words = (item: T) => `${item.name} ${item.effect ?? ''} ${item.thisUse ?? ''} ${item.visual ?? ''}`;
+  const fused = used.some((item) => /\bfus(e|ed|es|ing|ion)\b/i.test(words(item)));
+
+  if (fused) return used;
+
+  const skyBurialThisTurn = used.some(isSkyBurial);
+
+  return used.flatMap((item) => {
+    if (!isThousandSouls(item) || (item.user && !/^kan$/i.test(item.user))) return [item];
+    if (skyBurialThisTurn) return [];
+    return /sky\s+burial|genjutsu|vultures?\b|mountain|eye contact/i.test(words(item)) ? [{ ...item, name: 'Sky Burial' }] : [item];
   });
 }

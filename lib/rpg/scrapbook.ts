@@ -10,7 +10,7 @@ import { CANON_ERA_ORDER, CANON_MILESTONES, eraTitle } from './canonData';
 import { localizePlaceNames } from './glossary';
 import { FLASHBACK_BY_ID } from './flashbackData';
 import type { AppDatabase, CalendarDate, RawLogEntry } from './types';
-import { firstSentences, secondPerson } from './util';
+import { chapterName, firstSentences, secondPerson } from './util';
 
 export type ScrapbookPhoto = {
   logId: string;
@@ -125,8 +125,8 @@ export function scrapbookPhotos(db: AppDatabase): ScrapbookPhoto[] {
 function chapterTitle(db: AppDatabase, chapter: number): string | null {
   const done = db.state.chapters?.find((item) => item.chapter === chapter);
 
-  if (done?.title) return done.title;
-  if (chapter === db.state.chapter) return db.state.chapterTitle ?? null;
+  if (chapterName(done?.title)) return chapterName(done?.title);
+  if (chapter === db.state.chapter) return chapterName(db.state.chapterTitle);
 
   return null;
 }
