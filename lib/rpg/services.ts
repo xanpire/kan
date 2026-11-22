@@ -38,7 +38,8 @@ import {
   type WorldArea,
 } from './stateSchema';
 import { type TitledSummary, chapterName, clipLocation, parseTitledSummary, uniqueList } from './util';
-import type { AppDatabase, CalendarDate, RawLogEntry, TurnDiff } from './types';
+import type { AppDatabase, CalendarDate, EntityRecord, RawLogEntry, TurnDiff } from './types';
+import { displayName } from './names';
 import { SCENE_CAST_LIMIT } from './sceneLimits';
 
 /** Room for the state reply. Thinking tokens count against this too. */
@@ -242,7 +243,7 @@ export function applyTurnDiff(
 
   // After bonds and deaths: a soured bond can turn into a grudge, and the
   // dead let theirs go.
-  next = applyGrudgeChanges(next, { ...diff, grudges: [...(diff.grudges ?? []), ...grudgesFromSeeds(diff)] }, { presentIds });
+  next = applyGrudgeChanges(next, { ...diff, grudges: [...(diff.grudges ?? []), ...grudgesFromSeeds(diff, next, presentIds)] }, { presentIds });
   next = applyReputationChanges(next, diff.reputation, diff.bountySeen);
 
   if (Array.isArray(diff.factsEnded) && diff.factsEnded.length > 0) {
@@ -779,9 +780,49 @@ const REVENGE_WANT = /\b(pay|payback|revenge|aveng|vengeance|kill|dead|death|des
  * the Earth convoy's leader, jaw broken and men dead, "wants to see the ones
  * who took his convoy pay", was only ever a seed, never a rival).
  */
-export function grudgesFromSeeds(diff: TurnDiff): NonNullable<TurnDiff['grudges']> {
+export function grudgesFromSeeds(
+  diff: TurnDiff,
+  db?: AppDatabase,
+  presentIds?: ReadonlySet<string>
+): NonNullable<TurnDiff['grudges']> {
   return (diff.consequences ?? [])
     .filter((seed) => ['spared', 'humiliated', 'betrayal'].includes(seed.kind) && REVENGE_WANT.test(seed.want ?? ''))
     .filter((seed) => !(diff.grudges ?? []).some((event) => (event.entityId && event.entityId === seed.entityId) || event.name === seed.who))
-    .map((seed) => ({ entityId: seed.entityId, name: seed.who, event: 'wronged' as const, reason: seed.what }));
+    .map((seed) => {
+      const entityId = seed.entityId ?? (db ? presentMatch(db, seed.who, presentIds)?.id : undefined);
+      return { entityId, name: seed.who, event: 'wronged' as const, reason: seed.what };
+    });
+}
+
+const LABEL_FILLER = new Set(['the', 'you', 'your', 'who', 'that', 'with', 'from', 'leader', 'man', 'woman']);
+
+function labelWords(text: string) {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^\p{L}]+/u)
+      .filter((word) => word.length >= 3 && !LABEL_FILLER.has(word))
+  );
+}
+
+/**
+ * The living person in the scene a seed's "who" describes, when it doesn't
+ * name them ("the bounty-hunter leader you crippled in Tanzaku" is "the
+ * notched-blade bounty hunter"): the most shared words, two at least.
+ */
+export function presentMatch(db: AppDatabase, who: string, presentIds?: ReadonlySet<string>) {
+  const exact = resolveEntity(db, who);
+  if (exact) return exact;
+  const wanted = labelWords(who);
+  let best: { entity: EntityRecord; shared: number } | null = null;
+
+  for (const entity of db.entities) {
+    if (presentIds && !presentIds.has(entity.id)) continue;
+    if (entity.type !== 'character' || isDeceased(entity) || entity.name.trim().toLowerCase() === 'kan') continue;
+    let shared = 0;
+    for (const word of labelWords(displayName(db, entity))) if (wanted.has(word)) shared += 1;
+    if (shared >= 2 && (!best || shared > best.shared)) best = { entity, shared };
+  }
+
+  return best?.entity ?? null;
 }

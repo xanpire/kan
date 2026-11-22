@@ -186,3 +186,14 @@ describe('a returned kiss makes it romance', () => {
     expect(blocked.bond.relationship).not.toBe('romantic interest');
   });
 });
+
+describe('a seed finds the person it describes', () => {
+  test('"the bounty-hunter leader you crippled" is the notched-blade bounty hunter in the scene', async () => {
+    const { presentMatch } = await import('../lib/rpg/services');
+    const db = seeded();
+    const hunter = { ...db.entities[0], id: 'entity_hunter', name: 'the notched-blade bounty hunter', aliases: [], tags: [], type: 'character' as const, deceased: false, status: 'Active', known: { label: 'the notched-blade bounty hunter' } };
+    const withHunter = { ...db, entities: [...db.entities, hunter as never] };
+    expect(presentMatch(withHunter, 'the bounty-hunter leader you crippled in Tanzaku', new Set(['entity_hunter']))?.id).toBe('entity_hunter');
+    expect(presentMatch(withHunter, 'a farmer by the road', new Set(['entity_hunter']))).toBeNull();
+  });
+});
