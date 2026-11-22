@@ -95,3 +95,23 @@ describe('Kan does not warm to Itachi after the night', () => {
     expect(guarded.bond.status).toBe(ITACHI_AFTER_THE_NIGHT);
   });
 });
+
+describe('a world event Kan watched is not news to be told', () => {
+  test("Izumi's funeral, seen from the ridgeline, is witnessed", async () => {
+    const { advanceCanon, markWitnessedNews, hasHeardNews } = await import('../lib/rpg/canon');
+    const db = seeded();
+    const at = { year: 13, month: 10, day: 6, hour: 9, minute: 0, second: 0 };
+    const there = {
+      ...db,
+      state: { ...db.state, inStoryDate: at, travelLog: [{ place: 'Ridgeline above the Uchiha clan cemetery', region: 'fire', date: at }] },
+    };
+    const fired = advanceCanon(there);
+    expect(fired.events.some((event) => event.id === 'event_canon_izumi-funeral')).toBe(true);
+    expect(hasHeardNews(fired, 'event_canon_izumi-funeral')).toBe(false);
+    expect(hasHeardNews(markWitnessedNews(fired), 'event_canon_izumi-funeral')).toBe(true);
+
+    // Somewhere else that day, it stays news.
+    const away = { ...there, state: { ...there.state, travelLog: [{ place: 'A hollow under the roots of a fallen cedar', region: 'fire', date: at }] } };
+    expect(hasHeardNews(markWitnessedNews(advanceCanon(away)), 'event_canon_izumi-funeral')).toBe(false);
+  });
+});

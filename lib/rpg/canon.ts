@@ -1065,3 +1065,51 @@ export function knownCanonPoint(db: AppDatabase): string {
   // The opening's own point (what Kan already knows) until the first news.
   return normalizeProgress(db).completed.length === 0 ? db.state.canonPoint : '';
 }
+
+const PLACE_FILLER = new Set(['outside', 'inside', 'hidden', 'village', 'village’s', 'beneath', 'above', 'below', 'beyond', 'within', 'their', 'there']);
+
+function placeWords(text: string) {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^\p{L}]+/u)
+      .filter((word) => word.length >= 5 && !PLACE_FILLER.has(word))
+  );
+}
+
+/**
+ * A world event that happened where Kan was that day was seen, not news to be
+ * told (Session 4: Kan watched Izumi's funeral from the treeline, the funeral
+ * stayed "not heard", and Itachi later told him who had stood at the grave).
+ * Marked `witnessed`, which never counts toward the news a turn may bring.
+ */
+export function markWitnessedNews(db: AppDatabase): AppDatabase {
+  const stops = db.state.travelLog ?? [];
+  if (stops.length === 0) return db;
+
+  const progress = normalizeProgress(db);
+  const heard = { ...(progress.heard ?? {}) };
+  let changed = false;
+
+  for (const event of db.events) {
+    if (!event.id.startsWith('event_canon_') || heard[event.id]) continue;
+    const milestone = CANON_MILESTONES.find((item) => eventIdFor(item.id) === event.id);
+    if (!milestone || milestone.playerDriven) continue;
+    const where = placeWords(milestoneLocation(milestone));
+    if (where.size === 0) continue;
+    const day = `${event.inStoryDate.year}-${event.inStoryDate.month}-${event.inStoryDate.day}`;
+    const there = stops.some((stop) => {
+      if (`${stop.date.year}-${stop.date.month}-${stop.date.day}` !== day) return false;
+      const words = placeWords(stop.place);
+      let shared = 0;
+      for (const word of where) if (words.has(word)) shared += 1;
+      return shared >= Math.min(2, where.size);
+    });
+    if (there) {
+      heard[event.id] = { from: 'witnessed', date: event.inStoryDate };
+      changed = true;
+    }
+  }
+
+  return changed ? withProgress(db, { ...progress, heard }) : db;
+}

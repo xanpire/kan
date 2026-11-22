@@ -221,7 +221,7 @@ export default function WorldClockScreen() {
             <ListCard>
               {seeds.map((seed) => (
                 <ListRow
-                  body={[seed.what, seed.want ? `Wants ${seed.want}.` : null].filter(Boolean).join(' ')}
+                  body={[seed.what.replace(/[.\s]*$/, '.'), seed.want ? `Wants: ${seed.want.replace(/[.\s]*$/, '')}.` : null].filter(Boolean).join(' ')}
                   key={seed.id}
                   meta={`${seed.kind} · from ${dateLabel(seed.after)} · fades ${dateLabel(seed.before)}${seed.offeredOn ? ` · last offered ${dateLabel(seed.offeredOn)}` : ''}`}
                   title={seed.who}

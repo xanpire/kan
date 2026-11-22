@@ -26,7 +26,7 @@ import { isDeceased, markKnownDeathsOnBonds } from './deaths';
 import { castWithCompanions } from './companions';
 import { markMet } from './met';
 import { applyStoryHooks } from './hooks';
-import { advanceCanon, applyCanonMarks, isCombatPace, markNewsHeard, unfireFutureMilestones } from './canon';
+import { advanceCanon, applyCanonMarks, isCombatPace, markNewsHeard, markWitnessedNews, unfireFutureMilestones } from './canon';
 import { applyCanonEndgames } from './canonEndgame';
 import { deliverLetters, receiveLetters, sendLetters, turnLetterOffer } from './letters';
 import { advanceLives, applyLifeEvents, markReunions } from './lives';
@@ -456,6 +456,7 @@ export function applyStateStep(
     );
   }
   next = advanceCanon(next, { inCombat });
+  next = markWitnessedNews(next);
   // Names Kan heard, read or recognised this turn, and identities the world
   // revealed to him (the mask breaking); labels for anyone he can't name.
   const presentIds =
