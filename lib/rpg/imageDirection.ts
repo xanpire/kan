@@ -63,6 +63,34 @@ export function isScaleShot(type: ShotType | null) {
   return type === 'wide' || type === 'extreme wide' || type === 'aerial';
 }
 
+/**
+ * How much of the frame the subject takes, by shot type (22 Nov 2026): every
+ * model drew close-ups as medium shots and "tiny above the city" with Kan
+ * large in frame, so the painter is told the size plainly.
+ */
+export function shotFraming(type: ShotType | null): string | null {
+  switch (type) {
+    case 'extreme close-up':
+      return 'FRAMING: an extreme close-up. Only part of the face fills the whole frame (the eyes, or the eyes and nose); no shoulders, almost no background.';
+    case 'close-up':
+      return 'FRAMING: a true close-up. The head fills most of the frame height, cropped between the chin and the top of the hair; at most the top of the shoulders. The background is soft and out of focus.';
+    case 'extreme wide':
+    case 'aerial':
+      return 'FRAMING: the figures are tiny, each well under a tenth of the frame height, small enough that faces are barely readable; the place, the land and the sky fill the frame.';
+    case 'wide':
+      return 'FRAMING: a wide shot. The figures take about a third of the frame height at most; the place around them is the larger part of the image.';
+    default:
+      return null;
+  }
+}
+
+/** True when a close-up was among the recent images. */
+export function recentCloseUp(db: Pick<AppDatabase, 'rawLog'>, count = 4) {
+  return paintedReplies(db)
+    .slice(-count)
+    .some((entry) => /close-up/.test(entry.imageMeta?.shotType ?? shotTypeOf(entry.imageMeta?.shot) ?? ''));
+}
+
 // ---------------------------------------------------------------------------
 // Shot chips
 // ---------------------------------------------------------------------------
@@ -203,12 +231,24 @@ const HIDDEN_SKY: Record<SkyPhase, string> = {
   'blue-hour': 'a dark grey-blue dusk under cloud, light almost gone',
 };
 
-function lightOfMoment(date: CalendarDate, condition: WeatherCondition, indoors: boolean) {
+/** Words that put a place below ground: no windows, no sky (22 Nov 2026). */
+const UNDERGROUND_WORDS =
+  /\b(underground|below ground|beneath the (?:earth|ground|streets?|city)|cave|cavern|grotto|tunnel|catacombs?|cellar|basement|dungeon|cell block|holding cell|mine shaft|sewers?|crypt|vault)\b/i;
+
+export function isUndergroundText(text: string | undefined | null) {
+  return Boolean(text && UNDERGROUND_WORDS.test(text));
+}
+
+function lightOfMoment(date: CalendarDate, condition: WeatherCondition, indoors: boolean, underground = false) {
   const phase = skyPhase(date);
+
+  if (underground) {
+    return 'underground: no windows and no sky anywhere, only lamplight, torchlight or chakra glow, deep shadows';
+  }
 
   if (indoors) {
     return isDark(phase)
-      ? 'warm lamplight and torchlight, deep shadows; dark outside'
+      ? 'warm lamplight and torchlight, deep shadows; dark outside, any window black'
       : 'daylight falling through openings, deep shadows inside';
   }
 
@@ -219,9 +259,9 @@ function lightOfMoment(date: CalendarDate, condition: WeatherCondition, indoors:
 export function lightNow(db: AppDatabase, inMemory = false): string {
   const moment = sceneMoment(db, inMemory);
   const phase = skyPhase(moment.date);
-  const text = lightOfMoment(moment.date, moment.condition, moment.indoors);
+  const text = lightOfMoment(moment.date, moment.condition, moment.indoors, moment.underground);
 
-  return isDark(phase) && !moment.indoors
+  return isDark(phase) && !moment.indoors && !moment.underground
     ? `${text}. It is dark: never a sunset or a daylight sky`
     : text;
 }
@@ -250,6 +290,8 @@ export function sceneMoment(db: AppDatabase, inMemory: boolean): {
   condition: WeatherCondition;
   weatherText?: string;
   indoors: boolean;
+  /** Below ground (a cave, a cell, a cellar): no window, no sky. */
+  underground: boolean;
 } {
   const memory = inMemory ? db.state.flashbacks?.active ?? null : null;
 
@@ -259,6 +301,7 @@ export function sceneMoment(db: AppDatabase, inMemory: boolean): {
       condition: memory.weather?.condition ?? 'clear',
       weatherText: memory.weather?.text,
       indoors: memory.locationKind === 'structure',
+      underground: isUndergroundText(memory.place),
     };
   }
 
@@ -269,6 +312,7 @@ export function sceneMoment(db: AppDatabase, inMemory: boolean): {
     condition: now.condition,
     weatherText: now.text,
     indoors: db.state.locationKind === 'structure',
+    underground: isUndergroundText(`${db.state.location} ${db.state.scene ?? ''}`),
   };
 }
 
@@ -281,11 +325,11 @@ export function lightLine(db: AppDatabase, sceneText: string, inMemory = false):
   const accent = colourAccent(sceneText);
 
   return [
-    `Light and atmosphere: ${lightOfMoment(moment.date, moment.condition, moment.indoors)}`,
-    moment.indoors ? `; outside, ${weather}` : `; ${weather}`,
+    `Light and atmosphere: ${lightOfMoment(moment.date, moment.condition, moment.indoors, moment.underground)}`,
+    moment.underground ? '' : moment.indoors ? `; outside, ${weather}` : `; ${weather}`,
     accent ? `; colour accent: ${accent}` : '',
     '.',
-    night && !moment.indoors ? ' It is dark: no sunset, no sun, no daylight sky.' : '',
+    night && !moment.indoors && !moment.underground ? ' It is dark: no sunset, no sun, no daylight sky.' : '',
   ].join('');
 }
 

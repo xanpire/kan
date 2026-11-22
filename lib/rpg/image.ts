@@ -38,6 +38,8 @@ import {
   shotTypeOf,
   type ShotChip,
   type ShotType,
+  recentCloseUp,
+  shotFraming,
 } from './imageDirection';
 import { CONDITION_INFO } from './weather';
 import { placeLookOf } from './placeLooks';
@@ -227,13 +229,15 @@ SHOT: frame that instant like an anime key frame in a wide 16:9 frame. One line,
 - composition: where the subject sits (lower third, off-center, tiny in frame, filling the frame), and what fills the rest of the wide frame (open sky, smoke, flames, the jutsu, the landscape)
 - focus: the ONE person who gets the sharpest light and the most space in the frame (usually Kan)
 - emotion at its peak, shown physically (screaming with veins on the neck, tears streaking a bloodied face, eyes wide with Sharingan spinning)
-- light and effects: the light given under "Light now" (never a sunset or a bright sky after dark, never sun under thick cloud), its colour, motion (wind-whipped hair and cloak, speed lines, debris, embers, dust, chakra glow)
+- light and effects: the light given under "Light now" (never a sunset or a bright sky after dark, never sun under thick cloud; underground or in a cell, no window and no sky at all), its colour, motion (wind-whipped hair and cloak, speed lines, debris, embers, dust, chakra glow)
 Pick the shot that sells the moment:
-- emotional peak: close-up or extreme close-up on a face
+- emotional peak (a scream, tears, rage, shock, grief): close-up or extreme close-up on that face. Not a medium shot: the face fills the frame.
+- one person alone and still (thinking, watching, at a rail or a window, by a lamp): close-up, often a side profile
 - jutsu or power: low angle or worm's-eye, the effect filling most of the frame
 - the instant a blow lands, a shocking reveal: impact frame
 - arrival, journey, calm: extreme wide, tiny figure, big landscape and sky
 - aftermath or destruction: aerial or bird's-eye
+- for extreme wide and aerial, say the figure is tiny in the composition, and mean it: a speck against the place
 - confrontation: over-the-shoulder, or two figures facing off across the frame
 - a group together, a gathering, one against many: ensemble, with one of these layouts:
   - line-up: everyone facing the camera in a staggered V, the leader at the front, low angle, like an opening-credits shot
@@ -352,7 +356,7 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
           return known === name ? name : `${name} (to you: ${known})`;
         }).join(', ')}.` : 'Known people in the scene: none besides Kan.',
     notes.length > 0 ? `How they are: ${notes.join('; ')}.` : '',
-    `Time and weather: ${timeOfDayOf(moment.date)}, ${String(moment.date.hour ?? 12).padStart(2, '0')}:${String(moment.date.minute ?? 0).padStart(2, '0')}; ${moment.weatherText ?? CONDITION_INFO[moment.condition].label}${moment.indoors ? ' (indoors)' : ''}.`,
+    `Time and weather: ${timeOfDayOf(moment.date)}, ${String(moment.date.hour ?? 12).padStart(2, '0')}:${String(moment.date.minute ?? 0).padStart(2, '0')}; ${moment.weatherText ?? CONDITION_INFO[moment.condition].label}${moment.underground ? ' (underground: no windows)' : moment.indoors ? ' (indoors)' : ''}.`,
     `Light now: ${lightNow(db, Boolean(reply.flashback))}.`,
     ...jutsu.map((record) => `Jutsu in this turn: ${record.name} looks like this: ${record.visual.trim()}`),
     art ? `ART DIRECTION for this moment in canon (a hint; still frame it around Kan and what he does): ${art}.` : '',
@@ -362,6 +366,9 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
       ? `Recent images were framed: ${shots.map((shot) => `"${shot.slice(0, 90)}"`).join('; ')}. Don't repeat the same shot type and angle as last time unless the moment demands it.`
       : '',
     options.chip === 'impact' || impactFrameAllowed(db) ? '' : 'Do not use an impact frame this time (one was used recently).',
+    forced || shots.length === 0 || recentCloseUp(db)
+      ? ''
+      : 'None of the recent images was a close-up: if this moment centres on one face or one feeling, make it a close-up.',
     playerAction ? `What Kan's player wrote this turn: ${tailOf(playerAction, 600)}` : '',
     '',
     'NARRATOR REPLY:',
@@ -631,6 +638,8 @@ export function buildSceneImagePrompt(
   if (options.shot) {
     lines.push(`SHOT: ${options.shot}`);
   }
+  const framing = impact ? null : shotFraming(shotType);
+  if (framing) lines.push(framing);
 
   // The light right after the camera: the clock and the weather decide it, and
   // the model weights early lines most (Session 1: a sunset painted after dark).
@@ -769,7 +778,9 @@ export function buildSceneImagePrompt(
     ensemble
       ? 'Ensemble: keep every person distinct and readable; the focal person named in the SHOT gets the sharpest light and the most space.'
       : '',
-    'Compose for the wide 16:9 frame: subjects off-center, the rest of the frame doing work (sky, landscape, effects).',
+    shotType === 'close-up' || shotType === 'extreme close-up'
+      ? 'Compose for the wide 16:9 frame: the face off-center, filling the frame height; the rest a soft, out-of-focus background.'
+      : 'Compose for the wide 16:9 frame: subjects off-center, the rest of the frame doing work (sky, landscape, effects).',
     'Final reminder: no text, lettering, captions, or watermarks in the image.',
   );
 
