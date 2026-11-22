@@ -997,6 +997,17 @@ export function ensureNames(db: AppDatabase): AppDatabase {
       next = rest;
     }
 
+    // Someone added to KNOWN_AT_START after the save began, still unlearned.
+    if (
+      next.known &&
+      Object.keys(next.known).length === 0 &&
+      startKnowledge(next.name) === undefined &&
+      !isKan(next)
+    ) {
+      const { known: _unlearned, ...rest } = next;
+      next = rest;
+    }
+
     if (legacy && next.known === undefined && !isKan(next)) {
       if (next.met === false) {
         next = { ...next, known: startKnowledge(next.name) };

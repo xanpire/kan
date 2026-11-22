@@ -722,12 +722,19 @@ function nearTheirBirthday(entity: EntityRecord, date: CalendarDate) {
  * Kan sends letters: each sets out and arrives as many days later as the
  * road takes. Letters to the dead are kept, never sent.
  */
-export function sendLetters(db: AppDatabase, sent: TurnDiff['lettersSent'], userMessage?: string): AppDatabase {
+export function sendLetters(
+  db: AppDatabase,
+  sent: TurnDiff['lettersSent'],
+  userMessage?: string,
+  options: { sentOn?: CalendarDate } = {}
+): AppDatabase {
   if (!sent || sent.length === 0) {
     return db;
   }
 
-  const now = db.state.inStoryDate;
+  // A letter written before a night's sleep set out that evening, not when
+  // Kan woke (Session 5: sent at 7 PM, dated 6 AM the next day).
+  const now = options.sentOn ?? db.state.inStoryDate;
   const here = inScene(db);
   const from = kanRegion(db);
   let next = db;

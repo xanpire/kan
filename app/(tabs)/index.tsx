@@ -1918,7 +1918,11 @@ export default function StoryScreen() {
                   accessibilityLabel="What you do meanwhile"
                   multiline
                   onChangeText={setSkipWhat}
-                  placeholder="You train with Itachi, out of sight of the patrols."
+                  placeholder={
+                    db && companionsOf(db).length > 0
+                      ? `You keep moving with ${displayName(db, companionsOf(db)[0])}, out of sight.`
+                      : 'You keep your head down and train, out of sight.'
+                  }
                   placeholderTextColor={colors.textDim}
                   style={styles.skipInput}
                   value={skipWhat}

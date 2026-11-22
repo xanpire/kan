@@ -66,6 +66,9 @@ export const KNOWN_AT_START: Record<string, true | string[]> = {
   'Inoichi Yamanaka': true,
   'Choza Akimichi': true,
   'Tsume Inuzuka': true,
+  // Hana's little brother: Kan grew up around the Inuzuka compound with her
+  // (Session 5: Hana's letter came back with "the boy with messy brown hair").
+  'Kiba Inuzuka': true,
   'Hiashi Hyuga': true,
   'Hizashi Hyuga': true,
   'Jiraiya': true,

@@ -18,7 +18,7 @@ import { threadKey } from './facts';
 import { unknownJutsuInOption } from './jutsu';
 import { displayName, happened, kanKnowsOf, nameLeaks } from './names';
 import { resolveTurnMode, sceneModeOf } from './sceneMode';
-import { requestedSkip } from './timeSkip';
+import { requestedSkip, skipLimit } from './timeSkip';
 import { KAN_CAN_DIE } from './kanFate';
 import { weatherFromNarration } from './weather';
 import type { AppDatabase, ScenePace } from './types';
@@ -231,7 +231,9 @@ export function checkTurn(before: AppDatabase, after: AppDatabase, turn: TurnChe
 
   // A "Time passes" line whose clock moved less than it names.
   const asked = /^\s*\*?\s*time passes\b/i.test(turn.userMessage) ? requestedSkip(turn.userMessage, before.state.inStoryDate) : null;
-  if (asked && moved < asked * 0.75) {
+  // A skip that stops early for a beat of Kan's own is measured against where it may stop.
+  const allowed = asked ? Math.min(asked, skipLimit(before, asked).seconds) : null;
+  if (asked && allowed && moved < allowed * 0.75) {
     out.push(warning('skip-not-taken', `The player let time pass (${Math.round(asked / 86400)} d) but the clock moved ${Math.round(moved / 3600)} h.`));
   }
 

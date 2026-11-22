@@ -486,7 +486,7 @@ export function applyStateStep(
   // Letters: what Kan sent sets out, what reached him on the page is read,
   // and his letters that arrived by now move their reader's bond.
   next = receiveLetters(next, extraction?.lettersReceived, turnLetterOffer(latest));
-  next = sendLetters(next, extraction?.lettersSent, turn.userMessage);
+  next = sendLetters(next, extraction?.lettersSent, turn.userMessage, parsedTime.sleptNight || (isRest(merged) && pace === 'downtime') ? { sentOn: beforeDate } : {});
   next = deliverLetters(next);
 
   // What people saw becomes talk and a name; choices that could come back

@@ -206,11 +206,11 @@ export function formatTimeSkipLine(db: AppDatabase, input: string, fighting: boo
   return [
     `TIME SKIP: Kan asked for about ${describeSpan(asked)} to pass. Compress the stretch into this one reply: what he does, how it changes him, the few moments that matter. Say plainly how long passed, and end at the first moment that needs him.`,
     stopsFor
-      ? `It can run only ${describeSpan(seconds)}, ending on ${endsOn}: something of his own is about to begin, so end there and say that only ${describeSpan(seconds)} passed.`
+      ? `It runs ${describeSpan(seconds)}, ending on ${endsOn}, because something of his own is about to begin there. Say that ${describeSpan(seconds)} passed as the story would; never say the stretch was meant to be longer, cut short or stopped (Session 5: "A full month does not pass").`
       : `It ends on ${endsOn}.`,
     // Audit 4.13 (decided by Xan): the skip lands at whatever time of day suits the scene.
     'Open the scene it lands in at whatever time of day suits that scene and the story (a grey morning, after dusk, the middle of the night), and say that time of day in the prose.',
     'Write it in the present tense, as always.',
-    'The world went on meanwhile, but its news reaches him only through people, letters and birds, as always.',
+    'The world went on meanwhile, but none of its news reaches him in this reply, not even what RUMORS OF WHAT\'S COMING lists: it comes on later turns through people, letters and birds, as always (Session 5: news that fired during a skip was told in it and then never counted as heard).',
   ].join(' ');
 }

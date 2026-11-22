@@ -115,3 +115,15 @@ describe('a world event Kan watched is not news to be told', () => {
     expect(hasHeardNews(markWitnessedNews(advanceCanon(away)), 'event_canon_izumi-funeral')).toBe(false);
   });
 });
+
+describe('Kan knows Hana\'s brother', () => {
+  test('Kiba is known from the start, and an old save learns it on load', async () => {
+    const { ensureNames, displayName } = await import('../lib/rpg/names');
+    const db = seeded();
+    const kiba = db.entities.find((entity) => entity.name === 'Kiba Inuzuka')!;
+    expect(displayName(db, kiba)).toBe('Kiba Inuzuka');
+    const old = { ...db, entities: db.entities.map((entity) => (entity.id === kiba.id ? { ...entity, known: {} } : entity)) };
+    const loaded = ensureNames(old);
+    expect(displayName(loaded, loaded.entities.find((entity) => entity.id === kiba.id)!)).toBe('Kiba Inuzuka');
+  });
+});
