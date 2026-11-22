@@ -13,6 +13,8 @@ export type ImageCheck = {
   extraPeople: boolean;
   /** false: Kan's protector is on his forehead, drawn whole though scratched, or on him with the cloak (audit 11c.1, 14 Nov 2026). */
   protectorOk?: boolean;
+  /** false: one of Kan's vultures drawn red all over (Session 5: Okuri). */
+  vulturesOk?: boolean;
   note: string;
   usage: CallUsage;
   model: string;
@@ -28,13 +30,13 @@ export function imageCheckModel(db: Pick<AppDatabase, 'settings'>) {
 }
 
 /** Reads the check's JSON, forgiving code fences and stray prose. */
-export function parseImageCheck(text: string): { rolesOk: boolean; extraPeople: boolean; protectorOk?: boolean; note: string } | null {
+export function parseImageCheck(text: string): { rolesOk: boolean; extraPeople: boolean; protectorOk?: boolean; vulturesOk?: boolean; note: string } | null {
   const match = /\{[\s\S]*\}/.exec(text);
 
   if (!match) return null;
 
   try {
-    const value = JSON.parse(match[0]) as { roles_ok?: unknown; extra_people?: unknown; protector_ok?: unknown; note?: unknown };
+    const value = JSON.parse(match[0]) as { roles_ok?: unknown; extra_people?: unknown; protector_ok?: unknown; vultures_ok?: unknown; note?: unknown };
 
     if (typeof value.roles_ok !== 'boolean') return null;
 
@@ -42,6 +44,7 @@ export function parseImageCheck(text: string): { rolesOk: boolean; extraPeople: 
       rolesOk: value.roles_ok,
       extraPeople: value.extra_people === true,
       ...(value.protector_ok === false ? { protectorOk: false } : {}),
+      ...(value.vultures_ok === false ? { vulturesOk: false } : {}),
       note: typeof value.note === 'string' ? value.note.slice(0, 300) : '',
     };
   } catch {
@@ -82,7 +85,7 @@ export async function checkSceneImage(
       messages: [
         {
           role: 'user',
-          content: `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? ${protectorQuestion} Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "protector_ok": true|false, "note": "what is wrong, in one short sentence" }`,
+          content: `ACTION: ${action}\nIn this image, is ${actor} the one doing the action to the others, or is it reversed (someone else doing it, or ${actor} doing it to himself)? Are there extra people who shouldn't be there (recognisable faces not in the ACTION)? ${protectorQuestion} ${VULTURE_QUESTION} Answer only JSON: { "roles_ok": true|false, "extra_people": true|false, "protector_ok": true|false, "vultures_ok": true|false, "note": "what is wrong, in one short sentence" }`,
           images: [image],
         },
       ],
@@ -117,13 +120,17 @@ export function protectorCheckQuestion(place: 'waist' | 'hidden', scratched: boo
     : "Kan's Leaf protector belongs on his belt at his left hip, never on his forehead. protector_ok: false if it is on his forehead; true when it is at his waist or not visible.";
 }
 
+/** Kan's vultures (14 Nov 2026): only the parts a real bearded vulture has rust-coloured are red. */
+export const VULTURE_QUESTION =
+  'If a vulture is drawn: it must have slate-black wings, back and tail, with rust-red only on its breast, neck and face. vultures_ok: false if it is red or rust all over; true when right or when there is no vulture.';
+
 /** A sharper actor rule for the retry, from what the check saw. */
 /** The check found something worth one repaint: reversed roles, or the protector wrong. */
-export function checkWantsRepaint(check: Pick<ImageCheck, 'rolesOk' | 'protectorOk'> | null) {
-  return Boolean(check && (!check.rolesOk || check.protectorOk === false));
+export function checkWantsRepaint(check: Pick<ImageCheck, 'rolesOk' | 'protectorOk' | 'vulturesOk'> | null) {
+  return Boolean(check && (!check.rolesOk || check.protectorOk === false || check.vulturesOk === false));
 }
 
-export function sharperActorRule(action: string, check: Pick<ImageCheck, 'note' | 'extraPeople' | 'rolesOk' | 'protectorOk'>) {
+export function sharperActorRule(action: string, check: Pick<ImageCheck, 'note' | 'extraPeople' | 'rolesOk' | 'protectorOk' | 'vulturesOk'>) {
   const actor = actorOf(action);
 
   return [
@@ -133,6 +140,9 @@ export function sharperActorRule(action: string, check: Pick<ImageCheck, 'note' 
     check.extraPeople ? 'CORRECTION: a previous attempt added people who are not in the ACTION. Draw only the people the ACTION names.' : '',
     check.protectorOk === false
       ? `CORRECTION: a previous attempt got Kan's Leaf protector wrong${check.note ? ` (${check.note.replace(/\.$/, '')})` : ''}. It is never on his forehead: before the Akatsuki it hangs on his belt at his left hip (scratched through once he scratched it); with the cloak it is not on him at all.`
+      : '',
+    check.vulturesOk === false
+      ? 'CORRECTION: a previous attempt drew a vulture red all over. Kan\'s vultures are bearded vultures: slate-black wings, back and tail; rust-red (dried-blood red) only on the breast, neck and parts of the face; a black beard under the hooked beak.'
       : '',
   ]
     .filter(Boolean)

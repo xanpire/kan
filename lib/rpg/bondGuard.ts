@@ -11,7 +11,7 @@ import { daysBetween, entityAge } from './calendar';
 import { hasHeardNews } from './canon';
 import { endgamePhase } from './canonEndgame';
 import { kanKnowsDeath } from './deaths';
-import { loreProfileFor, normalizeAttraction, normalizeRelationship, type Attraction, type RelationshipStage } from './romance';
+import { loreProfileFor, normalizeAttraction, normalizeRelationship, ROMANTIC_STAGES, type Attraction, type RelationshipStage } from './romance';
 import type { AppDatabase, BondRecord, CalendarDate, EntityRecord, TurnDiff } from './types';
 
 type BondDiff = NonNullable<TurnDiff['bonds']>[number];
@@ -186,15 +186,25 @@ export function guardBondDiff(
 
   // Relationship: one rung up per scene; down or sideways freely.
   const current: RelationshipStage = existing?.relationship ?? 'stranger';
-  const asked = normalizeRelationship(bond.relationship);
   const block = romanceBlock(db, entity);
+  // A kiss they returned, with strong attraction, makes it romance at once,
+  // from any rung past "friendly" (Session 5: Hana kissed Kan back and stayed
+  // "former teammate", which on the ladder could only have become "close").
+  const kissed =
+    !block &&
+    rungOf(current) >= 2 &&
+    !ROMANTIC_STAGES.has(current) &&
+    !['ex', 'rejected'].includes(current) &&
+    (normalizeAttraction(bond.attraction) === 'strong' || existing?.attraction === 'strong') &&
+    /\bkiss(?:ed|es|ing)?\b[^.]*\b(?:back|returns?|returned|answer(?:s|ed)?|pull(?:s|ed)? (?:you|him) in)\b/i.test(`${bond.romanceNote ?? ''} ${bond.note ?? ''}`);
+  const asked = kissed ? 'romantic interest' : normalizeRelationship(bond.relationship);
 
   if (asked && asked !== current && RELATIONSHIP_LADDER.includes(asked)) {
     const from = rungOf(current);
     const to = RELATIONSHIP_LADDER.indexOf(asked);
 
     if (to > from) {
-      let target = RELATIONSHIP_LADDER[Math.min(to, from + 1)];
+      let target = kissed ? asked : RELATIONSHIP_LADDER[Math.min(to, from + 1)];
 
       if (existing?.stepSceneSeq === sceneSeq) {
         refused.push(`${who}: "${asked}" refused, the relationship already moved this scene.`);

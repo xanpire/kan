@@ -242,7 +242,7 @@ export function applyTurnDiff(
 
   // After bonds and deaths: a soured bond can turn into a grudge, and the
   // dead let theirs go.
-  next = applyGrudgeChanges(next, diff, { presentIds });
+  next = applyGrudgeChanges(next, { ...diff, grudges: [...(diff.grudges ?? []), ...grudgesFromSeeds(diff)] }, { presentIds });
   next = applyReputationChanges(next, diff.reputation, diff.bountySeen);
 
   if (Array.isArray(diff.factsEnded) && diff.factsEnded.length > 0) {
@@ -769,4 +769,19 @@ export function withoutSkyBurialAsThousandSouls<T extends { name: string; user?:
     if (skyBurialThisTurn) return [];
     return /sky\s+burial|genjutsu|vultures?\b|mountain|eye contact/i.test(words(item)) ? [{ ...item, name: 'Sky Burial' }] : [item];
   });
+}
+
+const REVENGE_WANT = /\b(pay|payback|revenge|aveng|vengeance|kill (?:you|kan|him)|hunt|make (?:you|kan|him) (?:pay|suffer|bleed)|settle|repay|even the score|get even)\w*/i;
+
+/**
+ * Someone Kan left beaten, shamed or betrayed who wants him to pay is a
+ * rival in the making: their consequence seed starts a grudge too (Session 5:
+ * the Earth convoy's leader, jaw broken and men dead, "wants to see the ones
+ * who took his convoy pay", was only ever a seed, never a rival).
+ */
+export function grudgesFromSeeds(diff: TurnDiff): NonNullable<TurnDiff['grudges']> {
+  return (diff.consequences ?? [])
+    .filter((seed) => ['spared', 'humiliated', 'betrayal'].includes(seed.kind) && REVENGE_WANT.test(seed.want ?? ''))
+    .filter((seed) => !(diff.grudges ?? []).some((event) => (event.entityId && event.entityId === seed.entityId) || event.name === seed.who))
+    .map((seed) => ({ entityId: seed.entityId, name: seed.who, event: 'wronged' as const, reason: seed.what }));
 }

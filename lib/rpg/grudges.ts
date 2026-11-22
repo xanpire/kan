@@ -495,7 +495,7 @@ export function formatGrudgeOffer(db: AppDatabase, offer: GrudgeOffer | null): s
 
 export function grudgeTrackingLines(offer: GrudgeOffer | null, idOf: (entity: EntityRecord) => string): string[] {
   return [
-    'grudges: { character_id, event, reason }. wronged: Kan truly wrongs someone this turn (kills or maims someone they love, betrays them, humiliates or ruins them); a cold word is a bond change, not this. struck: someone with a grudge, or people they sent, acts on it on the page this turn. settled: the grudge is truly resolved between them (a reckoning they accept, a debt paid). forgiven: they clearly forgive Kan. Otherwise [].',
+    'grudges: { character_id, event, reason }. wronged: Kan truly wrongs someone this turn (kills or maims someone they love, betrays them, humiliates or ruins them, or beats them and leaves them alive with their comrades dead or their charge taken); a cold word is a bond change, not this. struck: someone with a grudge, or people they sent, acts on it on the page this turn. settled: the grudge is truly resolved between them (a reckoning they accept, a debt paid). forgiven: they clearly forgive Kan. Otherwise [].',
     offer ? `This turn's offered grudge is ${idOf(offer.entity)}: struck only if the prose shows their move.` : '',
   ].filter(Boolean);
 }

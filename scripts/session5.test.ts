@@ -151,3 +151,36 @@ describe('the memory the moment names most closely is the one offered', () => {
     expect(offer?.id).toBe('her-dream');
   });
 });
+
+describe('someone Kan beat and left wanting payback becomes a rival', () => {
+  test('a spared seed that wants revenge starts a grudge', async () => {
+    const { grudgesFromSeeds } = await import('../lib/rpg/services');
+    const events = grudgesFromSeeds({
+      consequences: [
+        { kind: 'spared', who: 'the broad-shouldered Earth shinobi', what: 'You broke his jaw and left him alive.', want: 'To see the ones who took his convoy pay for it.' },
+        { kind: 'helped', who: 'a farmer', what: 'You carried his cart.', want: 'To thank you.' },
+      ],
+    } as never);
+    expect(events).toEqual([{ entityId: undefined, name: 'the broad-shouldered Earth shinobi', event: 'wronged', reason: 'You broke his jaw and left him alive.' }]);
+  });
+});
+
+describe('a returned kiss makes it romance', () => {
+  test('Hana at 18, former teammate, kisses Kan back: romantic interest', () => {
+    let db = seeded();
+    const hana = db.entities.find((entity) => entity.name === 'Hana Inuzuka')!;
+    db = { ...db, state: { ...db.state, inStoryDate: { year: 18, month: 7, day: 6, hour: 20, minute: 0, second: 0 } } };
+    const bond = { ...db.bonds.find((item) => item.entityId === hana.id)!, relationship: 'former teammate' as const, attraction: 'warm' as const };
+    const guarded = guardBondDiff(db, hana, bond, {
+      character: 'hana-inuzuka', attraction: 'strong', romanceNote: 'She kissed you back, hard, then cursed you for it and stayed close.',
+    } as never, { bigTurn: false });
+    expect(guarded.bond.relationship).toBe('romantic interest');
+
+    // At thirteen it never does.
+    const young = { ...db, state: { ...db.state, inStoryDate: { year: 13, month: 12, day: 1, hour: 20, minute: 0, second: 0 } } };
+    const blocked = guardBondDiff(young, hana, bond, {
+      character: 'hana-inuzuka', attraction: 'strong', romanceNote: 'She kissed you back.',
+    } as never, { bigTurn: false });
+    expect(blocked.bond.relationship).not.toBe('romantic interest');
+  });
+});
