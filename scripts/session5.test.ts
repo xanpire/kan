@@ -210,3 +210,17 @@ describe('a stranger with a hyphen in his label is found by the tracker\'s slug'
     expect(resolveEntity(withHunter, 'the-notched-blade-bounty-hunter')?.id).toBe('entity_hunter');
   });
 });
+
+describe('the enemy behind a revenge seed is made when the tracker never listed him', () => {
+  test('"the bounty hunter whose knees you broke" holds a grudge', async () => {
+    const { applyTurnDiff } = await import('../lib/rpg/services');
+    const db = seeded();
+    const next = applyTurnDiff(db, {
+      consequences: [{ kind: 'spared', who: 'the bounty hunter whose knees you broke', what: 'You broke his knees and killed his men.', want: 'to see you dead, or to be paid enough to try again' }],
+    } as never);
+    const hunter = next.entities.find((entity) => entity.name === 'the bounty hunter whose knees you broke');
+    expect(hunter?.met).toBe(true);
+    const bond = next.bonds.find((item) => item.entityId === hunter?.id);
+    expect(bond?.grudge?.heat).toBeGreaterThanOrEqual(40);
+  });
+});

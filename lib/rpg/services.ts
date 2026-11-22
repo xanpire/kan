@@ -243,7 +243,21 @@ export function applyTurnDiff(
 
   // After bonds and deaths: a soured bond can turn into a grudge, and the
   // dead let theirs go.
-  next = applyGrudgeChanges(next, { ...diff, grudges: [...(diff.grudges ?? []), ...grudgesFromSeeds(diff, next, presentIds)] }, { presentIds });
+  // A revenge seed whose person the tracker never listed: he was here, so he
+  // is made (a stranger Kan has met) before the grudge starts.
+  let grudgePresent: ReadonlySet<string> = presentIds;
+  const fromSeeds = grudgesFromSeeds(diff, next, presentIds).map((event) => {
+    if (event.entityId) return event;
+    const label = strangerLabel(event.name);
+    if (!label) return event;
+    next = applyEntityDiff(next, { isNew: true, name: label, minor: true, gender: 'unknown', role: 'someone Kan wronged' });
+    const made = resolveEntity(next, label);
+    if (!made) return event;
+    next = { ...next, entities: next.entities.map((entity) => (entity.id === made.id ? { ...entity, met: true, lastSeen: next.state.inStoryDate } : entity)) };
+    grudgePresent = new Set([...grudgePresent, made.id]);
+    return { ...event, entityId: made.id, name: made.name };
+  });
+  next = applyGrudgeChanges(next, { ...diff, grudges: [...(diff.grudges ?? []), ...fromSeeds] }, { presentIds: grudgePresent });
   next = applyReputationChanges(next, diff.reputation, diff.bountySeen);
 
   if (Array.isArray(diff.factsEnded) && diff.factsEnded.length > 0) {
@@ -827,4 +841,11 @@ export function presentMatch(db: AppDatabase, who: string, presentIds?: Readonly
   }
 
   return best?.entity ?? null;
+}
+
+/** "the bounty hunter whose knees you broke": a stranger's label from a seed's who, or null for a name. */
+export function strangerLabel(who: string): string | null {
+  const text = who.trim().replace(/\s+/g, ' ');
+  if (!/^(the|a|an)\s/i.test(text)) return null;
+  return text.slice(0, 80);
 }

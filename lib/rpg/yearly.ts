@@ -270,14 +270,14 @@ function birthdays(db: AppDatabase): YearlyOffer[] {
           key: `birthday:${entity.id}`,
           kind: 'birthday',
           entity,
-          line: `It is ${narratorName(db, entity)}'s birthday today${turns(age)}, and you know it. They ${habit.note}. If it fits, the day can come up; never force it.`,
+          line: `It is ${narratorName(db, entity)}'s birthday today${turns(age)}, and you know it. ${pronounOf(entity)} ${habit.note}. If it fits, the day can come up; never force it.`,
         });
       } else if (habit.kind === 'announces' || habit.kind === 'ritual') {
         present.push({
           key: `birthday:${entity.id}`,
           kind: 'birthday-unknown',
           entity,
-          line: `It is ${narratorName(db, entity)}'s birthday today${turns(age)}, which you do not know. They ${habit.note}, so they may let it slip.`,
+          line: `It is ${narratorName(db, entity)}'s birthday today${turns(age)}, which you do not know. ${pronounOf(entity)} ${habit.note}, so ${pronounOf(entity).toLowerCase()} may let it slip.`,
         });
       }
       continue;
@@ -484,4 +484,9 @@ export function todayNotes(db: AppDatabase): string[] {
   }
 
   return notes;
+}
+
+/** The notes are written for one person ("expects her friends…"): never "They expects" (Session 5). */
+function pronounOf(entity: { gender?: string }) {
+  return entity.gender === 'female' ? 'She' : entity.gender === 'male' ? 'He' : 'This person';
 }
