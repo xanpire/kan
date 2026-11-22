@@ -46,9 +46,14 @@ import { SCENE_CAST_LIMIT } from './sceneLimits';
 const STATE_MAX_TOKENS = 3000;
 /** A retry after the first reply hit the cap. */
 const STATE_RETRY_MAX_TOKENS = 4500;
-/** The World call asks for a handful of fields (audit 7). */
-const WORLD_MAX_TOKENS = 1500;
-const WORLD_RETRY_MAX_TOKENS = 2400;
+/**
+ * The World call asks for a handful of fields (audit 7), but thinking counts
+ * against the cap too: at 1500 a catch-up turn with seven areas came back with
+ * 1500 reasoning tokens and no answer, so the news was never marked heard and
+ * was told again every turn (Session 6). Same room as Core.
+ */
+const WORLD_MAX_TOKENS = 3000;
+const WORLD_RETRY_MAX_TOKENS = 4500;
 
 /** Only the given fields of a reply. */
 function pickFields(reply: Record<string, unknown>, fields: string[]) {
@@ -72,18 +77,24 @@ async function readWorldState(
     let parsed = parseJsonObject(first.text);
     let raw = first.text;
 
+    let why = first.finishReason === 'length' ? 'cut off at the token cap' : 'unreadable reply';
+
     if (!parsed && !signal?.aborted && first.finishReason === 'length') {
       try {
         const second = await tracedChat('stateWorld', debugTurnId, { ...request, maxTokens: WORLD_RETRY_MAX_TOKENS });
         raw = `${first.text}\n\n--- retry ---\n\n${second.text}`;
         parsed = parseJsonObject(second.text) ?? repairTruncatedJson(second.text);
-      } catch {
+        why = second.finishReason === 'length' ? 'cut off twice at the token cap' : 'retry unreadable';
+      } catch (caught) {
         // Fall through to repairing the first reply.
+        why = `retry failed: ${caught instanceof Error ? caught.message.slice(0, 80) : 'error'}`;
       }
+    } else if (!parsed && signal?.aborted) {
+      why = 'stopped before a retry';
     }
 
     parsed = parsed ?? repairTruncatedJson(first.text);
-    return { areas, raw, parsed, ...(parsed ? {} : { error: 'unreadable reply' }) };
+    return { areas, raw, parsed, ...(parsed ? {} : { error: why }) };
   } catch (caught) {
     return { areas, raw: '', parsed: null, error: caught instanceof Error ? caught.message : String(caught) };
   }
