@@ -507,7 +507,7 @@ export function formatFlashbackBlock(db: AppDatabase, weatherLine: string): stri
     `WHEN: ${formatDate(active.date)}. You are ${ageWord(age)}. It is ${timeOfDayOf(active.date)}.`,
     `WHERE: ${active.place}.`,
     weatherLine,
-    `KAN THEN: ${kanThen(age)}. No Sharingan: it awakens only on the night of the massacre (Year 13), in the fight with Itachi. His real strength stays hidden; never show its limit. The jutsu, abilities, inventory and wounds listed above belong to the present and do not exist here; Thousand Souls is never used or seen.`,
+    `KAN THEN: ${kanThen(age)}. No Sharingan: it awakens only on the night of the massacre (Year 13), in the fight with Itachi. His real strength stays hidden; never show its limit. The jutsu, abilities, inventory and wounds listed above belong to the present and do not exist here; Thousand Souls is never used or seen. He wears boots at every age, never sandals; never mention sandals on him (the memory of the Academy put him in "child-sized sandals", Session 5).`,
     'WHO IS THERE THEN (everyone at their age on this date, with the personality they had then; the dead are alive in this memory, so THE DEAD list does not apply inside it):',
     ...castLines(db, record, active.date),
     ...(record.castNotes ?? []).map((note) => `- ${note}`),
