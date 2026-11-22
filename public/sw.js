@@ -1,5 +1,5 @@
-const CACHE_NAME = 'kan-shell-1-25-46';
-const APP_SHELL = ["/","/manifest.webmanifest?v=1.25.46","/icon-192.png?v=1.25.46","/icon-512.png?v=1.25.46","/icon-maskable-512.png?v=1.25.46","/apple-touch-icon.png?v=1.25.46"];
+const CACHE_NAME = 'kan-shell-1-25-47';
+const APP_SHELL = ["/","/manifest.webmanifest?v=1.25.47","/icon-192.png?v=1.25.47","/icon-512.png?v=1.25.47","/icon-maskable-512.png?v=1.25.47","/apple-touch-icon.png?v=1.25.47"];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

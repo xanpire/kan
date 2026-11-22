@@ -1,5 +1,6 @@
 // Reading the state model's reply: JSON parsing and snake_case → TurnDiff.
 
+import { statusLabel } from './bonds';
 import { readRyo } from './money';
 import { THREAD_TYPES } from './stateSchema';
 import { MAX_SKIP_SECONDS } from './timeSkip';
@@ -596,7 +597,8 @@ export function convertStateBlock(
             cleanString(bond.character_id) ?? (typeof bond.character === 'string' ? bond.character : ''),
           affinityDelta:
             typeof bond.affinity_change === 'number' ? bond.affinity_change : undefined,
-          status: typeof bond.status === 'string' ? bond.status : undefined,
+          // A label only: a story sentence here is dropped (bonds.ts statusLabel).
+          status: typeof bond.status === 'string' ? statusLabel(bond.status) : undefined,
           note: typeof bond.note === 'string' ? bond.note : undefined,
           relationship:
             typeof bond.relationship === 'string' ? bond.relationship : undefined,

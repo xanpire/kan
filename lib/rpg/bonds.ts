@@ -8,6 +8,22 @@ import type { AppDatabase, TurnDiff } from './types';
 
 type BondDiff = NonNullable<TurnDiff['bonds']>[number];
 
+/**
+ * A bond status is a short label of who someone is to Kan ("Akatsuki leader",
+ * "Travelling with you"). The tracker sometimes writes a story sentence there
+ * instead ("The pierced man took your report without warmth: ..."); that is
+ * not a label, so it is dropped (undefined) and the caller falls back.
+ */
+export function statusLabel(status: string | null | undefined): string | undefined {
+  const text = status?.trim();
+
+  if (!text) return undefined;
+  if (text.length > 40 || text.split(/\s+/).length > 6) return undefined;
+  if (/[:;!?]|\.\s|\.$/.test(text)) return undefined;
+
+  return text;
+}
+
 export type BondOptions = {
   /**
    * The turn's scene cast. Given for bonds from the state tracker: someone

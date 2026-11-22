@@ -14,6 +14,7 @@ import { sharedMemories } from '@/lib/rpg/sharedMemories';
 import { knownLife } from '@/lib/rpg/lives';
 import { grudgeKnown, howTheySeem, shownProfile } from '@/lib/rpg/disclosure';
 import { resolveEntity } from '@/lib/rpg/entities';
+import { statusLabel } from '@/lib/rpg/bonds';
 import { MergeSheet } from '@/components/kan/MergeSheet';
 import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { dateSortValue, entityAge, formatDayMonth } from '@/lib/rpg/calendar';
@@ -88,7 +89,7 @@ export default function BondScreen() {
   const relationship =
     bond?.relationship && bond.relationship !== 'stranger'
       ? bond.relationship.charAt(0).toUpperCase() + bond.relationship.slice(1)
-      : bond?.status || null;
+      : statusLabel(bond?.status) || null;
   const seen = dead
     ? null
     : entity.lastSeen

@@ -9,6 +9,8 @@ import { formatDayMonth } from '@/lib/rpg/calendar';
 import { avatarLetter } from '@/lib/rpg/util';
 import { kanKnowsDeath } from '@/lib/rpg/deaths';
 import { grudgeKnown, shownField } from '@/lib/rpg/disclosure';
+import { statusLabel } from '@/lib/rpg/bonds';
+import { isPlaceholderStatus } from '@/lib/rpg/met';
 import { STAGE_LABEL, grudgeStage } from '@/lib/rpg/grudges';
 import { useGame } from '@/lib/rpg/game';
 import { latestCharacterPortraitMap } from '@/lib/rpg/characterPortrait';
@@ -56,10 +58,14 @@ export function bondSubtitle(entry: BondEntry, db: AppDatabase) {
 
     return date ? `Died ${formatDayMonth(date)} · Year ${date.year}` : 'Deceased';
   }
+  // A status only counts as a short label ("Travelling with you"); a story
+  // sentence or a placeholder ("Newly met") gives way to their role.
+  const status = statusLabel(bond?.status) ?? statusLabel(entity.status);
+  const telling = status && !isPlaceholderStatus(status) && status.toLowerCase() !== 'acquaintance' ? status : undefined;
   const relation =
     bond?.relationship && bond.relationship !== 'stranger'
       ? bond.relationship.charAt(0).toUpperCase() + bond.relationship.slice(1)
-      : bond?.status || entity.status || shownField(db, entity, 'role') || 'Unknown';
+      : telling || shownField(db, entity, 'role') || status || 'Unknown';
   const seen = entity.lastSeen
     ? dateValue(entity.lastSeen) === dateValue(today)
       ? 'seen today'

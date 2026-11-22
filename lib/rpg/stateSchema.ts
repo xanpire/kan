@@ -131,6 +131,7 @@ export const TURN_STATE_SCHEMA = object({
   bonds: list({
     character_id: { type: 'string' },
     affinity_change: nullableNumber,
+    // A short label ("Akatsuki leader"), never a sentence: shown on the bonds list.
     status: nullableString,
     note: nullableString,
     your_change: nullableNumber,
