@@ -19,6 +19,7 @@ import { applyStateStep } from '../lib/rpg/memoryJobs';
 import { convertStateBlock } from '../lib/rpg/stateBlock';
 import { resolveCharacterRefs } from '../lib/rpg/entities';
 import { daysBetween, entityAge } from '../lib/rpg/calendar';
+import { advanceSeconds } from '../lib/rpg/calendar';
 import { MAX_SKIP_SECONDS, formatTimeSkipLine, nextPersonalBeat, requestedSkip, skipLimit } from '../lib/rpg/timeSkip';
 import { buildNarrationPrompt } from '../lib/rpg/prompt';
 import { guardLongJump } from '../lib/rpg/pacing';
@@ -60,9 +61,9 @@ describe('reading a skip request (audit 4.4)', () => {
 });
 
 describe('a skip stops before something personal (audit 4.4)', () => {
-  test('the limit ends the day before the next personal beat opens', () => {
+  test('the limit ends the day before the next personal beat whose window would close inside the skip', () => {
     const db = seed();
-    const beat = nextPersonalBeat(db);
+    const beat = nextPersonalBeat(db, advanceSeconds(db.state.inStoryDate, MAX_SKIP_SECONDS));
     const { seconds, stopsFor } = skipLimit(db, MAX_SKIP_SECONDS);
     if (beat) {
       expect(stopsFor).toBe(beat.title);
@@ -174,5 +175,16 @@ describe('a correction backwards takes canon back (audit 4.5)', () => {
 
     db = advanceCanon(at(db, 22, 1, 1), { inCombat: false });
     expect(isDeceased(jiraiya())).toBe(true);
+  });
+});
+
+describe('a long skip is not stopped by beats that stay open (Session 5)', () => {
+  test('a beat still open when Kan lands does not stop the skip', () => {
+    const db = seed();
+    const at = { year: 13, month: 10, day: 31, hour: 19, minute: 0, second: 0 };
+    const later = { ...db, state: { ...db.state, inStoryDate: at } };
+    // kan-bingo-book opens on 1 Nov, year 13 and stays open into year 16: a month's skip runs whole.
+    const { seconds } = skipLimit(later, 30 * DAY);
+    expect(Math.round(seconds / DAY)).toBe(30);
   });
 });

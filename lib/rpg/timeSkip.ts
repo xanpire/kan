@@ -14,7 +14,7 @@
 // World events inside the skip happen as usual (advanceCanon fires them all)
 // and reach Kan through the catch-up news report.
 
-import { advanceSeconds, dateSortValue, monthName, secondsBetween, SECONDS_PER_DAY } from './calendar';
+import { advanceSeconds, dateSortValue, daysInMonth, monthName, secondsBetween, SECONDS_PER_DAY } from './calendar';
 import { trialSkipLimit } from './akatsukiTrial';
 import { CANON_MILESTONES } from './canonData';
 import type { AppDatabase, CalendarDate } from './types';
@@ -97,8 +97,14 @@ export function requestedSkip(input: string, from: CalendarDate): number | null 
   return Math.min(seconds, MAX_SKIP_SECONDS);
 }
 
-/** The next personal canon beat that has not opened yet, and when it opens. */
-export function nextPersonalBeat(db: AppDatabase) {
+/**
+ * The next personal canon beat that has not opened yet, and when it opens.
+ * With `skipEnd`, only a beat whose window opens before the skip ends and
+ * closes before it does: one still open when Kan lands is offered then, so
+ * stopping for it skipped nothing (Session 5: with ~30 optional beats in the
+ * first years, "3 years" ran one day).
+ */
+export function nextPersonalBeat(db: AppDatabase, skipEnd?: CalendarDate) {
   const now = dateSortValue(db.state.inStoryDate);
   const done = new Set([...(db.state.canonProgress?.completed ?? []), ...(db.state.canonProgress?.engaged ?? [])]);
   let best: { title: string; opens: CalendarDate } | null = null;
@@ -116,6 +122,15 @@ export function nextPersonalBeat(db: AppDatabase) {
     };
 
     if (dateSortValue(opens) <= now) continue;
+
+    if (skipEnd) {
+      if (dateSortValue(opens) > dateSortValue(skipEnd)) continue;
+      const closes = milestone.to
+        ? { year: milestone.to.year, month: milestone.to.month, day: milestone.to.day ?? daysInMonth(milestone.to.year, milestone.to.month), hour: 23, minute: 59, second: 59 }
+        : null;
+      if (!closes || dateSortValue(closes) > dateSortValue(skipEnd)) continue;
+    }
+
     if (!best || dateSortValue(opens) < dateSortValue(best.opens)) best = { title: milestone.title, opens };
   }
 
@@ -127,8 +142,8 @@ export function nextPersonalBeat(db: AppDatabase) {
  * the day before the next personal beat opens.
  */
 export function skipLimit(db: AppDatabase, asked: number) {
-  const beat = nextPersonalBeat(db);
   let limit = Math.min(asked, MAX_SKIP_SECONDS);
+  const beat = nextPersonalBeat(db, advanceSeconds(db.state.inStoryDate, limit));
   let stopsFor: string | null = null;
 
   if (beat) {
