@@ -63,8 +63,19 @@ describe("Itachi's protector is scratched (Session 4 painting)", () => {
   test('old saves gain the scratch, new saves have it', async () => {
     const { normalizeDatabase, scratchItachiProtector } = await import('../lib/rpg/db');
     const { seedDatabase } = await import('../lib/rpg/seed');
-    expect(scratchItachiProtector('dark trousers, and a Hidden Leaf forehead protector.')).toContain('one deep scratch');
+    expect(scratchItachiProtector('dark trousers, and a Hidden Leaf forehead protector.')).toContain('a scratched Hidden Leaf forehead protector');
     const db = normalizeDatabase(seedDatabase('slot_it', 'It'));
-    expect(db.entities.find((entity) => entity.name === 'Itachi Uchiha')!.appearance).toContain('one deep scratch');
+    expect(db.entities.find((entity) => entity.name === 'Itachi Uchiha')!.appearance).toContain('scratched Hidden Leaf forehead protector');
+  });
+});
+
+describe('image prompt text is never cut mid-word (Session 4)', () => {
+  test('clipAtClause stops at a clause', async () => {
+    const { clipAtClause } = await import('../lib/rpg/imageDirection');
+    const look = 'Slim thirteen-year-old with long black hair tied low at the nape, sharp dark eyes and faint tear-trough lines; dark high-collared shirt, ANBU-issue arm guards, dark trousers, and a Hidden Leaf forehead protector with one deep scratch.';
+    const clipped = clipAtClause(look, 220);
+    expect(clipped.length).toBeLessThanOrEqual(220);
+    expect(clipped.endsWith('with one')).toBe(false);
+    expect(clipAtClause('short', 220)).toBe('short');
   });
 });

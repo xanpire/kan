@@ -355,7 +355,7 @@ export function buildNarrationPrompt(
       formatFlashbackBlock(db, formatWeatherLine(memoryView ?? db, sceneMode.mode)),
       formatMemories(db, freshMemories),
       formatRecentMessages(messagesForScene),
-      'CONTINUITY: continue directly from the last narrated beat of the memory. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page).',
+      'CONTINUITY: continue directly from the last narrated beat of the memory. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page). When Kan goes off alone, let him be alone: a companion does not follow him into every scene or walk in on him unless he asks for them or the story gives a real reason (Session 4: Itachi turned up in every scene in the Rain).',
       // Present wounds don't exist in the memory.
       formatSceneModeLine({ ...db, facts: [] }, sceneMode),
       `YOU (KAN) DO OR SAY:\n${userMessage}`,
@@ -397,7 +397,7 @@ export function buildNarrationPrompt(
       formatFlashbackOffer(db, memoryOffer),
       formatFlashbackReturn(db),
       formatOpeningBlock(db),
-      `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page). Location type: ${locationKindOf(db)}.`,
+      `CONTINUITY: continue directly from the last narrated beat. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page). When Kan goes off alone, let him be alone: a companion does not follow him into every scene or walk in on him unless he asks for them or the story gives a real reason. Location type: ${locationKindOf(db)}.`,
       formatSceneModeLine(db, sceneMode),
       formatTrialLine(db),
       formatTimeSkipLine(db, userMessage, sceneMode.mode === 'fight' || isCombatPace(db.state.scenePace)),

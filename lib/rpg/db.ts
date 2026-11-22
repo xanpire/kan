@@ -855,7 +855,7 @@ export async function importDatabase(
 /** Session 4: a painting gave Itachi a whole Leaf plate in the Rain. His is scratched from the massacre night. */
 export function scratchItachiProtector(appearance: string): string {
   if (/scratch/i.test(appearance)) return appearance;
-  return appearance.replace(/a Hidden Leaf forehead protector\./, 'a Hidden Leaf forehead protector with one deep scratch through the leaf (he cut it the night of the massacre).');
+  return appearance.replace(/a Hidden Leaf forehead protector\./, 'a scratched Hidden Leaf forehead protector.');
 }
 
 function migrateCanonV2(db: AppDatabase): AppDatabase {

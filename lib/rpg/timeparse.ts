@@ -138,7 +138,7 @@ function explicitClock(text: string): ClockReading | undefined {
 
   // "By twenty past eleven", "at half past nine", "a quarter to four"
   // (Session 3: "By twenty past eleven" was not read, the clock took five hours).
-  const relative = /\b(?:at|by|until|till|before|around|after|it is|it's|it was|now)\s+(?:about\s+|almost\s+|nearly\s+|just\s+)?(a\s+quarter|quarter|half|five|ten|twenty|twenty-five|twenty five|\d{1,2})(?:\s+minutes)?\s+(past|after|to|before|till)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|midnight|noon|\d{1,2})(?:\s+o'clock|\s+o’clock)?\s*(am|pm|a\.m\.|p\.m\.|in the morning|in the afternoon|in the evening|at night)?(?![\w])/i.exec(text);
+  const relative = /\b(?:at|by|until|till|before|around|after|it is|it's|it was|now)\s+(?:about\s+|almost\s+|nearly\s+|just\s+)?(a\s+quarter|quarter|half|five|ten|twenty|twenty-five|twenty five|\d{1,2})(?:\s+minutes)?\s+(past|after|to|before|till)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|midnight|noon|\d{1,2})(?:\s+o'clock|\s+o’clock)?\s*(am|pm|a\.m\.|p\.m\.|in the morning|in the afternoon|in the evening|at night|(?:that|this|the|the next|the following|next|tomorrow)\s+(?:morning|afternoon|evening|night))?(?![\w])/i.exec(text);
 
   if (relative) {
     const minuteWord = relative[1].toLowerCase().replace(/^a\s+/, '').replace(/\s+/g, '-');
@@ -165,7 +165,7 @@ function explicitClock(text: string): ClockReading | undefined {
     }
   }
 
-  const twelveHour = /\b(?:at|by|until|before|around|after|past)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d{1,2})(\s+o'clock|\s+o’clock)?\s*(am|pm|a\.m\.|p\.m\.|in the morning|in the afternoon|in the evening|at night)?(?![\w])/i.exec(text);
+  const twelveHour = /\b(?:at|by|until|before|around|after|past)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d{1,2})(\s+o'clock|\s+o’clock)?\s*(am|pm|a\.m\.|p\.m\.|in the morning|in the afternoon|in the evening|at night|(?:that|this|the|the next|the following|next|tomorrow)\s+(?:morning|afternoon|evening|night))?(?![\w])/i.exec(text);
 
   if (twelveHour && (twelveHour[2] || twelveHour[3])) {
     let hour = NUMBER_WORDS[twelveHour[1].toLowerCase()] ?? Number.parseInt(twelveHour[1], 10);

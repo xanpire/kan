@@ -386,6 +386,19 @@ export function canonArtDirection(db: AppDatabase): string | null {
 // ---------------------------------------------------------------------------
 
 /** "Kisame: tall, blue-grey skin…" for each person named in the action. */
+/**
+ * Text cut to at most `limit` characters at a clause or word, never mid-word
+ * (Session 4: Itachi's look ended "a Hidden Leaf forehead protector with one.").
+ */
+export function clipAtClause(text: string, limit: number): string {
+  const clean = text.trim();
+  if (clean.length <= limit) return clean;
+  const cut = clean.slice(0, limit);
+  const clause = Math.max(cut.lastIndexOf(';'), cut.lastIndexOf('. '), cut.lastIndexOf(','));
+  const end = clause > limit * 0.5 ? clause : cut.lastIndexOf(' ');
+  return cut.slice(0, end > 0 ? end : limit).replace(/[\s,;:]+$/, '');
+}
+
 export function lookTags(
   db: AppDatabase,
   action: string,
@@ -413,7 +426,7 @@ export function lookTags(
         .join('; ')
         .replace(/\.(?=;|$)/g, '');
 
-      return { at, line: `${entity.name}${age !== undefined ? ` (age ${age})` : ''}: ${look.slice(0, 220)}` };
+      return { at, line: `${entity.name}${age !== undefined ? ` (age ${age})` : ''}: ${clipAtClause(look, 220)}` };
     })
     .sort((a, b) => a.at - b.at)
     .slice(0, options.limit ?? 10)

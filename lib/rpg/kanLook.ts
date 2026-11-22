@@ -172,5 +172,13 @@ export function kanRightNow(db: AppDatabase, options: { protectorSaid?: boolean 
 
   if (bits.length === 0) return null;
 
-  return `Kan right now: ${bits.join('; ').slice(0, 400)}. Show this on him; an active Sharingan or Mangekyō replaces his ${KAN_EYES}.`;
+  // Whole conditions only, up to 400 characters (Session 4: "Your eyesight is .").
+  const kept: string[] = [];
+  for (const bit of bits) {
+    if ([...kept, bit].join('; ').length > 400) break;
+    kept.push(bit);
+  }
+  if (kept.length === 0) kept.push(bits[0].slice(0, 400).replace(/\s+\S*$/, ''));
+
+  return `Kan right now: ${kept.join('; ')}. Show this on him; an active Sharingan or Mangekyō replaces his ${KAN_EYES}.`;
 }
