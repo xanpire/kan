@@ -127,3 +127,13 @@ describe('Kan knows Hana\'s brother', () => {
     expect(displayName(loaded, loaded.entities.find((entity) => entity.id === kiba.id)!)).toBe('Kiba Inuzuka');
   });
 });
+
+describe('a skip lands on the time of day its scene opens on', () => {
+  test('"By dusk on the thirty-first" beats "the tracker you cornered at midday"', async () => {
+    const { detectNarrationTime } = await import('../lib/rpg/timeparse');
+    const text =
+      'Two months pass in a brutal rhythm. By dusk on the thirty-first of December, the passes are buried under snow. Beside his boots lies the carcass of a rogue tracker you cornered at midday. "Do we push on before midnight?"';
+    const read = detectNarrationTime(text, { year: 13, month: 11, day: 1, hour: 7, minute: 5, second: 0 }, { action: '*Time passes: 3 years.*' });
+    expect(read.landing?.hour).toBeGreaterThanOrEqual(16);
+  });
+});

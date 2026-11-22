@@ -43,6 +43,7 @@ import {
   activeFlashback,
   ageWord,
   applyFlashbackMarks,
+  keptInHisOwnWords,
   applyFlashbackTurn,
   applyFlashbackWriteUp,
   kanAgeAt,
@@ -519,7 +520,7 @@ export function applyStateStep(
   // A memory offered on this reply waits for Kan; one he follows starts next turn.
   next = applyFlashbackMarks(next, {
     offeredId: turnEntry?.flashbackOffer,
-    mark: extraction?.flashback,
+    mark: extraction?.flashback ?? (keptInHisOwnWords(turnEntry?.flashbackOffer, turn.userMessage) ? 'offered' : undefined),
     turnLogId: turn.turnLogId,
   });
   next = syncBondSides(next);

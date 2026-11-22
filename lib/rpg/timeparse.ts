@@ -297,6 +297,20 @@ function arrivalPeriod(text: string): ClockReading | undefined {
  * morning of the twenty-ninth day", "that evening", "late one night").
  */
 function landingOf(text: string): ClockReading | undefined {
+  // A sentence that opens on its time of day sets the scene the skip lands
+  // in ("By dusk on the thirty-first…"); a later aside does not ("the tracker
+  // you cornered at midday", Session 5). Speech never counts.
+  const narration = text.replace(/["“][^"”]*["”]/g, ' ');
+  const opener = new RegExp(`^\\s*(?:by|at|on|in|toward|towards|around|near|come|when)?\\s*(?:the\\s+)?${SHADED_PERIOD}\\b`, 'i');
+  let opened: ClockReading | undefined;
+
+  for (const sentence of sentencesOf(narration)) {
+    const match = opener.exec(sentence);
+    if (match) opened = shadedHour(match[1], match[2]) ?? opened;
+  }
+
+  if (opened) return opened;
+
   const pattern = new RegExp(`\\b${SHADED_PERIOD}\\b`, 'gi');
   let last: ClockReading | undefined;
 

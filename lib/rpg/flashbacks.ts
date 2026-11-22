@@ -325,7 +325,7 @@ function whenLine(db: AppDatabase, record: FlashbackRecord, date: CalendarDate =
 export function formatFlashbackOffer(db: AppDatabase, record: FlashbackRecord | null): string {
   if (!record) return '';
 
-  return `A MEMORY (optional): a flashback fits here: ${record.title} (${whenLine(db, record)}: ${record.memoryLine.replace(/\.$/, '')}). If it fits the moment, let one small trigger touch Kan this turn, drawn from what is really here (${record.hint}), and leave it there: do not start the memory, do not narrate it, do not say what he feels. He can follow it or let it pass. If nothing here fits, leave it out.`;
+  return `A MEMORY (optional): a flashback fits here: ${record.title} (${whenLine(db, record)}: ${record.memoryLine.replace(/\.$/, '')}). If it fits the moment, let one small trigger touch Kan this turn, drawn from what is really here (${record.hint}): a sight, a sound, a smell, an object, a word he hears. Never someone present who knows the memory or its people (Session 5: Kakuzu spoke of \"your cousin\"); everyone knows only what they could. Leave it there: do not start the memory, do not narrate it, do not say what he feels. He can follow it or let it pass. If nothing here fits, leave it out.`;
 }
 
 /** The date line shown above a flashback in the chat ("Year 5, Oct 10. You are five."). */
@@ -837,4 +837,19 @@ export function flashbackImageNote(db: AppDatabase, entry: Pick<RawLogEntry, 'fl
 export function latestReplyIsFlashback(db: AppDatabase): RawLogEntry | undefined {
   const reply = [...db.rawLog].reverse().find((entry) => entry.kind === 'story' && entry.role === 'assistant');
   return reply?.flashback ? reply : undefined;
+}
+
+/**
+ * Kan's own words touched the memory offered this turn: he is already
+ * thinking of it, so it waits for him (the Remember chip) even when the reply
+ * gave no trigger of its own (Session 5: "I think of Izumi on Hazuki's roof,
+ * telling me her dream" went unremembered).
+ */
+export function keptInHisOwnWords(offeredId: string | undefined, userMessage: string | undefined): boolean {
+  if (!offeredId || !userMessage) return false;
+  const record = FLASHBACK_BY_ID[offeredId];
+  const words = record?.triggers.words;
+  if (!words) return false;
+  const plain = new RegExp(words.source, words.flags.replace('g', ''));
+  return plain.test(userMessage);
 }
