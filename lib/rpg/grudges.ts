@@ -499,3 +499,32 @@ export function grudgeTrackingLines(offer: GrudgeOffer | null, idOf: (entity: En
     offer ? `This turn's offered grudge is ${idOf(offer.entity)}: struck only if the prose shows their move.` : '',
   ].filter(Boolean);
 }
+
+function labelWordsOf(text: string) {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^\p{L}]+/u)
+      .filter((word) => word.length >= 4 && !['with', 'your', 'from', 'that', 'whose'].includes(word))
+      .map((word) => (word.length > 4 && word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word))
+  );
+}
+
+/**
+ * The grudge offered this turn reached the page (the reply speaks of that
+ * person) but the tracker left no grudge event: it counts as struck, so the
+ * same strike isn't pressed again on every turn after (Session 5: the
+ * crippled hunter "selling word of the Vulture" stayed at 0 strikes).
+ */
+export function withStrikeOnThePage(before: AppDatabase, diff: TurnDiff, narration: string): TurnDiff {
+  const offer = grudgeOffer(before);
+  if (!offer) return diff;
+  const already = (diff.grudges ?? []).some((event) => event.entityId === offer.entity.id || event.name === offer.entity.name);
+  if (already) return diff;
+  const wanted = labelWordsOf(narratorName(before, offer.entity));
+  const said = labelWordsOf(narration);
+  let shared = 0;
+  for (const word of wanted) if (said.has(word)) shared += 1;
+  if (shared < Math.min(2, wanted.size)) return diff;
+  return { ...diff, grudges: [...(diff.grudges ?? []), { entityId: offer.entity.id, name: offer.entity.name, event: 'struck' }] };
+}

@@ -224,3 +224,19 @@ describe('the enemy behind a revenge seed is made when the tracker never listed 
     expect(bond?.grudge?.heat).toBeGreaterThanOrEqual(40);
   });
 });
+
+describe('a rival strike that reached the page counts as struck', () => {
+  test('the hunter selling word of the Vulture', async () => {
+    const { applyTurnDiff } = await import('../lib/rpg/services');
+    const { withStrikeOnThePage, grudgeOffer } = await import('../lib/rpg/grudges');
+    let db = seeded();
+    db = applyTurnDiff(db, {
+      consequences: [{ kind: 'spared', who: 'the scarred bounty hunter', what: 'You crippled him.', want: 'to see you dead' }],
+    } as never);
+    const later = { ...db, rawLog: Array.from({ length: 20 }, (_, i) => ({ id: `l${i}`, kind: 'story', role: i % 2 ? 'assistant' : 'user', content: 'x', turn: i, chapter: 1 })) as never, state: { ...db.state, inStoryDate: { ...db.state.inStoryDate, month: db.state.inStoryDate.month + 3 > 12 ? 1 : db.state.inStoryDate.month + 3, year: db.state.inStoryDate.year + (db.state.inStoryDate.month + 3 > 12 ? 1 : 0) }, scenePace: 'downtime' as const } };
+    expect(grudgeOffer(later)?.pressed).toBe(true);
+    const diff = withStrikeOnThePage(later, {} as never, 'They say a bounty hunter on shattered knees is selling word of the Vulture.');
+    expect(diff.grudges?.[0]?.event).toBe('struck');
+    expect(withStrikeOnThePage(later, {} as never, 'The wind howls.').grudges).toBeUndefined();
+  });
+});

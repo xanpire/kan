@@ -31,6 +31,7 @@ import { applyCanonEndgames } from './canonEndgame';
 import { deliverLetters, receiveLetters, sendLetters, turnLetterOffer } from './letters';
 import { advanceLives, applyLifeEvents, markReunions } from './lives';
 import { advanceConsequences, applyConsequences, markConsequenceOffered, turnConsequenceOffer } from './consequences';
+import { withStrikeOnThePage } from './grudges';
 import { applyScrollCache } from './scrollCache';
 import { applyEpithet, applyNameOut, markEpithetsSeen, recordDeeds, syncCarriedBooks } from './renown';
 import { applyYearly, yearlyOffer } from './yearly';
@@ -335,7 +336,7 @@ export function applyStateStep(
     clockTime: undefined,
     inStoryDate: undefined,
   };
-  const effectiveDiff: TurnDiff = merged;
+  const effectiveDiff: TurnDiff = withStrikeOnThePage(latest, merged, turn.narration);
 
   let next = applyTurnDiff(latest, effectiveDiff, { events });
   // A mission of Kan's Akatsuki trial that ended this turn (audit 8).
