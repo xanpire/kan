@@ -107,7 +107,8 @@ describe('the director', () => {
       effect: 'a huge fireball',
       visual: 'a roaring orange sphere of flame bigger than a house',
       firstSeen: db.state.inStoryDate,
-      lastSeen: db.state.inStoryDate,
+      // Used in this turn: a use ends after the turn began (the reply's stamp).
+      lastSeen: { ...db.state.inStoryDate, second: (db.state.inStoryDate.second ?? 0) + 10 },
       timesUsed: 3,
       description: '',
       tags: [],
@@ -185,7 +186,7 @@ describe('the scene prompt', () => {
       jutsuRecords: [
         {
           id: 'j1', name: 'Fire Style: Great Fireball Technique', user: 'Kan', chakraNature: 'fire', effect: '',
-          visual: 'a roaring orange sphere of flame', firstSeen: db.state.inStoryDate, lastSeen: db.state.inStoryDate,
+          visual: 'a roaring orange sphere of flame', firstSeen: db.state.inStoryDate, lastSeen: { ...db.state.inStoryDate, second: (db.state.inStoryDate.second ?? 0) + 10 },
           timesUsed: 1, description: '', tags: [],
         },
       ],
