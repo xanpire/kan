@@ -794,7 +794,7 @@ export function grudgesFromSeeds(
     });
 }
 
-const LABEL_FILLER = new Set(['the', 'you', 'your', 'who', 'that', 'with', 'from', 'leader', 'man', 'woman']);
+const LABEL_FILLER = new Set(['the', 'you', 'your', 'who', 'that', 'with', 'from', 'man', 'woman']);
 
 function labelWords(text: string) {
   return new Set(
@@ -802,6 +802,8 @@ function labelWords(text: string) {
       .toLowerCase()
       .split(/[^\p{L}]+/u)
       .filter((word) => word.length >= 3 && !LABEL_FILLER.has(word))
+      // "hunters'" is "hunter".
+      .map((word) => (word.length > 4 && word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word))
   );
 }
 

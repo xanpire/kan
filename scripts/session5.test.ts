@@ -195,6 +195,9 @@ describe('a seed finds the person it describes', () => {
     const withHunter = { ...db, entities: [...db.entities, hunter as never] };
     expect(presentMatch(withHunter, 'the bounty-hunter leader you crippled in Tanzaku', new Set(['entity_hunter']))?.id).toBe('entity_hunter');
     expect(presentMatch(withHunter, 'a farmer by the road', new Set(['entity_hunter']))).toBeNull();
+    const leader = { ...hunter, id: 'entity_leader', name: "the bounty hunters' leader", known: { label: "the bounty hunters' leader" } };
+    const withLeader = { ...db, entities: [...db.entities, leader as never] };
+    expect(presentMatch(withLeader, 'the bounty hunter leader you crippled in the Tanzaku room', new Set(['entity_leader']))?.id).toBe('entity_leader');
   });
 });
 
