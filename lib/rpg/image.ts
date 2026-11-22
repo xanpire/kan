@@ -332,7 +332,7 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
   const memory = reply.flashback ? db.state.flashbacks?.active ?? null : null;
   const moment = sceneMoment(db, Boolean(reply.flashback));
   const sceneText = `${playerAction} ${reply.content}`;
-  const jutsu = jutsuOnScreen(db, sceneText);
+  const jutsu = jutsuOnScreen(db, sceneText, 2, reply.flashback ? undefined : reply.inStoryDate);
   const shots = recentShots(db);
   const forced = chipDirection(options.chip);
   const art = reply.flashback ? null : canonArtDirection(db);
@@ -588,7 +588,7 @@ export function buildSceneImagePrompt(
   const cloak = outfit.sheet === 'akatsuki';
   const reply = latestStoryReply(db);
   const sceneText = `${action} ${options.shot ?? ''}`;
-  const jutsu = jutsuOnScreen(db, `${sceneText} ${reply?.content ?? ''}`);
+  const jutsu = jutsuOnScreen(db, `${sceneText} ${reply?.content ?? ''}`, 2, reply && !memoryReply ? reply.inStoryDate : undefined);
   const art = memoryNote ? null : canonArtDirection(db);
   const impact = shotType === 'impact frame';
 

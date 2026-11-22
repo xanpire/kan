@@ -8,6 +8,10 @@ import { isCompanion } from './companions';
 import { jutsuKey, jutsuNameVariants, NATURE_WORDS, normalizeJutsuNature } from './jutsu';
 import type { AppDatabase, TurnDiff } from './types';
 
+/** Ending one, not using it: "I let Susanoo fall away", "I dismiss it" (Session 6). */
+const ENDING =
+  /\b(let|lets|letting)\b[^.!?]{0,40}\b(fall|fade|die|collapse|crumble|dissolve)\b|\b(dismiss|dismisses|dismissed|cancel|cancels|cancelled)\b/i;
+
 /** Sentences that describe someone else, or talk about a jutsu, not Kan using it. */
 const NOT_USING =
   /\b(watch|watches|watched|see|sees|saw|seen|ask|asks|asked|about|remember|remembers|recall|tell|tells|told|explain|explains|how|teach|teaches|taught|learn|learns|study|studies|think|thinks)\b/i;
@@ -159,7 +163,7 @@ export function kanJutsuFromMessage(db: AppDatabase, userMessage: string): strin
   };
 
   for (const part of sentences(userMessage)) {
-    if (NOT_USING.test(part)) {
+    if (NOT_USING.test(part) || ENDING.test(part)) {
       continue;
     }
 

@@ -6,7 +6,7 @@
 
 import { CANON_MILESTONES } from './canonData';
 import { mentionsEntity } from './characterRefs';
-import { secondsBetween } from './calendar';
+import { dateSortValue, secondsBetween } from './calendar';
 import { currentWeather } from './weather';
 import { sunsetHour } from './ambience';
 import type { AppDatabase, CalendarDate, JutsuRecord, RawLogEntry, WeatherCondition } from './types';
@@ -349,9 +349,21 @@ function jutsuNamed(text: string, record: JutsuRecord) {
 }
 
 /** Recorded jutsu named in the scene text, with a visual, most used first. */
-export function jutsuOnScreen(db: Pick<AppDatabase, 'jutsuRecords'>, text: string, limit = 2): JutsuRecord[] {
+/**
+ * Jutsu named in the text with a look to paint. With `usedAfter` (the reply's
+ * stamp, the clock when its turn began), only those used in that turn or later:
+ * a reply that only mentions one ("where your Susanoo broke them") doesn't
+ * bring it back on screen (Session 6; Session 4's scream kept it up too).
+ */
+export function jutsuOnScreen(
+  db: Pick<AppDatabase, 'jutsuRecords'>,
+  text: string,
+  limit = 2,
+  usedAfter?: CalendarDate
+): JutsuRecord[] {
   return (db.jutsuRecords ?? [])
     .filter((record) => record.visual?.trim() && jutsuNamed(text, record))
+    .filter((record) => !usedAfter || !record.lastSeen || dateSortValue(record.lastSeen) > dateSortValue(usedAfter))
     .sort((a, b) => b.timesUsed - a.timesUsed)
     .slice(0, limit);
 }

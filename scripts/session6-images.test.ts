@@ -15,7 +15,8 @@ mock.module('@react-native-async-storage/async-storage', () => ({
 import { normalizeDatabase } from '../lib/rpg/db';
 import { seedDatabase } from '../lib/rpg/seed';
 import { buildSceneImagePrompt, directorContext } from '../lib/rpg/image';
-import { isUndergroundText, lightLine, lightNow, recentCloseUp, shotFraming } from '../lib/rpg/imageDirection';
+import { isUndergroundText, jutsuOnScreen, lightLine, lightNow, recentCloseUp, shotFraming } from '../lib/rpg/imageDirection';
+import { kanJutsuFromMessage } from '../lib/rpg/proseFallback';
 import type { AppDatabase, RawLogEntry } from '../lib/rpg/types';
 
 const seed = () => normalizeDatabase(seedDatabase('slot_s6', 'S6'));
@@ -88,5 +89,33 @@ describe('Session 6: underground has no windows', () => {
     expect(line).toContain('no windows and no sky');
     expect(line).not.toContain('outside,');
     expect(directorContext(db)!).toContain('(underground: no windows)');
+  });
+});
+
+describe('Session 6: a jutsu that has ended stays off the page', () => {
+  const susanoo = (lastSeen: AppDatabase['state']['inStoryDate']) => ({
+    id: 'j1', name: 'Susanoo', user: 'Kan', chakraNature: 'Yin', effect: 'x',
+    visual: 'Crimson rib-bones and a taloned arm.', firstSeen: lastSeen, lastSeen, timesUsed: 1, description: '', tags: [],
+  });
+
+  test('a reply that only mentions Susanoo used earlier does not paint it', () => {
+    const base = seed();
+    const turnStart = { ...base.state.inStoryDate, hour: 22, minute: 10, second: 15 };
+    const db = { ...base, jutsuRecords: [susanoo({ ...turnStart, minute: 0 })] } as AppDatabase;
+    expect(jutsuOnScreen(db, 'the posts where your Susanoo broke them', 2, turnStart)).toEqual([]);
+    // Used this turn (it ends after the turn began): painted.
+    const used = { ...base, jutsuRecords: [susanoo({ ...turnStart, second: 30 })] } as AppDatabase;
+    expect(jutsuOnScreen(used, 'Susanoo rises', 2, turnStart)).toHaveLength(1);
+    // A turn that starts exactly where the use ended is the next turn.
+    expect(jutsuOnScreen(db, 'Susanoo', 2, { ...turnStart, minute: 0 })).toEqual([]);
+    // Without a turn start (a memory), the old rule: named is enough.
+    expect(jutsuOnScreen(db, 'Susanoo', 2)).toHaveLength(1);
+  });
+
+  test("letting a jutsu fall is not using it", () => {
+    const db = seed();
+    expect(kanJutsuFromMessage(db, 'I let Thousand Souls fall away and wipe the blood from my eyes.')).toEqual([]);
+    expect(kanJutsuFromMessage(db, 'I dismiss the Water Clone Jutsu.')).toEqual([]);
+    expect(kanJutsuFromMessage(db, 'I reach for Thousand Souls.')).toEqual(['Thousand Souls']);
   });
 });
