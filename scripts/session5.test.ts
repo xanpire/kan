@@ -137,3 +137,17 @@ describe('a skip lands on the time of day its scene opens on', () => {
     expect(read.landing?.hour).toBeGreaterThanOrEqual(16);
   });
 });
+
+describe('the memory the moment names most closely is the one offered', () => {
+  test('"her dream on Hazuki\'s roof" offers Her dream, not The Academy', async () => {
+    const { flashbackOffer } = await import('../lib/rpg/flashbacks');
+    const db = seeded();
+    const at = { year: 13, month: 12, day: 31, hour: 17, minute: 0, second: 0 };
+    const turns = Array.from({ length: 30 }, (_, index) => ({
+      id: `log_${index}`, kind: 'story', role: index % 2 ? 'assistant' : 'user', content: 'You wait.', text: 'You wait.', turn: index, chapter: 1, inStoryDate: at,
+    }));
+    const quiet = { ...db, rawLog: [...db.rawLog, ...turns] as never, state: { ...db.state, inStoryDate: at, scenePace: 'downtime' as const } };
+    const offer = flashbackOffer(quiet, "I stare into the fire. Izumi on Hazuki's roof, the night she told me her dream of an ordinary life.", 'normal');
+    expect(offer?.id).toBe('her-dream');
+  });
+});

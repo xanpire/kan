@@ -307,9 +307,13 @@ export function flashbackOffer(db: AppDatabase, input: string, mode: SceneModeNa
     if (record.opening && record.opening !== openingOf(db)) continue;
 
     const score = flashbackScore(db, record, text);
+    // Ties go to the memory the moment names most closely, Kan's own words
+    // first (Session 5: "her dream… on Hazuki's roof" offered "The Academy",
+    // which only matched "Izumi").
+    const fit = score >= OFFER_SCORE ? score + wordFit(record, input) * 0.1 + wordFit(record, text) * 0.01 : score;
 
-    if (score >= OFFER_SCORE && (!best || score > best.score)) {
-      best = { record, score };
+    if (score >= OFFER_SCORE && (!best || fit > best.score)) {
+      best = { record, score: fit };
     }
   }
 
@@ -319,6 +323,14 @@ export function flashbackOffer(db: AppDatabase, input: string, mode: SceneModeNa
 function whenLine(db: AppDatabase, record: FlashbackRecord, date: CalendarDate = record.date) {
   const age = kanAgeAt(db, date);
   return `Year ${date.year}, when you were ${ageWord(age)}`;
+}
+
+/** How many different trigger words of this memory the text holds. */
+function wordFit(record: FlashbackRecord, text: string): number {
+  const words = record.triggers.words;
+  if (!words) return 0;
+  const all = new RegExp(words.source, words.flags.includes('g') ? words.flags : `${words.flags}g`);
+  return new Set([...text.matchAll(all)].map((match) => match[0].toLowerCase())).size;
 }
 
 /** The one optional line the narrator gets when a flashback fits. */
