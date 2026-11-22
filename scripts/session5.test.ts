@@ -161,6 +161,8 @@ describe('someone Kan beat and left wanting payback becomes a rival', () => {
         { kind: 'helped', who: 'a farmer', what: 'You carried his cart.', want: 'To thank you.' },
       ],
     } as never);
+    // The hunter Kan crippled in Tanzaku (live, Session 5).
+    expect(grudgesFromSeeds({ consequences: [{ kind: 'spared', who: 'the bounty-hunter leader', what: 'You broke his knees.', want: 'to see you dead, or to sell what he knows of where you sleep' }] } as never)).toHaveLength(1);
     expect(events).toEqual([{ entityId: undefined, name: 'the broad-shouldered Earth shinobi', event: 'wronged', reason: 'You broke his jaw and left him alive.' }]);
   });
 });

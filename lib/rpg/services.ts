@@ -771,7 +771,7 @@ export function withoutSkyBurialAsThousandSouls<T extends { name: string; user?:
   });
 }
 
-const REVENGE_WANT = /\b(pay|payback|revenge|aveng|vengeance|kill (?:you|kan|him)|hunt|make (?:you|kan|him) (?:pay|suffer|bleed)|settle|repay|even the score|get even)\w*/i;
+const REVENGE_WANT = /\b(pay|payback|revenge|aveng|vengeance|kill|dead|death|destroy|ruin|hunt|track (?:you|kan|him) down|make (?:you|kan|him) (?:pay|suffer|bleed)|settle|repay|even the score|get even|sell (?:what he knows|you|him) out)\w*/i;
 
 /**
  * Someone Kan left beaten, shamed or betrayed who wants him to pay is a
