@@ -340,13 +340,23 @@ export function newsOffer(db: AppDatabase, options: { ignoreCombat?: boolean } =
   // Old minor news no longer demands its own turn: it rides along in passing.
   const isStale = (item: UnheardNews) =>
     !item.major && item.daysOld > STALE_MINOR_NEWS_DAYS && item.knowledge !== 'secret' && item.knowledge !== 'witnesses';
-  const fresh = all.filter((item) => !isStale(item));
+  const present = sceneEntities(db);
+  // A secret or an eyewitness account only travels face to face: it waits
+  // until someone who could know it is in the scene, and never goes overdue
+  // through a stand-in (Session 6: Hana told Kan Itachi's double life).
+  const deliverable = (item: UnheardNews) =>
+    (item.knowledge !== 'secret' && item.knowledge !== 'witnesses') || sceneBearersFor(db, item, present).length > 0;
+  const fresh = all.filter((item) => !isStale(item) && deliverable(item));
   const stale = all.filter(isStale);
   const unheard = fresh.length > 0 ? fresh : stale.slice(0, 1);
+
+  if (unheard.length === 0) {
+    return null;
+  }
+
   const inPassing = stale.filter((item) => !unheard.includes(item)).slice(0, IN_PASSING_MAX);
   const passing = inPassing.length > 0 ? { inPassing } : {};
 
-  const present = sceneEntities(db);
   const quietDays = Math.max(0, daysBetween(lastNewsHeardDate(db), db.state.inStoryDate));
   // Secrets and eyewitness accounts never travel in a bundle.
   const bundleable = unheard.filter((item) => item.knowledge !== 'secret' && item.knowledge !== 'witnesses');

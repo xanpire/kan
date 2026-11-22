@@ -33,6 +33,7 @@ import { mentionsName } from './characterRefs';
 import { makeId } from './id';
 import { secondPerson } from './util';
 import { conditionHolds } from './lore';
+import { scrubNameLeaks } from './names';
 import { applyAbilityChanges } from './abilities';
 import type { AppDatabase, CalendarDate, FactRecord } from './types';
 
@@ -1060,7 +1061,9 @@ export function knownCanonPoint(db: AppDatabase): string {
     .map((event) => byId.get(event.id.replace('event_canon_', ''))?.canonPoint)
     .find((point): point is string => Boolean(point));
 
-  if (latest) return latest.slice(0, 220);
+  // In Kan's names: news heard in passing ("Deidara is recruited") may name
+  // someone he only knows by a label (Session 6).
+  if (latest) return scrubNameLeaks(db, latest).text.slice(0, 220);
 
   // The opening's own point (what Kan already knows) until the first news.
   return normalizeProgress(db).completed.length === 0 ? db.state.canonPoint : '';

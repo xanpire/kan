@@ -107,3 +107,35 @@ describe('news (audit 6.15)', () => {
     expect(offer.items[0].urgency).toBe('fresh');
   });
 });
+
+describe('Session 6: secrets wait for a bearer; passing news is heard once shown', () => {
+  test('a secret only its absent bearer knows is never offered, and never forced through someone else', () => {
+    const major = publicMajor[0];
+    const db = withFired(seed(), [
+      { id: 'itachi-double-life', daysAgo: 400 },
+      { id: major.id, daysAgo: 3 },
+    ]);
+    const absent = { ...db, state: { ...db.state, sceneCast: [] } } as AppDatabase;
+    const offer = newsOffer(absent)!;
+    expect(offer.items.map((item) => item.milestoneId)).toEqual([major.id]);
+    expect(formatNewsOffer(offer)).not.toContain("Itachi's double life");
+
+    const onlySecret = withFired(seed(), [{ id: 'itachi-double-life', daysAgo: 400 }]);
+    expect(newsOffer({ ...onlySecret, state: { ...onlySecret.state, sceneCast: [] } } as AppDatabase)).toBeNull();
+  });
+
+  test('passing news is heard once the narrator was shown it, even if the main item was not told', () => {
+    const [oldA, oldB] = publicMinor;
+    const major = publicMajor[0];
+    const db = withFired(seed(), [
+      { id: oldA.id, daysAgo: 200 },
+      { id: oldB.id, daysAgo: 150 },
+      { id: major.id, daysAgo: 3 },
+    ]);
+    const turn = { turnLogId: 'log_x', userMessage: '*I walk on.*', narration: 'The road is quiet.' };
+    const result = applyStateStep(db, {}, turn, new Set());
+    const heard = result.db.state.canonProgress?.heard ?? {};
+    expect(heard[`event_canon_${oldA.id}`]?.from).toBe('in passing');
+    expect(heard[`event_canon_${major.id}`]).toBeUndefined();
+  });
+});

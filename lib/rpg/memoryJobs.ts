@@ -446,11 +446,14 @@ export function applyStateStep(
   next = applyCanonMarks(next, marks.completed, marks.engaged, marks.passed);
   next = markNewsHeard(next, relays, allowance);
 
-  // Old minor news folded into this turn's delivery was heard in passing,
-  // once the turn delivered any news at all.
-  const folded = newsOffer(latest, { ignoreCombat: true })?.inPassing ?? [];
+  // Old minor news folded into this turn's prompt was heard in passing once
+  // the narrator was shown it (not in a fight): it used to wait for the main
+  // item to be told too, so a stuck main item repeated the list every turn
+  // (Session 6).
+  const shown = newsOffer(latest);
+  const folded = shown?.inPassing ?? [];
 
-  if (relays.length > 0 && folded.length > 0) {
+  if (folded.length > 0) {
     next = markNewsHeard(
       next,
       folded.map((item) => ({ id: item.milestoneId, from: 'in passing' })),
