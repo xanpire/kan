@@ -52,7 +52,8 @@ export function eyesFromInput(db: Pick<AppDatabase, 'state'>, input: string): Ka
     if (!mentions) continue;
     if (OFF.test(clause)) {
       result = 'off';
-    } else if (ON.test(clause)) {
+    } else if (ON.test(clause) && hasAbility(db, /sharingan/i)) {
+      // Only eyes he has: before the Sharingan wakes, his words can't light it.
       result = /\bmangeky[oō]\b/i.test(clause) && hasAbility(db, /mangeky/i) ? mangekyoOf(db) : 'sharingan';
     }
   }

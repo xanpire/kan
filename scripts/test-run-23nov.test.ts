@@ -68,7 +68,10 @@ function kanFact(db: AppDatabase, text: string, type: FactRecord['type'] = 'cond
 
 describe('§1 Kan\'s eyes are one flag', () => {
   test("Kan's own words switch them", () => {
-    const db = seed();
+    const now = seed().state.inStoryDate;
+    const db = { ...seed(), state: { ...seed().state, player: { ...seed().state.player, abilities: [{ name: 'Sharingan', stage: '1 tomoe', acquiredOn: now, stageOn: now }] } } };
+    // Before the Sharingan wakes, his words can't light it.
+    expect(eyesFromInput(seed(), 'I activate my Sharingan.')).toBeNull();
     expect(eyesFromInput(db, 'I let my Sharingan fade and look at him.')).toBe('off');
     expect(eyesFromInput(db, 'I deactivate the Sharingan.')).toBe('off');
     expect(eyesFromInput(db, 'I activate my Sharingan and watch his hands.')).toBe('sharingan');
