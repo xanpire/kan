@@ -852,6 +852,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       namesVersion: NAMES_VERSION,
       // Nothing has been said yet: no old story to scan for people (heardOf.ts).
       heardOfScanned: true,
+      repaired23Nov: true,
     },
     indices: emptyIndex(),
     snapshots: [],

@@ -196,6 +196,8 @@ export type GameState = {
   namesVersion?: number;
   /** Old saves had their story scanned once for people already talked about (heardOf.ts). */
   heardOfScanned?: boolean;
+  /** The one-time repair of 23 Nov 2026 ran (repair23nov.ts). */
+  repaired23Nov?: boolean;
   /** Canon lore Kan learned in the story, by entry id (loreList.ts, section 11). */
   loreKnown?: Record<string, LoreLearned>;
 };

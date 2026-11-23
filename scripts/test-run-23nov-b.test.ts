@@ -120,3 +120,48 @@ describe('Itachi on the massacre night', () => {
     expect(NARRATION_SYSTEM).toContain('Fugaku is Itachi\'s father, never his uncle');
   });
 });
+
+import { isTheirOwnDeed } from '../lib/rpg/grudges';
+import { scratchProtectorFromProse } from '../lib/rpg/inventory';
+import { repairTestRun23Nov } from '../lib/rpg/repair23nov';
+import { ITACHI_AFTER_THE_NIGHT, ITACHI_AFTER_THE_NIGHT_OLD } from '../lib/rpg/bondGuard';
+
+describe('found in the save itself', () => {
+  test('water running down your neck is no scratch on the protector', () => {
+    const turn2 = 'Water runs down your neck beneath the high collar of your black top, cold against your skin, while the cloth belt carrying your forehead protector sits heavy at your left hip.';
+    expect(scratchProtectorFromProse(['Hidden Leaf headband'], turn2)).toBeNull();
+    expect(scratchProtectorFromProse(['Hidden Leaf headband'], 'You drag the tip of a kunai across your forehead protector.')).not.toBeNull();
+    expect(scratchProtectorFromProse(['Hidden Leaf headband'], 'You scratch a line through the plate of your headband.')).not.toBeNull();
+  });
+
+  test('a grudge is their anger at you, never the other way round', () => {
+    const itachi = { name: 'Itachi Uchiha' };
+    expect(isTheirOwnDeed(itachi, 'He killed Hazuki and Izumi, your aunt and cousin, and admits it to your face.')).toBe(true);
+    expect(isTheirOwnDeed(itachi, 'Itachi betrayed your trust.')).toBe(true);
+    expect(isTheirOwnDeed(itachi, 'You broke his nose in front of Kisame.')).toBe(false);
+    expect(isTheirOwnDeed(itachi, 'He was humiliated by you.')).toBe(false);
+  });
+
+  test('an old save is repaired once', () => {
+    let db = seed();
+    const itachi = person(db, 'Itachi Uchiha');
+    db = appendStoryMessage(db, 'assistant', 'Water runs down your neck while your forehead protector sits at your hip.', null, 0, 0);
+    db = {
+      ...db,
+      state: { ...db.state, repaired23Nov: undefined, inventory: ['Hidden Leaf headband, scratched through', 'Shuriken (10)'], alreadySaid: [{ text: "why Itachi killed the clan: the coup", date: db.state.inStoryDate }] },
+      bonds: db.bonds.map((bond) => (bond.entityId === itachi.id ? { ...bond, status: ITACHI_AFTER_THE_NIGHT_OLD } : bond)),
+      facts: [
+        ...db.facts,
+        { id: 'fact_g1', subjectEntityId: itachi.id, type: 'other', text: 'Itachi Uchiha holds a grudge against you: He killed Hazuki and Izumi.', whoKnows: [itachi.id], validFrom: db.state.inStoryDate, validTo: null, confidence: 'confirmed', sourceEventId: null },
+      ],
+      threads: [...db.threads, { id: 'thread_g1', type: 'grudge', title: "Itachi Uchiha's grudge against you", description: '', status: 'resolved', openedAt: db.state.inStoryDate, resolvedAt: db.state.inStoryDate, importance: 3, participants: [], sourceEventId: null }],
+    } as AppDatabase;
+    const next = repairTestRun23Nov(db);
+    expect(next.state.inventory[0]).toBe('Hidden Leaf headband');
+    expect(next.facts.some((fact) => fact.id === 'fact_g1')).toBe(false);
+    expect(next.threads.some((thread) => thread.id === 'thread_g1')).toBe(false);
+    expect(next.bonds.find((bond) => bond.entityId === itachi.id)!.status).toBe(ITACHI_AFTER_THE_NIGHT);
+    expect(next.threads.find((thread) => thread.title === 'Make Itachi explain')!.status).toBe('resolved');
+    expect(next.state.repaired23Nov).toBe(true);
+  });
+});

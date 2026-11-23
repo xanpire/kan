@@ -31,6 +31,7 @@ import { GEOGRAPHY_LORE, IZUMI_EYES_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_
 import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
 import { backfillHeardOf } from './heardOf';
+import { repairTestRun23Nov } from './repair23nov';
 import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
 import { collectImageGarbage, imageRefsIn } from './imageStore';
 import { normalizeSceneMode } from './sceneMode';
@@ -1152,7 +1153,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = backfillHeardOf(migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized))))))))))));
+  const withDeaths = repairTestRun23Nov(backfillHeardOf(migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized)))))))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;
@@ -1426,6 +1427,7 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     loreKnown: normalizeLoreKnown(state.loreKnown),
     namesVersion: typeof state.namesVersion === 'number' ? state.namesVersion : undefined,
     ...(state.heardOfScanned ? { heardOfScanned: true } : {}),
+    ...(state.repaired23Nov ? { repaired23Nov: true } : {}),
     ...(state.akatsukiTrial && Array.isArray(state.akatsukiTrial.missions)
       ? { akatsukiTrial: { since: normalizeDate(state.akatsukiTrial.since, seeded.inStoryDate), missions: state.akatsukiTrial.missions.filter((mission) => mission && typeof mission.title === 'string') } }
       : {}),

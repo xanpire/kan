@@ -172,6 +172,9 @@ const PROTECTOR = /\b(forehead protector|headband|hitai-ate)\b/i;
 const SCRATCHED = /\b(scratch(?:ed)?|slash(?:ed)?|gouged?|carved?|scored|struck through|cut through|crossed out|defaced)\b/i;
 const SCRATCH_ACT =
   /\b(scratch(?:es)?|scratched|carv(?:e|es|ed)|goug(?:e|es|ed)|scor(?:e|es|ed)|slash(?:es|ed)?|cut(?:s)?|drag(?:s|ged)?|draw(?:s)?|run(?:s)?|ran)\b/i;
+/** Words that name the cutting act on their own; the rest (run, draw, drag, cut) need a blade in the sentence. */
+const SCRATCH_VERB = /\b(scratch(?:es)?|scratched|carv(?:e|es|ed)|goug(?:e|es|ed)|slash(?:es|ed)?)\b/i;
+const BLADE = /\b(kunai|blade|knife|tantō|tanto|edge|tip|point|steel|shuriken|sword|claws?|nail)\b/i;
 const PROTECTOR_PART = /\b(forehead protector|headband|hitai-ate|leaf symbol|leaf insignia|insignia|the plate|metal plate|the leaf(?:'s|’s)? (?:symbol|mark|spiral))\b/i;
 const NOT_YET = /\b(not|never|don't|do not|won't|without|almost|nearly|hesitat\w*|refuse\w*|instead of|consider\w*|think\w* about|wonder\w*)\b/i;
 
@@ -205,6 +208,9 @@ export function scratchProtectorFromProse(inventory: string[], narration: string
     (sentence) =>
       /\byou(?:r)?\b/i.test(sentence) &&
       SCRATCH_ACT.test(sentence) &&
+      // "Water runs down your neck … your forehead protector sits at your hip"
+      // is no scratch (test run 23 Nov): run, draw, drag, cut and score need a blade.
+      (SCRATCH_VERB.test(sentence) || BLADE.test(sentence)) &&
       PROTECTOR_PART.test(sentence) &&
       !NOT_YET.test(sentence) &&
       // Itachi's own scratched protector is not yours.

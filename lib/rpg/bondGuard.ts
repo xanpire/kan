@@ -70,7 +70,10 @@ function rungOf(stage: RelationshipStage) {
 export const HELD_FEELINGS_CEILING = 3;
 /** The status Itachi's bond is seeded with, from before the night. */
 const ITACHI_SEEDED_STATUS = /^closest friend, like an older brother$/i;
-export const ITACHI_AFTER_THE_NIGHT = 'He killed Izumi and Hazuki. You go with him anyway.';
+// A short label that decides nothing: the old one said "You go with him
+// anyway" before Kan had chosen (test run 23 Nov), and the bond line passed it to the narrator.
+export const ITACHI_AFTER_THE_NIGHT = 'Killed Izumi and Hazuki';
+export const ITACHI_AFTER_THE_NIGHT_OLD = 'He killed Izumi and Hazuki. You go with him anyway.';
 
 export function heldFeelingsCeiling(db: AppDatabase, entity: EntityRecord): number | null {
   if (entity.name !== 'Itachi Uchiha' || entity.deceased || entity.status === 'Deceased') {

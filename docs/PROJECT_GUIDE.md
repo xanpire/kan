@@ -1125,6 +1125,8 @@ From Xan's test run (claude/test-run-fixes.md in the Claude project):
 - **Family words** (`FAMILY_TIES` in prompt.ts): a "family:" line on the cards of Itachi, Sasuke, Fugaku, Mikoto, Hazuki, Izumi and a few clan families; a rule says kinship words follow each person's own family (Fugaku is Itachi's father, Hazuki is Kan's aunt).
 - **Itachi's sleeves**: his young look is a short-sleeved shirt with bare upper arms and arm guards on the forearms (`ITACHI_YOUNG_LOOK`; the long-sleeved one migrates). The card shows up to 320 characters of a base look.
 
+- **From the save itself** (v1.25.60, `repair23nov.ts`): the prose scratch check needs a cutting verb or a blade ("Water runs down your neck … your forehead protector" scratched it on turn 1); a grudge whose reason has them doing the harm ("He killed…") is refused (`isTheirOwnDeed`), and the tracker is told a grudge is their anger at you; Itachi's after-the-night status is "Killed Izumi and Hazuki" (it said "You go with him anyway" before Kan chose); "Make Itachi explain" resolves once he has told the coup (`settleItachiExplains`, every turn). Old saves get all four once (`state.repaired23Nov`).
+
 ### Session 6 watch items (22 Nov 2026, v1.25.53; tests: `scripts/session6-watch.test.ts`)
 
 The watch items Session 6 didn't reach live, played through the real pipeline (prompt → reply → `applyStateStep`):
