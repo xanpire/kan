@@ -6,7 +6,7 @@
 // only when the tracker sees him told it, reading it or seeing it. The
 // Journal's "What you know" lists only what he learned in the story.
 
-import { formatDayMonth } from './calendar';
+import { dateSortValue, formatDayMonth } from './calendar';
 import { isDeceased } from './deaths';
 import { resolveEntity } from './entities';
 import { CANON_LORE, LORE_GROUPS, type CanonLore } from './loreData';
@@ -29,9 +29,23 @@ function happened(db: AppDatabase, id: string) {
   return Boolean(db.state.canonProgress?.completed?.includes(id));
 }
 
+/** Turns a lore entry rests after it was sent, within one scene. */
+export const LORE_REST_TURNS = 3;
+
+/**
+ * Lore the last few replies of this scene already carried (test run §12.6:
+ * the same entry sent every turn). A new scene starts fresh.
+ */
+export function recentlyShownLore(db: AppDatabase): Set<string> {
+  const seq = db.state.sceneSeq;
+  const replies = db.rawLog.filter((entry) => entry.kind === 'story' && entry.role === 'assistant').slice(-LORE_REST_TURNS);
+  return new Set(replies.filter((entry) => seq !== undefined && entry.sceneSeq === seq).flatMap((entry) => entry.loreShown ?? []));
+}
+
 /** True now: its `from` has happened and its `until` hasn't. */
 export function loreTrue(db: AppDatabase, entry: CanonLore) {
   if (entry.from && !happened(db, entry.from)) return false;
+  if (entry.fromDate && dateSortValue({ ...entry.fromDate, hour: 0, minute: 0 }) > dateSortValue(db.state.inStoryDate)) return false;
   if (entry.until && happened(db, entry.until)) return false;
   return true;
 }
@@ -123,7 +137,8 @@ export function selectCanonLore(
   options: { recentText: string; presentNames: string[]; limit?: number }
 ): CanonLore[] {
   const limit = options.limit ?? CANON_LORE_LIMIT;
-  const live = CANON_LORE.filter((entry) => loreTrue(db, entry));
+  const recent = recentlyShownLore(db);
+  const live = CANON_LORE.filter((entry) => loreTrue(db, entry) && !recent.has(entry.id));
   const chosen: CanonLore[] = [];
 
   live

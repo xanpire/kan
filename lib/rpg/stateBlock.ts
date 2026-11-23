@@ -496,6 +496,10 @@ export function convertStateBlock(
     diff.state = { ...diff.state, kanEyes: block.kan_eyes as KanEyes };
   }
 
+  // What this turn explained or answered (test run §12.2).
+  const explained = stringItems(block.explained).map((item) => item.slice(0, 80)).slice(0, 3);
+  if (explained.length > 0) diff.explained = explained;
+
   // What Kan learned about people (test run §10).
   if (Array.isArray(block.learned_about)) {
     const fields = ['role', 'noticed', 'suspect', 'speech', 'heard'];

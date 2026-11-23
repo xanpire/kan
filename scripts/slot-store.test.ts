@@ -306,6 +306,7 @@ describe('load keeps every GameState field (audit 3.4)', () => {
     const full = {
       ...db.state,
       locationDetail: 'past the old gate',
+      alreadySaid: [{ text: 'why the clan died', date }],
       locationKind: 'road',
       turnsWithoutTimeChange: 2,
       canonProgress: db.state.canonProgress ?? {

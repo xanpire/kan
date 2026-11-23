@@ -117,6 +117,35 @@ function contentWords(text: string) {
   );
 }
 
+const CHANGE_WORDS = /\b(no longer|not|never|let go|forgave|forgiven|settled|ended|stopped|healed|left|gone|lost|broke|broken|died|dead|refused|cancel\w*|changed|moved|instead)\b/i;
+
+/**
+ * Two facts about the same person, of the same type, sharing most of their
+ * content words: one thing said twice.
+ */
+export function sameMeaning(previous: Pick<FactRecord, 'text' | 'subjectEntityId' | 'type'>, next: Pick<FactRecord, 'text' | 'subjectEntityId' | 'type'>) {
+  if (previous.subjectEntityId !== next.subjectEntityId || previous.type !== next.type) return false;
+  if (NOT_YET.test(previous.text) !== NOT_YET.test(next.text)) return false;
+  // A change of state is news, not a repeat ("let go of the grudge" after "holds a grudge").
+  if (CHANGE_WORDS.test(previous.text) !== CHANGE_WORDS.test(next.text)) return false;
+  const before = contentWords(previous.text);
+  const after = contentWords(next.text);
+  if (before.size < 3 || after.size < 3) return false;
+  const shared = [...after].filter((word) => before.has(word)).length;
+  return shared / Math.min(before.size, after.size) >= 0.7;
+}
+
+/** A fact's text at most about 200 characters, cut at a sentence end or a word, never mid-word ("…hunt"). */
+export function clipFactText(text: string, limit = 200): string {
+  const clean = text.trim().replace(/\s+/g, ' ');
+  if (clean.length <= limit) return clean;
+  const cut = clean.slice(0, limit);
+  const sentence = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  if (sentence > limit * 0.5) return cut.slice(0, sentence + 1);
+  const word = cut.lastIndexOf(' ');
+  return `${cut.slice(0, word > 0 ? word : limit).replace(/[\s,;:–—-]+$/, '')}…`;
+}
+
 /** Whether the new fact turns an old "does not know yet" fact about the same thing into the past. */
 function overtakes(previous: FactRecord, next: { text: string; subjectEntityId: string | null }) {
   if (previous.subjectEntityId !== next.subjectEntityId || !NOT_YET.test(previous.text) || NOT_YET.test(next.text)) {
@@ -252,7 +281,9 @@ export function applyFactDiff(db: AppDatabase, fact: FactDiff): AppDatabase {
       item.validTo === null &&
       (item.text.toLowerCase() === text.toLowerCase() ||
         (text.length > 30 &&
-          item.text.toLowerCase().includes(text.toLowerCase())))
+          item.text.toLowerCase().includes(text.toLowerCase())) ||
+        // The same thing in other words (test run §12.3: the coup saved three times).
+        sameMeaning(item, { text, subjectEntityId: subjectEntity?.id ?? null, type: fact.type ?? 'other' }))
   );
 
   if (duplicate) {
@@ -276,7 +307,7 @@ export function applyFactDiff(db: AppDatabase, fact: FactDiff): AppDatabase {
     id: makeId('fact'),
     subjectEntityId: subjectEntity?.id ?? null,
     type: fact.type ?? 'other',
-    text: secondPerson(text).slice(0, 200),
+    text: clipFactText(secondPerson(text)),
     whoKnows: knowers.ids,
     ...(knowers.groups.length > 0 ? { whoKnowsGroups: knowers.groups } : {}),
     validFrom: currentDate,

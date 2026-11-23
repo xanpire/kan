@@ -134,7 +134,12 @@ export function resolveElapsedSeconds(options: {
   pace: ScenePace | undefined;
   sceneEnded: boolean;
 }) {
-  const desired = Math.max(0, options.reportedSeconds, options.detectedSeconds);
+  // The prose names how long it took and the tracker says otherwise: the
+  // prose wins (test run §12.1: "nearly five hours" became seven).
+  const desired =
+    options.detectedSeconds > 0 && options.reportedSeconds > 0 && !lengthsAgree(options.reportedSeconds, options.detectedSeconds)
+      ? options.detectedSeconds
+      : Math.max(0, options.reportedSeconds, options.detectedSeconds);
   const frozen = (options.pace === 'combat' || options.pace === 'chase') && !options.sceneEnded;
 
   // The tracker and the prose agree on how long it took (within 25%): the
@@ -436,6 +441,14 @@ export function resolveTurnClock(options: {
 
       storyTimed = true;
     }
+  }
+
+  // A duration the prose stated is never overrun by a clock the tracker
+  // guessed or an arrival hour that drifted (test run §12.1).
+  const stated = options.detected.elapsedSeconds;
+  if (stated > 0 && !options.skipSeconds && !options.detected.sleptNight && !options.detected.clock) {
+    const limit = Math.max(stated * 1.15, stated + 20 * 60);
+    if (secondsBetween(current, target) > limit) target = advanceSeconds(current, Math.min(storySeconds, limit));
   }
 
   const elapsedSeconds = Math.max(minimumSeconds, secondsBetween(current, target));

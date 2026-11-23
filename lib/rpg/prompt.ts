@@ -163,6 +163,8 @@ PLACE: location, with location_kind, when Kan moves. location is a short name, a
 
 PEOPLE: refer to every person by their id from KNOWN CHARACTERS (Kan is "kan") in characters_present, bonds.character_id, character_updates.character_id, facts.entity, facts.who_knows, and jutsu_used.user. Match every name, title, nickname, and alias against KNOWN CHARACTERS first ("Kisame", "Hoshigaki", and "the shark-faced swordsman" are all kisame-hoshigaki), including people Kan has not met yet. A description belongs to whoever the prose means by it ("the masked man" who is Kakuzu is kakuzu): never pick an id because its name looks like a description. new_characters is ONLY for a person missing from KNOWN CHARACTERS: is_new true, their fullest known name, age, role, personality, speech, appearance, gender, attracted_to (men, women, both, none, or unknown if the story hasn't shown it), minor (true for a one-scene character: a target, a guard, a shopkeeper), and name_known (false for a stranger the story gives no name yet: name is then a short description of how they look to you, like "the scarred ferryman"); elsewhere this turn, refer to them by that exact name. Never put a listed person in new_characters. characters_present lists only those physically in the scene at the end, and in a fight everyone fighting, opponents first; [] if Kan is alone. character_updates: visible mood changes; whereabouts when the story says where someone is going or waiting ("waiting at the eastern border"); appearance is how they look RIGHT NOW (what they are wearing, wet, bloodied, Sharingan active), kept the same from turn to turn unless the prose changes it; lasting_appearance only for a real lasting change (aging, a scar, new clothes worn for good). personality_change / speech_style_change: almost always null; only when the story truly changes who an original (non-canon) person is, as a new one-line description. bonds have two sides. affinity_change (-10..10) and note: how THEY feel about you, moved only by what they could actually see or hear you do or say. your_change and your_note: how YOU feel about them; your inner thoughts and unspoken reactions move only this side, and only as far as Kan's own words, actions or written thoughts on the page show (never warmer because they were kind to you: a grudge or grief you hold stays until Kan himself lets it go). status: a short label of who they are to you, at most four words, never a sentence ("Akatsuki leader", "Your Akatsuki partner", "Ramen stall owner"); null unless that changes. What happened goes in note. Both notes are shown to the player, so write them with only what Kan knows: no titles, epithets, ranks or secrets he has not learned (Konan is not "the Akatsuki's angel" to him until he hears it). relationship is one fixed label: stranger, acquaintance, friendly, close, old friend, family, teammate (on a team with Kan now), former teammate (was once: Team 3, before he joined ANBU), former sensei (taught Kan once: Suzume), partner (an Akatsuki or mission partner, never romance), mentor, student, rival, enemy, romantic interest, lover (romance), rejected, ex; change it only when the relationship itself changes, never because feelings dipped. attraction and romance_note only if changed. Only important characters; minor people go in facts.
 
+EXPLAINED: explained lists, in a few words each, any topic this turn explained in full or any question it answered ("why Itachi killed the clan", "where you are going"); most turns []. They are not explained again.
+
 KNOWING PEOPLE: learned_about records what you (Kan) learned about someone this turn, for their profile, which shows only what you know. field: role (who they are or what they do, as you were told or saw it: "Akatsuki · gave you the cloak at the conduit"), noticed (something you saw in how they act, react or carry themselves: "Watched your hands the whole time"), suspect (your own guess, only when your words, thoughts or reactions on the page show it, or it plainly follows from what you saw; worded as a guess: "You suspect she knows more about the masked man than she lets on"), speech (how they talk, once you have heard them talk a few times), heard (something someone else told you about them, with told_by their id: "Says he can't be struck"). source: seen, told, rumour or guess. Only what is on the page and that you could see or hear; second person, short, no names, titles or secrets you haven't learned; at most one or two per person per turn, and nothing that repeats a line under "you know". When this turn confirms or disproves one of those lines (a guess proven, a claim you now see is false), give its ref in settles with verdict confirmed or wrong. Most turns: [].
 
 NAMES: you see everyone's true identity and id; the notes say what name you (Kan) know each by. Every text you write (facts, notes, threads, letters, world_description) names people only as you knew them at that moment, or describes them ("the masked man"). names_learned: {character_id, name, part, how} only when a name is spoken, written or recognised within your hearing or reading this turn and you did not know it: part given, family, full, or identity (another name they go by: "Madara" for the masked man, "Obito" when his mask breaks); how introduced (they said it), told (someone else said it), written (a letter, a document, a poster), overheard, or recognised (the prose shows you could tell who someone famous is by their look). A name spoken out of your hearing never counts. names_told: {character_id, name, told_to} when someone present learns another name a person goes by, in front of you (you tell Deidara who Tobi really is). Otherwise [].
@@ -173,7 +175,7 @@ DEATHS: deaths lists, by id, anyone the prose makes certain is dead this turn: t
 
 JUTSU: jutsu_used lists every named jutsu, by anyone, and every use of one of your recorded techniques, including your taijutsu when you fight, sneak or strike with it. chakra_nature is Fire, Water, Wind, Earth, Lightning, Wood, Ice, Lava, Boil, Storm, Yin, Yang, Yin-Yang, Physical, Genjutsu, Space-Time, or Unknown; for a blend pick the primary and describe the blend. Kan's own jutsu keep the exact name the player wrote (the player's own name for a technique is never replaced by a generic canon name like "Fire Release"); for a jutsu already on record, reuse its recorded name. "Style" and "Release" mean the same. Sky Burial's drain is Sky Burial alone: list Thousand Souls too only when Kan uses it himself that turn (his touch, or fusing the two on purpose). Keep effect and visual short and consistent with earlier uses: effect is what the jutsu does in general, never this turn's account; this_use is this use in a few words (who or what it hit and where, "the Grass rogue in the courtyard"), using only names Kan knows.
 
-MEMORY: facts are what actually happened or is now true, never what someone merely said. Every fact has entity (who it is about; "kan" for you), a type, and who_knows (ids of people who know it, or group names like "Hidden Leaf leadership"). Types: death (someone died), injury (a wound to someone's body: say exactly what was hurt, "Itachi's nose is broken", never only "bleeding"; lasts "days" with days: a broken nose about 30, broken ribs about 40, a broken arm, leg or jaw about 50, bruising about 10, a shallow cut about 7; medical ninjutsu shortens it only when the page shows it, as a new fact that supersedes the old), condition (a passing state: chakra drain, exhaustion, soaked, a headache; never Kan's eyes: a Sharingan turned on or off is kan_eyes, and an awakening or a new tomoe belongs to the abilities, never a fact), secret, knowledge (someone learned something), membership (joined or left a group), possession (an item gained, lost or changed: tying or scratching a headband is possession, never injury), relationship, plan (an intention or travel plan), figure (a number stated in the story: a bounty, a price, a distance, a deadline, a travel time, word for word), event (anything else that happened; "the clan is dead" is an event, not a death fact about whoever did it). A boast, rumor or claim gets claimed_by (the speaker's id), or is left out. lasts: "until_rest" for a condition that a night's sleep ends, "days" (with days) for an injury or plan with an expected length, "lasting" otherwise. When a fact replaces an ACTIVE FACT (you learned what you did not know, a plan changed, a wound healed), list that fact's ref in supersedes; list refs that simply stopped being true in facts_ended. threads are promises, debts, grudges, mysteries, quests, or goals, with type (quest: a mission or task to carry out; goal: something you want to achieve; promise; debt; mystery: a question you want answered; grudge; other), importance (1 small to 5 life-defining), and participants (ids of who it involves besides you): "open" only for something no OPEN THREAD already covers (if one does, "update" it under its exact title, even when the wording differs); "update" or "resolved" reuse the exact title. scene_ended is true only when the scene clearly concluded. scene_title names the scene in 2-5 words (like "Ambush at the river ford"), only when this turn starts a new scene (Kan reaches a new place, a new day begins, a new encounter or conversation takes over) or the current Scene name no longer fits; otherwise null. chapter_title (3-6 words) only when this turn truly opens a new chapter of the story: a major milestone has just been reached, Kan arrives somewhere far from where the chapter began (a new country, the Akatsuki's hideout), or a long time skip; most turns, and most new scenes, are null. A chapter is long: many scenes, often days of story.
+MEMORY: facts are what actually happened or is now true, never what someone merely said. At most four new facts a turn, only what will matter later, and never one an ACTIVE FACT already says in other words; list in facts_ended every active fact this turn makes untrue. Every fact has entity (who it is about; "kan" for you), a type, and who_knows (ids of people who know it, or group names like "Hidden Leaf leadership"). Types: death (someone died), injury (a wound to someone's body: say exactly what was hurt, "Itachi's nose is broken", never only "bleeding"; lasts "days" with days: a broken nose about 30, broken ribs about 40, a broken arm, leg or jaw about 50, bruising about 10, a shallow cut about 7; medical ninjutsu shortens it only when the page shows it, as a new fact that supersedes the old), condition (a passing state: chakra drain, exhaustion, soaked, a headache; never Kan's eyes: a Sharingan turned on or off is kan_eyes, and an awakening or a new tomoe belongs to the abilities, never a fact), secret, knowledge (someone learned something), membership (joined or left a group), possession (an item gained, lost or changed: tying or scratching a headband is possession, never injury), relationship, plan (an intention or travel plan), figure (a number stated in the story: a bounty, a price, a distance, a deadline, a travel time, word for word), event (anything else that happened; "the clan is dead" is an event, not a death fact about whoever did it). A boast, rumor or claim gets claimed_by (the speaker's id), or is left out. lasts: "until_rest" for a condition that a night's sleep ends, "days" (with days) for an injury or plan with an expected length, "lasting" otherwise. When a fact replaces an ACTIVE FACT (you learned what you did not know, a plan changed, a wound healed), list that fact's ref in supersedes; list refs that simply stopped being true in facts_ended. threads are promises, debts, grudges, mysteries, quests, or goals, with type (quest: a mission or task to carry out; goal: something you want to achieve; promise; debt; mystery: a question you want answered; grudge; other), importance (1 small to 5 life-defining), and participants (ids of who it involves besides you): "open" only for something no OPEN THREAD already covers (if one does, "update" it under its exact title, even when the wording differs); "update" or "resolved" reuse the exact title. When the page answers the question a thread asks (a mystery explained, a demand met, a task done), mark it "resolved" that turn. scene_ended is true only when the scene clearly concluded. scene_title names the scene in 2-5 words (like "Ambush at the river ford"), only when this turn starts a new scene (Kan reaches a new place, a new day begins, a new encounter or conversation takes over) or the current Scene name no longer fits; otherwise null. chapter_title (3-6 words) only when this turn truly opens a new chapter of the story: a major milestone has just been reached, Kan arrives somewhere far from where the chapter began (a new country, the Akatsuki's hideout), or a long time skip; most turns, and most new scenes, are null. A chapter is long: many scenes, often days of story.
 
 BEAT: beat tags how this turn played, from Kan's input and the reply together: exchange (back-and-forth talk, including small moves in place or a silence the other person reacts to while still talking: a look, a touch, a gesture, sitting or standing, stepping closer, turning away, pouring tea, a flash of the Sharingan), instruction (someone tells Kan to do something that leads into action: "follow me", "wait here"), remark (a one-off line in passing), action (a move that changes the scene: leaving, going somewhere, a jutsu that changes the situation, someone new taking over), travel, or combat (any fight, even a short one, still going at the end of the reply: someone trying to hurt, catch or beat someone, or a spar Kan agreed to; play between friends, a hug or an argument is never combat). When the fight stops in this reply (the opponent backs off, breaks away, is beaten or flees, or the blows stop and talk takes over), the beat is exchange, remark or action, not combat, scene_pace is not combat, and fight_options is []. beat_with: ids of the people Kan is talking with (exchange, instruction, remark); otherwise []. fight_options: only when the fight goes on and the reply ends on an opponent's move: 3-4 short moves Kan could make next (under 10 words, starting with a verb, no "I" or "you": "Duck under the threads and close in"), fitting the moment and what he can really do (dodge, block, counter, and at least one jutsu from KAN’S JUTSU when he has one that fits); a move may name only jutsu on that list and natures he has, never one he doesn't know; a move that would cost Kan a lot ends with its cost as he would feel it, in brackets: [draining], [heavy] or [all you have left] (a cheap move has none; never numbers); otherwise [].
 
@@ -375,6 +377,8 @@ export function buildNarrationPrompt(
       formatCompanions(db),
       formatTimeLine(db, 'narrator', sceneMode.mode),
       formatWeatherLine(db, sceneMode.mode),
+      formatAlreadySaid(db),
+      formatUsedImages(db),
       formatSafehouseLine(db, userMessage),
       formatScrollCacheLine(db, userMessage),
       formatMatchedEntities(db, matchedEntityIds, {
@@ -482,6 +486,8 @@ export function buildNarrationPrompt(
     sceneMode,
     /** Canon lore Kan could still learn that this reply was given (stamped on the reply for the tracker). */
     loreSent: canonLore.filter((entry) => kanCanLearn(db, entry)).map((entry) => entry.id),
+    /** Every lore entry this reply carried: it rests for a few turns of the scene (test run §12.6). */
+    loreShown: canonLore.map((entry) => entry.id),
     /** The flashback this reply belongs to (stamped on its entries), or the one offered on it. */
     flashback: {
       ...(playing ? { active: { id: playing.active.id, date: playing.active.date } } : {}),
@@ -1731,15 +1737,21 @@ export function headAndTail(value: string, maxLength: number) {
   return `${head.trimEnd()} […] ${end.trimStart()}`;
 }
 
+/** How much of a narration older than the last three replies the narrator sees. */
+export const OLDER_NARRATION_CHARS = 800;
+
 function formatRecentMessages(messages: RawLogEntry[]) {
   if (messages.length === 0) {
     return 'RECENT SCENE\nThe story is just beginning.';
   }
 
-  const lastAssistantIndex = [...messages]
+  const assistantIndexes = messages
     .map((message, index) => (message.role === 'assistant' ? index : -1))
-    .filter((index) => index >= 0)
-    .pop();
+    .filter((index) => index >= 0);
+  const lastAssistantIndex = assistantIndexes[assistantIndexes.length - 1];
+  // The two replies before the newest keep 1400 characters; older ones 800
+  // (test run §12.5: the recent scene was the largest part of every prompt).
+  const fuller = new Set(assistantIndexes.slice(-3, -1));
 
   return [
     'RECENT SCENE (oldest first)',
@@ -1754,7 +1766,7 @@ function formatRecentMessages(messages: RawLogEntry[]) {
       // opened and how they ended, so who arrived and what was set up isn't lost.
       return index === lastAssistantIndex
         ? `Narrator (continue directly from here): ${tail(clean, 2200)}`
-        : `Narrator: ${headAndTail(clean, 1400)}`;
+        : `Narrator: ${headAndTail(clean, fuller.has(index) ? 1400 : OLDER_NARRATION_CHARS)}`;
     }),
   ].join('\n');
 }
@@ -1808,6 +1820,38 @@ function formatTimeLine(db: AppDatabase, audience: 'narrator' | 'state' = 'narra
 
   const since = formatSince(db);
   return `${label}\n${formatDate(db.state.inStoryDate)} (exactly ${formatClock(db.state.inStoryDate)}, ${daylightNote(db.state.inStoryDate)}; at this pace this reply ends no earlier than ${formatClock(ends)})${nudge}${since ? `\n${since}` : ''}`;
+}
+
+/** Topics explained in the last day of story (test run §12.2: the coup explained four times). */
+export function formatAlreadySaid(db: AppDatabase): string {
+  const now = db.state.inStoryDate;
+  const items = (db.state.alreadySaid ?? []).filter((item) => {
+    const ago = secondsBetween(item.date, now);
+    return ago >= 0 && ago <= 24 * 3600;
+  });
+  if (items.length === 0) return '';
+  return `ALREADY EXPLAINED (Kan has heard it; never explain it again unless he asks, and then briefly): ${items.map((item) => item.text).join('; ')}`;
+}
+
+const ATMOSPHERE = /\b(wind|gusts?|breeze|rain|drizzle|spray|mist|fog|thunder|lightning|storm|pines?|branches|leaves|cold|chill|frost|snow|moon|moonlight|stars|clouds?|dripp\w*|puddles?|mud|smoke|embers?|ash|dawn|dusk|sunlight|shadows?)\b/i;
+
+/**
+ * Weather and atmosphere lines from the last few replies (test run §12.2:
+ * "a gust shakes the pines, driving spray between you" in almost every reply).
+ */
+export function formatUsedImages(db: AppDatabase): string {
+  const replies = db.rawLog.filter((entry) => entry.kind === 'story' && entry.role === 'assistant').slice(-3);
+  const lines: string[] = [];
+  for (const reply of replies) {
+    const sentences = reply.content
+      .replace(/"[^"]*"|“[^”]*”/g, ' ')
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 15 && sentence.length < 200 && ATMOSPHERE.test(sentence) && !/\byou\b.*\b(say|ask|tell)\b/i.test(sentence));
+    lines.push(...sentences.slice(0, 2));
+  }
+  if (lines.length === 0) return '';
+  return `IMAGES ALREADY USED (find new ones, or none at all): ${lines.slice(-5).map((line) => `"${line}"`).join(' ')}`;
 }
 
 /** "2h 05m", "1 day 3h": how long ago, for SINCE. */

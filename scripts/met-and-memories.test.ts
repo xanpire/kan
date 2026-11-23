@@ -147,6 +147,8 @@ describe('shared memories', () => {
       location: 'Rain tower, upper hall',
       characters_present: ['itachi-uchiha', 'kisame-hoshigaki', 'kakuzu'],
     });
+    db = play(db, 'Kisame shifts his sword. Kakuzu counts coins.', {});
+    // A scene that ends is summed up once three turns wait (test run §12.4).
     db = play(db, 'No one speaks. The rain hammers the glass.', { scene_ended: true });
 
     db = summarizeNext(db, 'You wait in the tower hall while Itachi watches the rain.');

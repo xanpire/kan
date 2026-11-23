@@ -397,3 +397,76 @@ describe('§11 short place names', () => {
     expect(next.state.travelLog!.every((stop) => stop.short)).toBe(true);
   });
 });
+
+describe('§12 background work', () => {
+  test('the prose duration wins over the tracker\'s', async () => {
+    const { resolveElapsedSeconds } = await import('../lib/rpg/pacing');
+    expect(resolveElapsedSeconds({ reportedSeconds: 7 * 3600, detectedSeconds: 5 * 3600, pace: 'travel', sceneEnded: false })).toBe(5 * 3600);
+  });
+
+  test('facts: same meaning is one fact, cut at a word, at most four new a turn', async () => {
+    const { clipFactText, sameMeaning } = await import('../lib/rpg/facts');
+    const { applyTurnDiff } = await import('../lib/rpg/services');
+    const kan = { subjectEntityId: 'k', type: 'plan' as const };
+    expect(sameMeaning({ ...kan, text: 'The Uchiha coup was planned for the end of this month.' }, { ...kan, text: 'The Uchiha clan planned their coup for the end of the month.' })).toBe(true);
+    expect(clipFactText('word '.repeat(60)).endsWith('…')).toBe(true);
+    expect(clipFactText('word '.repeat(60))).not.toMatch(/wor…$/);
+    let db = seed();
+    const before = db.facts.length;
+    db = applyTurnDiff(db, {
+      facts: [
+        'Itachi burned the letter by the river.',
+        'A crow followed you over the ridge.',
+        'The gate guard asked for papers twice.',
+        'Your boot lace snapped near the shrine.',
+        'Rain flooded the lower cave overnight.',
+        'Someone left fresh tracks across the bridge.',
+        'The tower bell rang thirteen times at dusk.',
+      ].map((text) => ({ action: 'add' as const, type: 'event' as const, text, subject: 'Kan' })),
+    });
+    expect(db.facts.length - before).toBe(4);
+  });
+
+  test('facts made this turn carry the time the turn ended on', async () => {
+    const { applyTurnDiff } = await import('../lib/rpg/services');
+    let db = seed();
+    const start = db.state.inStoryDate;
+    db = applyTurnDiff(db, { state: { elapsedSeconds: 3600 }, facts: [{ action: 'add', type: 'event', text: 'You reached the ridge at last.', subject: 'Kan' }] });
+    const fact = db.facts.find((f) => /ridge/.test(f.text))!;
+    expect(dateSortValue(fact.validFrom)).toBe(dateSortValue(shiftSeconds(start, 3600)));
+  });
+
+  test('already explained topics and used weather images reach the narrator', async () => {
+    let db = seed();
+    db = play(db, 'Why?', 'Itachi explains the coup. A gust shakes the pines, driving spray between you.', { explained: ['why Itachi killed the clan'] }).db;
+    const text = promptText(db, 'I wait.');
+    expect(text).toContain('ALREADY EXPLAINED');
+    expect(text).toContain('why Itachi killed the clan');
+    expect(text).toContain('IMAGES ALREADY USED');
+    expect(text).toContain('A gust shakes the pines');
+  });
+
+  test('Sasuke\'s vow is not lore on the massacre night, and lore rests a few turns within a scene', async () => {
+    const { loreTrue, recentlyShownLore } = await import('../lib/rpg/loreList');
+    const { CANON_LORE } = await import('../lib/rpg/loreData');
+    const db = seed();
+    const vow = CANON_LORE.find((entry) => entry.id === 'sasuke-avenger')!;
+    expect(loreTrue(db, vow)).toBe(false);
+    expect(loreTrue({ ...db, state: { ...db.state, inStoryDate: { year: 14, month: 5, day: 1, hour: 9, minute: 0 } } }, vow)).toBe(true);
+    const withShown: AppDatabase = {
+      ...db,
+      state: { ...db.state, sceneSeq: 4 },
+      rawLog: [...db.rawLog, { ...db.rawLog[0], id: 'log_l', kind: 'story', role: 'assistant', sceneSeq: 4, loreShown: ['nine-tails-attack'] } as AppDatabase['rawLog'][number]],
+    };
+    expect(recentlyShownLore(withShown).has('nine-tails-attack')).toBe(true);
+    expect(recentlyShownLore({ ...withShown, state: { ...withShown.state, sceneSeq: 5 } }).size).toBe(0);
+  });
+
+  test('summaries by amount of story: no summary for a striking image, a short scene waits', () => {
+    let db = seed();
+    db = play(db, 'I strike.', 'Fire roars across the clearing.', { image_worthy: true }).db;
+    expect((db.memoryJobs ?? []).filter((job) => job.kind === 'scene')).toHaveLength(0);
+    db = play(db, 'I leave.', 'You leave the clearing.', { scene_ended: true }).db;
+    expect((db.memoryJobs ?? []).filter((job) => job.kind === 'scene')).toHaveLength(0);
+  });
+});

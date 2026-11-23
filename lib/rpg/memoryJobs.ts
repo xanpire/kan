@@ -91,7 +91,11 @@ import type {
 
 const TIME_SKIP_DAYS = 180;
 /** Most story messages one chapter summary covers; the rest wait for the next. */
-const MAX_SCENE_MESSAGES = 16;
+const MAX_SCENE_MESSAGES = 24;
+/** Short scenes with the same cast ride together until a summary covers this many story messages (six turns). */
+export const SUMMARY_MIN_MESSAGES = 12;
+/** A scene that ends is summed up once this many turns are waiting; shorter ones wait for the next. */
+export const SCENE_END_SUMMARY_TURNS = 3;
 /** Fewest new messages worth a chapter summary, unless the scene ended. */
 const MIN_SCENE_MESSAGES = 4;
 const ARC_SIZE = 3;
@@ -626,10 +630,12 @@ export function applyStateStep(
     followUpIds.push(job.id);
   }
 
+  // By amount of story, counted in turns (test run §12.4: the threshold of 12
+  // counted messages, and every striking image queued a summary too).
+  const unsummarizedTurns = unsummarizedStory(next).filter((entry) => entry.role === 'assistant').length;
   const shouldSummarize =
-    extraction?.imageWorthy === true ||
-    sceneEnded ||
-    unsummarizedStory(next).length >= next.settings.autoSummarizeThreshold;
+    unsummarizedTurns >= next.settings.autoSummarizeThreshold ||
+    (sceneEnded && unsummarizedTurns >= SCENE_END_SUMMARY_TURNS);
 
   if (shouldSummarize) {
     const planned = queueSceneJob(next, turn.turnLogId, activeIds, sceneEnded ? 2 : MIN_SCENE_MESSAGES);
@@ -747,8 +753,10 @@ function buildIndexed(db: AppDatabase): AppDatabase {
 }
 
 /** A chapter is long: a break only counts once this much story has passed in it. */
-export const CHAPTER_MIN_TURNS = 6;
-export const CHAPTER_MIN_HOURS = 12;
+export const CHAPTER_MIN_TURNS = 30;
+export const CHAPTER_MIN_HOURS = 24;
+/** A major canon beat or a time skip can open a chapter after this many turns. */
+export const CHAPTER_EARLY_TURNS = 6;
 /** A chapter that runs this long without a break is closed anyway. */
 export const CHAPTER_MAX_TURNS = 60;
 /** A single turn this long is a time skip, which opens a chapter. */
@@ -772,7 +780,13 @@ export function applyChapterBreak(
   const start = before.state.chapterStart?.date ?? storyLog(before).find((entry) => entry.chapter === chapter)?.inStoryDate ?? before.state.inStoryDate;
   const hoursIn = secondsBetween(start, before.state.inStoryDate) / 3600;
   const wanted = Boolean(reason.title) || reason.majorCompleted === true || (reason.elapsedSeconds ?? 0) >= CHAPTER_SKIP_SECONDS;
-  const longEnough = turnsIn >= CHAPTER_MIN_TURNS || hoursIn >= CHAPTER_MIN_HOURS;
+  // A day of story or 30 turns (test run §12.4); a major canon beat or a time
+  // skip may open one sooner, but never within its first few turns.
+  const skipped = (reason.elapsedSeconds ?? 0) >= CHAPTER_SKIP_SECONDS;
+  const longEnough =
+    turnsIn >= CHAPTER_MIN_TURNS ||
+    hoursIn >= CHAPTER_MIN_HOURS ||
+    ((reason.majorCompleted === true || skipped) && turnsIn >= CHAPTER_EARLY_TURNS);
 
   if (!((wanted && longEnough) || turnsIn >= CHAPTER_MAX_TURNS)) {
     return after;
@@ -926,6 +940,12 @@ function stampTurnScene(
  * stretch they sit in. A finished scene of a single entry (a reply with no
  * message, say) rides along with the next one rather than blocking it.
  */
+function sameCastIds(a: string[] | undefined, b: string[] | undefined) {
+  const left = new Set(a ?? []);
+  const right = new Set(b ?? []);
+  return left.size === right.size && [...left].every((id) => right.has(id));
+}
+
 function firstSceneStretch(db: AppDatabase, entries: RawLogEntry[]): { entries: RawLogEntry[]; closed: boolean } {
   const out: RawLogEntry[] = [];
   let key: number | undefined;
@@ -935,7 +955,11 @@ function firstSceneStretch(db: AppDatabase, entries: RawLogEntry[]): { entries: 
       if (key === undefined) {
         key = entry.sceneSeq;
       } else if (entry.sceneSeq !== key) {
-        if (out.length >= 2) {
+        // A short scene rides on with the next one when the same people are
+        // in both, so one memory still has one cast (test run §12.4: 18
+        // summaries for 35 turns, each covering a few minutes).
+        const sameCast = sameCastIds(out[out.length - 1]?.sceneCastIds, entry.sceneCastIds);
+        if (out.length >= 2 && (!sameCast || out.length >= SUMMARY_MIN_MESSAGES || out.length + 2 > MAX_SCENE_MESSAGES)) {
           return { entries: out, closed: true };
         }
 

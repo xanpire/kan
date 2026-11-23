@@ -6,7 +6,7 @@ import { CALL_TIMEOUTS, isTransientError, type ChatRequest, completeChat } from 
 import { applyAbilityChanges } from './abilities';
 import { applyBondDiff, syncBondSides } from './bonds';
 import { applyCanonEndgames } from './canonEndgame';
-import { daysBetween, formatDate } from './calendar';
+import { dateSortValue, daysBetween, formatDate, secondsBetween, shiftSeconds } from './calendar';
 import { applyClockChange, applyClockTick } from './clock';
 import { applyCompanionChanges, applySharedScene, castWithCompanions } from './companions';
 import { isDeceased, markAlive, markDeceased, markReanimated, markReleased } from './deaths';
@@ -281,8 +281,17 @@ export function applyTurnDiff(
   }
 
   if (Array.isArray(diff.facts)) {
-    for (const fact of diff.facts) {
+    // At most a few new facts a turn, the weightiest first (test run §12.3:
+    // 104 facts in 11 story hours). Endings always apply.
+    let added = 0;
+    for (const fact of [...diff.facts].sort((a, b) => factWeight(a) - factWeight(b))) {
+      if (fact.action !== 'end' && added >= NEW_FACTS_PER_TURN) {
+        options.events?.push({ kind: 'refused', text: `Fact left out (more than ${NEW_FACTS_PER_TURN} this turn): ${fact.text.slice(0, 80)}` });
+        continue;
+      }
+      const before = next.facts.length;
       next = applyFactDiff(next, fact);
+      if (next.facts.length > before) added += 1;
     }
   }
 
@@ -292,6 +301,15 @@ export function applyTurnDiff(
     next = setKanEyes(next, diff.state.kanEyes);
   } else if (isRest(diff) && kanEyes(next) !== 'off') {
     next = setKanEyes(next, 'off');
+  }
+
+  // What has been explained lately, so it is not explained again (test run §12.2).
+  if (Array.isArray(diff.explained) && diff.explained.length > 0) {
+    const said = [...(next.state.alreadySaid ?? [])];
+    for (const text of diff.explained) {
+      if (!said.some((item) => item.text.toLowerCase() === text.toLowerCase())) said.push({ text, date: next.state.inStoryDate });
+    }
+    next = { ...next, state: { ...next.state, alreadySaid: said.slice(-ALREADY_SAID_LIMIT) } };
   }
 
   if (Array.isArray(diff.threads)) {
@@ -333,7 +351,11 @@ export function applyTurnDiff(
   next = settleNewlyMet(db, next);
 
   next = syncBondSides(next);
+  const clockBefore = next.state.inStoryDate;
   next = applyClockTick(next, diff);
+  // What this turn recorded happened as the turn played, not before it began
+  // (test run §12.3: the ridge memory stamped 06:21 for a 07:30 beat).
+  next = stampAtTurnEnd(db, next, clockBefore);
   // Temporary conditions run out; a long stretch of rest ends the "until rest" ones
   // (not in a compromised safehouse: Kan may not sleep there at all).
   next = expireFacts(next, { rested: isRest(diff) && !restBlocked(next), elapsedSeconds: diff.state?.elapsedSeconds ?? 0 });
@@ -343,6 +365,47 @@ export function applyTurnDiff(
   next.indices = buildIndices(next);
 
   return next;
+}
+
+/** Things explained that the narrator is reminded of. */
+export const ALREADY_SAID_LIMIT = 10;
+
+/** New facts a turn may add. */
+export const NEW_FACTS_PER_TURN = 4;
+
+const FACT_ORDER = ['death', 'injury', 'membership', 'secret', 'plan', 'figure', 'relationship', 'knowledge', 'possession', 'event', 'condition', 'other'];
+
+function factWeight(fact: NonNullable<TurnDiff['facts']>[number]) {
+  if (fact.action === 'end') return -1;
+  const index = FACT_ORDER.indexOf(fact.type ?? 'other');
+  return index === -1 ? FACT_ORDER.length : index;
+}
+
+/**
+ * Facts and memories this turn made carry the time the turn ended on, not
+ * the time it began; a lifetime moves with its start.
+ */
+function stampAtTurnEnd(before: AppDatabase, after: AppDatabase, clockBefore: CalendarDate): AppDatabase {
+  const delta = secondsBetween(clockBefore, after.state.inStoryDate);
+  if (delta <= 0) return after;
+  const oldFacts = new Set(before.facts.map((fact) => fact.id));
+  const oldEvents = new Set(before.events.map((event) => event.id));
+  const startValue = dateSortValue(clockBefore);
+  return {
+    ...after,
+    facts: after.facts.map((fact) =>
+      oldFacts.has(fact.id) || dateSortValue(fact.validFrom) !== startValue
+        ? fact
+        : {
+            ...fact,
+            validFrom: after.state.inStoryDate,
+            ...(fact.expiresAt ? { expiresAt: shiftSeconds(fact.expiresAt, delta) } : {}),
+          }
+    ),
+    events: after.events.map((event) =>
+      oldEvents.has(event.id) || dateSortValue(event.inStoryDate) !== startValue ? event : { ...event, inStoryDate: after.state.inStoryDate }
+    ),
+  };
 }
 
 /** A turn that covers a night's sleep or a long rest. */

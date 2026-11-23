@@ -33,6 +33,8 @@ export type CanonLore = {
   /** What Kan knows at the start. */
   kan?: 'knows' | 'belief';
   from?: string;
+  /** Not true before this in-story date (test run §12.6: Sasuke's vow sent on the massacre night). */
+  fromDate?: { year: number; month: number; day: number };
   until?: string;
   /** What most people believe instead of the truth. */
   belief?: { text: string; journal?: string; heldBy: string[] };
@@ -1547,6 +1549,8 @@ export const CANON_LORE: CanonLore[] = [
     people: ['Sasuke Uchiha'],
     text: 'Sasuke Uchiha lives alone in the empty district and says he has one dream, to kill a certain man and rebuild his clan. The village calls him a genius.',
     known: ['leaf'],
+    // Months after the massacre, once he is back at the Academy.
+    fromDate: { year: 14, month: 4, day: 1 },
     until: 'sasuke-defects',
   },
   {

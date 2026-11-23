@@ -103,6 +103,8 @@ export const TURN_STATE_SCHEMA = object({
   location_detail: nullableString,
   location_kind: nullableEnum(LOCATION_KINDS),
   mood: nullableString,
+  // Topics this turn explained in full, or questions it answered, a few words each.
+  explained: stringList,
   // Kan's eyes, only when this turn turns them on or off.
   kan_eyes: nullableEnum(['off', 'sharingan', 'mangekyo', 'eternal']),
   world_description: nullableString,

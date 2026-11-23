@@ -137,6 +137,8 @@ export type GameState = {
   locationKind?: LocationKind;
   inStoryDate: CalendarDate;
   turnsWithoutTimeChange?: number;
+  /** Topics already explained and questions already answered lately (test run §12.2), newest last. */
+  alreadySaid?: { text: string; date: CalendarDate }[];
   canonPoint: string;
   canonProgress?: CanonProgress;
   /** The current chapter: a narrative unit, moved on only by real breaks (see applyChapterBreak). */
@@ -610,6 +612,8 @@ export type RawLogEntry = {
   flashback?: { id: string; date: CalendarDate };
   /** A flashback offered to the narrator on this reply (see flashbacks.ts). */
   flashbackOffer?: string;
+  /** Every canon lore id this reply's prompt carried (test run §12.6: not sent again in the same scene for a few turns). */
+  loreShown?: string[];
   /** Canon lore entries Kan could still learn that the narrator was sent on this reply (loreList.ts). */
   loreSent?: string[];
 };
@@ -1308,6 +1312,8 @@ export type TurnDiff = {
     /** Kan's eyes, when this turn turns them on or off (kan_eyes). */
     kanEyes?: KanEyes;
   };
+  /** Topics this turn explained in full, or questions it answered (test run §12.2). */
+  explained?: string[];
   /** What Kan learned about people this turn (learned_about, test run §10). */
   learnedAbout?: {
     character: string;
