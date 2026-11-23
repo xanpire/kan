@@ -32,6 +32,7 @@ import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
 import { backfillHeardOf } from './heardOf';
 import { repairTestRun23Nov } from './repair23nov';
+import { ensureVultureFacts } from './vultures';
 import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
 import { collectImageGarbage, imageRefsIn } from './imageStore';
 import { normalizeSceneMode } from './sceneMode';
@@ -1153,7 +1154,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = repairTestRun23Nov(backfillHeardOf(migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized)))))))))))));
+  const withDeaths = ensureVultureFacts(repairTestRun23Nov(backfillHeardOf(migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized))))))))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;

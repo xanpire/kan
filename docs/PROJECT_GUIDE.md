@@ -1127,6 +1127,8 @@ From Xan's test run (claude/test-run-fixes.md in the Claude project):
 
 - **From the save itself** (v1.25.60, `repair23nov.ts`): the prose scratch check needs a cutting verb or a blade ("Water runs down your neck … your forehead protector" scratched it on turn 1); a grudge whose reason has them doing the harm ("He killed…") is refused (`isTheirOwnDeed`), and the tracker is told a grudge is their anger at you; Itachi's after-the-night status is "Killed Izumi and Hazuki" (it said "You go with him anyway" before Kan chose); "Make Itachi explain" resolves once he has told the coup (`settleItachiExplains`, every turn). Old saves get all four once (`state.repaired23Nov`).
 
+- **v1.25.61**: Kan's vultures are all female (`vultures.ts`: a secret fact known to Kan and Itachi, and a lore entry on vulture words: everyone else says "it" until Kan tells them). Sasuke's personality and speech follow the date (`PERSONALITY_STAGES` in eraRoles.ts, applied by `syncEraRoles`): an eight-year-old boy on the massacre night, the avenger from April of year 14; text the story wrote is kept. Continuity rule: a detail once given (where someone died, how) stays as first said; a profile line that shows the same trait again is a repeat.
+
 ### Session 6 watch items (22 Nov 2026, v1.25.53; tests: `scripts/session6-watch.test.ts`)
 
 The watch items Session 6 didn't reach live, played through the real pipeline (prompt → reply → `applyStateStep`):

@@ -65,8 +65,9 @@ const BASE_CAST: CastEntry[] = [
     birthday: { month: 7, day: 23 },
     birthYear: 5,
     role: 'Itachi’s little brother',
-    personality: 'Proud, intense, lonely; lives for avenging his clan.',
-    speechStyle: 'Curt, cold, dismissive.',
+    // As of the story's first night; later stages in eraRoles.ts PERSONALITY_STAGES.
+    personality: 'Eight years old. Until tonight a bright, eager boy who adored his big brother, chased his father’s praise and tagged after you; now in shock from what he saw.',
+    speechStyle: 'A child’s voice: quick and eager before the massacre, now quiet, flat or breaking.',
     appearance: 'Dark spiky hair swept back, black eyes, high-collared shirt with the Uchiha crest.',
     tags: ['canon', 'uchiha', 'leaf'],
   },

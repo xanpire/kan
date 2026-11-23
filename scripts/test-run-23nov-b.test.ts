@@ -165,3 +165,29 @@ describe('found in the save itself', () => {
     expect(next.state.repaired23Nov).toBe(true);
   });
 });
+
+import { eraPersonalityFor, syncEraPersonalities } from '../lib/rpg/eraRoles';
+import { VULTURES_FEMALE_LORE, VULTURES_FEMALE_TEXT } from '../lib/rpg/vultures';
+
+describe('the rest of the review (23 Nov, later)', () => {
+  test('Sasuke is an eight-year-old on the massacre night, the avenger from April of year 14', () => {
+    const db = seed();
+    expect(person(db, 'Sasuke Uchiha').personality).toContain('Eight years old');
+    expect(eraPersonalityFor('Sasuke Uchiha', { year: 14, month: 5, day: 1 })!.personality).toContain('kill a certain man');
+    const old = { ...db, entities: db.entities.map((e) => (e.name === 'Sasuke Uchiha' ? { ...e, personality: 'Proud, intense, lonely; lives for avenging his clan.', speechStyle: 'Curt, cold, dismissive.' } : e)) };
+    expect(person(syncEraPersonalities(old), 'Sasuke Uchiha').personality).toContain('Eight years old');
+    const later = { ...db, state: { ...db.state, inStoryDate: { ...db.state.inStoryDate, year: 14, month: 6 } } };
+    expect(person(syncEraPersonalities(later), 'Sasuke Uchiha').speechStyle).toBe('Curt, cold, dismissive.');
+    const written = { ...later, entities: later.entities.map((e) => (e.name === 'Sasuke Uchiha' ? { ...e, personality: 'Softened after meeting you again.' } : e)) };
+    expect(person(syncEraPersonalities(written), 'Sasuke Uchiha').personality).toBe('Softened after meeting you again.');
+  });
+
+  test('the vultures are female, and only Itachi knows', () => {
+    const db = seed();
+    const fact = db.facts.find((item) => item.text === VULTURES_FEMALE_TEXT)!;
+    expect(fact.whoKnows).toEqual([person(db, 'Kan').id, person(db, 'Itachi Uchiha').id]);
+    expect(db.loreEntries.filter((lore) => lore.text === VULTURES_FEMALE_LORE)).toHaveLength(1);
+    expect(normalizeDatabase(db).loreEntries.filter((lore) => lore.text === VULTURES_FEMALE_LORE)).toHaveLength(1);
+    expect(promptText(db, 'I send Hōmuri up over the trees.')).toContain('never "she" or "her"');
+  });
+});

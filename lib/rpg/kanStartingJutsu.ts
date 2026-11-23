@@ -109,7 +109,7 @@ export const KAN_STARTING_JUTSU: StartingJutsu[] = [
   j(
     'Your vultures',
     'None',
-    'Okuri the courier, Hōmuri the scout and Tomurai the watcher, with a nameless flock beside them: spawned from your chakra anywhere, any time, never truly dead.',
+    'Okuri the courier, Hōmuri the scout and Tomurai the watcher (all three female), with a nameless flock beside them: spawned from your chakra anywhere, any time, never truly dead.',
     'Bearded vultures, slate-black backs and wings, blood red where a wild one is rust-orange.',
     ['original', 'signature', 'vultures']
   ),

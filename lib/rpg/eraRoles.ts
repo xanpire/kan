@@ -204,6 +204,10 @@ function stageTexts(name: string): Set<string> {
 
 /** Moves every seeded role to the one canon gives it today. Idempotent. */
 export function syncEraRoles(db: AppDatabase): AppDatabase {
+  return syncEraPersonalities(syncEraRoleStages(db));
+}
+
+function syncEraRoleStages(db: AppDatabase): AppDatabase {
   const completed = new Set(db.state.canonProgress?.completed ?? []);
   let changed = false;
 
@@ -229,4 +233,66 @@ export function syncEraRoles(db: AppDatabase): AppDatabase {
 export function roleBeforeStory(entity: { name: string; role?: string }): string | undefined {
   if (!entity.role || !ROLE_STAGES[entity.name] || !stageTexts(entity.name).has(entity.role)) return entity.role;
   return eraRoleFor(entity.name, new Set()) ?? entity.role;
+}
+
+/**
+ * Who someone is as the years go (test run 23 Nov 2026: Sasuke's card said
+ * "lives for avenging his clan" on the night of the massacre, when he is an
+ * eight-year-old boy who adored his brother). By story date; like roles, only
+ * the seed text or a stage text is moved, never what the story wrote.
+ */
+type PersonalityStage = {
+  from?: { year: number; month: number; day: number };
+  personality: string;
+  speechStyle: string;
+  /** Older texts of this stage, still recognised as seed text. */
+  also?: string[];
+};
+
+export const PERSONALITY_STAGES: Record<string, PersonalityStage[]> = {
+  'Sasuke Uchiha': [
+    {
+      personality:
+        'Eight years old. Until tonight a bright, eager boy who adored his big brother, chased his father’s praise and tagged after you; now in shock from what he saw.',
+      speechStyle: 'A child’s voice: quick and eager before the massacre, now quiet, flat or breaking.',
+    },
+    {
+      // Back at the Academy, living alone in the empty district (lore "sasuke-avenger").
+      from: { year: 14, month: 4, day: 1 },
+      personality: 'Proud, intense, lonely; lives to kill a certain man and revive his clan.',
+      // The seed text before 23 Nov 2026 counts as this stage too.
+      also: ['Proud, intense, lonely; lives for avenging his clan.'],
+      speechStyle: 'Curt, cold, dismissive.',
+    },
+  ],
+};
+
+function dateKey(date: { year: number; month: number; day: number }) {
+  return date.year * 10000 + date.month * 100 + date.day;
+}
+
+export function eraPersonalityFor(name: string, today: { year: number; month: number; day: number }) {
+  const stages = PERSONALITY_STAGES[name];
+  if (!stages) return null;
+  return [...stages].reverse().find((stage) => !stage.from || dateKey(stage.from) <= dateKey(today)) ?? null;
+}
+
+export function syncEraPersonalities(db: AppDatabase): AppDatabase {
+  const today = db.state?.inStoryDate;
+  if (!today) return db;
+  let changed = false;
+  const entities = db.entities.map((entity) => {
+    const stages = PERSONALITY_STAGES[entity.name];
+    if (entity.type !== 'character' || !stages) return entity;
+    const stage = eraPersonalityFor(entity.name, today);
+    if (!stage) return entity;
+    const known = (text: string | undefined, field: 'personality' | 'speechStyle') =>
+      !text || stages.some((item) => item[field] === text || (field === 'personality' && item.also?.includes(text)));
+    const personality = known(entity.personality, 'personality') ? stage.personality : entity.personality;
+    const speechStyle = known(entity.speechStyle, 'speechStyle') ? stage.speechStyle : entity.speechStyle;
+    if (personality === entity.personality && speechStyle === entity.speechStyle) return entity;
+    changed = true;
+    return { ...entity, personality, speechStyle };
+  });
+  return changed ? { ...db, entities } : db;
 }
