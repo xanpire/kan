@@ -1,10 +1,12 @@
 // Reading the state model's reply: JSON parsing and snake_case → TurnDiff.
 
 import { statusLabel } from './bonds';
+import { KAN_EYE_STATES } from './kanEyes';
 import { readRyo } from './money';
 import { THREAD_TYPES } from './stateSchema';
 import { MAX_SKIP_SECONDS } from './timeSkip';
 import type {
+  KanEyes,
   Audience,
   ConsequenceKind,
   FactType,
@@ -486,6 +488,11 @@ export function convertStateBlock(
 
   if (sceneTitle && sceneTitle.length >= 2) {
     diff.state = { ...diff.state, scene: sceneTitle.slice(0, 60) };
+  }
+
+  // Kan's eyes, when this turn turns them on or off (test run §1).
+  if (typeof block.kan_eyes === 'string' && (KAN_EYE_STATES as readonly string[]).includes(block.kan_eyes)) {
+    diff.state = { ...diff.state, kanEyes: block.kan_eyes as KanEyes };
   }
 
   const flatLocation = cleanString(block.location);

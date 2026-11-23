@@ -1,10 +1,12 @@
 // Permanent facts, plot threads and scene-end memories from a turn.
 
+import { applyAbilityChanges } from './abilities';
 import { dateSortValue, normalizeDate, shiftSeconds } from './calendar';
 import { displayName } from './names';
 import { kanKnowsDeath } from './deaths';
 import { resolveEntity } from './entities';
 import { makeId } from './id';
+import { EYES_MILESTONE_FACT, isKanEyesFact, milestoneStage, setKanEyes } from './kanEyes';
 import { secondPerson, trimToSentence, uniqueList } from './util';
 import type { AppDatabase, EntityRecord, EventRecord, FactRecord, ThreadRecord, ThreadType, TurnDiff } from './types';
 
@@ -128,17 +130,70 @@ function overtakes(previous: FactRecord, next: { text: string; subjectEntityId: 
   return after.size > 0 && shared / Math.min(before.size, after.size) >= 0.5;
 }
 
+/**
+ * How long an injury takes to heal, from what it says (test run §7): a broken
+ * nose about a month, ribs six weeks, a limb or jaw seven, a bruise ten days.
+ * Null when the words name nothing that sets a length.
+ */
+export function healingDays(text: string): number | null {
+  const broken = /\b(broken|break|broke|fractur\w*|snapped|cracked|shattered)\b/i.test(text);
+  if (broken) {
+    if (/\b(nose|finger|toe)s?\b/i.test(text)) return 30;
+    if (/\b(ribs?|collarbone|clavicle)\b/i.test(text)) return 42;
+    if (/\b(arm|leg|wrist|ankle|hand|foot|jaw|shin|thigh|forearm|elbow|knee|skull|cheekbone|hip|spine|back)s?\b/i.test(text)) return 50;
+    return 30;
+  }
+  if (/\b(dislocat\w*)\b/i.test(text)) return 21;
+  if (/\b(bruis\w*|black eye|swollen|swelling)\b/i.test(text)) return 10;
+  return null;
+}
+
+const VISIBLE_INJURY =
+  /\b(nose|eyes?|face|cheek|lip|jaw|brow|forehead|temple|ear|arm|hand|wrist|fingers?|leg|knee|ankle|shoulder|neck|throat|chest|ribs?|bruis\w*|cuts?|gash\w*|burn\w*|bandag\w*|sling|splint|swollen|black eye|scar\w*)\b/i;
+
+/**
+ * A person's injuries that show, each with how far it has healed (test run
+ * §7): they stay in how the person looks until the injury runs out, whatever
+ * the scene does to their look of the moment.
+ */
+export function visibleInjuries(db: AppDatabase, entityId: string | undefined, limit = 2): string[] {
+  if (!entityId) return [];
+  const now = dateSortValue(db.state.inStoryDate);
+  return db.facts
+    .filter(
+      (fact) =>
+        fact.validTo === null &&
+        fact.type === 'injury' &&
+        fact.subjectEntityId === entityId &&
+        fact.expiresAt !== undefined &&
+        dateSortValue(fact.expiresAt) > now &&
+        VISIBLE_INJURY.test(fact.text)
+    )
+    .slice(-limit)
+    .map((fact) => {
+      const from = dateSortValue(fact.validFrom);
+      const to = dateSortValue(fact.expiresAt!);
+      const share = to > from ? (now - from) / (to - from) : 1;
+      const stage = share < 0.25 ? 'fresh' : share < 0.7 ? 'healing' : 'nearly healed';
+      const text = fact.text.trim().replace(/\.$/, '');
+      return `${text.length > 90 ? `${text.slice(0, 89)}…` : text} (${stage})`;
+    });
+}
+
 /** Default lifetimes: a passing condition lasts until rest, an injury about a week, a plan a few days. */
 function lifetime(db: AppDatabase, fact: FactDiff): Pick<FactRecord, 'expiresAt' | 'untilRest'> {
   const lasts = fact.lasts ?? (fact.type === 'condition' ? 'until_rest' : fact.type === 'injury' || fact.type === 'plan' ? 'days' : 'lasting');
 
-  if (lasts === 'until_rest') {
+  if (lasts === 'until_rest' && !(fact.type === 'injury' && healingDays(fact.text) !== null)) {
     return { untilRest: true };
   }
 
-  if (lasts === 'days') {
-    const days =
-      typeof fact.days === 'number' && fact.days > 0 ? Math.min(fact.days, 365) : fact.type === 'injury' ? 7 : 3;
+  if (lasts === 'days' || (fact.type === 'injury' && healingDays(fact.text) !== null)) {
+    const given = typeof fact.days === 'number' && fact.days > 0 ? Math.min(fact.days, 365) : null;
+    // A broken bone takes weeks whatever the tracker guessed (test run §7:
+    // Itachi's broken nose was gone in two days).
+    const floor = fact.type === 'injury' ? healingDays(fact.text) : null;
+    const days = Math.max(given ?? (fact.type === 'injury' ? 7 : 3), floor ?? 0);
     return { expiresAt: shiftSeconds(db.state.inStoryDate, Math.round(days * 86400)) };
   }
 
@@ -184,6 +239,13 @@ export function applyFactDiff(db: AppDatabase, fact: FactDiff): AppDatabase {
 
   // Every fact is about someone: whoever the tracker named, else Kan.
   const subjectEntity = (fact.subject ? resolveEntity(db, fact.subject) : null) ?? kanEntity(db);
+
+  // Kan's eyes are a flag and his abilities, never a condition fact (test
+  // run §1): "your Sharingan is active" sets the flag, "awakened its second
+  // tomoe" becomes the ability's stage, and neither is stored.
+  if (subjectEntity && subjectEntity.id === kanEntity(db)?.id && isKanEyesFact({ type: fact.type ?? 'other', text })) {
+    return eyesFactToState(db, text);
+  }
 
   const duplicate = db.facts.find(
     (item) =>
@@ -232,6 +294,82 @@ export function applyFactDiff(db: AppDatabase, fact: FactDiff): AppDatabase {
   next = endFacts(next, [...replaced, ...overtaken].map((item) => item.id), newFact.id);
 
   return next;
+}
+
+/** A fact about Kan's eyes, put where it belongs: the eyes flag or the ability's stage. */
+function eyesFactToState(db: AppDatabase, text: string): AppDatabase {
+  if (EYES_MILESTONE_FACT.test(text)) {
+    const milestone = milestoneStage(text);
+    if (!milestone) return db;
+    const current = (db.state.player.abilities ?? []).find((ability) => ability.name.toLowerCase() === milestone.name.toLowerCase());
+    const rank = (stage: string) => Number(stage.match(/\d/)?.[0] ?? 0);
+    if (current && (current.stage === milestone.stage || rank(current.stage) >= rank(milestone.stage))) return db;
+    return applyAbilityChanges(db, { abilitiesChanged: [milestone] });
+  }
+
+  return setKanEyes(db, /\bmangeky[oō]\b/i.test(text) ? ((db.state.player.abilities ?? []).some((a) => /eternal/i.test(a.name)) ? 'eternal' : 'mangekyo') : 'sharingan');
+}
+
+/**
+ * Old saves (test run §1): Kan's eyes kept as condition facts with no
+ * lifetime. Each one is ended and folded into the flag or the abilities, in
+ * the order they were made, so the newest decides whether the eyes are on.
+ */
+export function migrateEyesFacts(db: AppDatabase): AppDatabase {
+  const kanId = kanEntity(db)?.id ?? null;
+  const stale = db.facts.filter(
+    (fact) => fact.validTo === null && (!fact.subjectEntityId || fact.subjectEntityId === kanId) && isKanEyesFact(fact)
+  );
+  if (stale.length === 0) return db;
+
+  const ids = new Set(stale.map((fact) => fact.id));
+  let next: AppDatabase = {
+    ...db,
+    facts: db.facts.map((fact) => (ids.has(fact.id) ? { ...fact, validTo: db.state.inStoryDate } : fact)),
+  };
+  for (const fact of stale) {
+    if (EYES_MILESTONE_FACT.test(fact.text)) next = eyesFactToState(next, fact.text);
+  }
+  // A Sharingan said to be on hours ago is not on now: the eyes start off.
+  if (!next.state.player.eyes) next = { ...next, state: { ...next.state, player: { ...next.state.player, eyes: 'off' } } };
+  return next;
+}
+
+const PLACE_STOP = new Set(['land', 'lands', 'village', 'hidden', 'country', 'near', 'outside', 'inside', 'edge', 'along', 'past', 'below', 'above', 'beneath', 'under', 'over', 'into', 'from', 'with', 'where', 'that', 'this', 'the', 'and']);
+const PLACE_PHRASE = /\b(on|at|in|inside|beside|by|near|under|beneath|atop|against) (?:the|a|this|that) ([\p{L}' -]{3,40})/giu;
+
+function placeWords(text: string) {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^\p{L}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((word) => word.length > 3 && !PLACE_STOP.has(word))
+  );
+}
+
+/**
+ * Kan moved on (test run §9: "stiff with cold on the rock shelf" was still
+ * fed to the image at the Rain village): his passing conditions that name the
+ * place he left end with it.
+ */
+export function endConditionsLeftBehind(db: AppDatabase, left: string, now: string): AppDatabase {
+  const old = placeWords(left);
+  const here = placeWords(now);
+  const gone = [...old].filter((word) => !here.has(word));
+  if (gone.length === 0) return db;
+  const kanId = kanEntity(db)?.id ?? null;
+  let changed = false;
+
+  const facts = db.facts.map((fact) => {
+    if (fact.validTo !== null || fact.type !== 'condition' || (fact.subjectEntityId && fact.subjectEntityId !== kanId)) return fact;
+    const phrases = [...fact.text.matchAll(PLACE_PHRASE)].map((match) => match[2].toLowerCase());
+    if (!phrases.some((phrase) => gone.some((word) => phrase.includes(word)))) return fact;
+    changed = true;
+    return { ...fact, validTo: db.state.inStoryDate };
+  });
+
+  return changed ? { ...db, facts } : db;
 }
 
 const LONG_STRETCH_SECONDS = 2 * 86400;

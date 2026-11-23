@@ -17,6 +17,7 @@
  * as "pending" until it is retried, and is dropped once the turn it belongs
  * to no longer exists (undo, regenerate).
  */
+import { eyesFromInput } from './kanEyes';
 import { scratchProtectorFromProse } from './inventory';
 import { checkSave, checkTurn, describeViolations, strictInvariants, type Violation } from './invariants';
 import { bingoListings, formatRyo } from './reputation';
@@ -351,8 +352,11 @@ export function applyStateStep(
   // The clock always moves: resolveTurnClock folds the reported time, the
   // parsed time and the pace minimum into one forward step.
   const merged = { ...(extraction ?? {}) };
+  // Kan's own words switch his eyes when the tracker says nothing (test run §1).
+  const eyesSaid = merged.state?.kanEyes ? null : eyesFromInput(latest, turn.userMessage);
   merged.state = {
     ...(merged.state ?? {}),
+    ...(eyesSaid ? { kanEyes: eyesSaid } : {}),
     elapsedSeconds: clock.elapsedSeconds,
     scenePace: pace,
     clockTime: undefined,

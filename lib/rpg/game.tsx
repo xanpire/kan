@@ -195,6 +195,8 @@ type GameContextValue = {
   /** Memory steps that failed or were interrupted and are waiting for a retry. */
   pendingMemoryCount: number;
   retryPendingMemory: () => Promise<void>;
+  /** The save once this turn's state step has landed (test run §6: an image painted mid-step missed the scratch). */
+  settledDb: () => Promise<AppDatabase | null>;
   pendingAction: string | null;
   /** Stops the reply being written. What is usable of it is kept. */
   stopNarration: () => void;
@@ -1770,6 +1772,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [commitDb]
   );
 
+  const settledDb = useCallback(async () => {
+    if (backgroundPromiseRef.current) {
+      await backgroundPromiseRef.current.catch(() => undefined);
+    }
+    return dbRef.current;
+  }, []);
+
   const retryPendingMemory = useCallback(async () => {
     const current = dbRef.current;
 
@@ -1934,6 +1943,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       repairOpenSave,
       restoreDeletedStory,
       retryPendingMemory,
+      settledDb,
       stopNarration,
       setApiKey,
       sendTurn,
@@ -1996,6 +2006,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       sendTurn,
       setApiKey,
       setCharacterDeceased,
+      settledDb,
       setCharacterFace,
       setSceneMode,
       setTravelling,

@@ -116,6 +116,14 @@ export function restoreLastSnapshot(db: AppDatabase): AppDatabase | null {
   return restored;
 }
 
+function lastSceneName(db: AppDatabase): string {
+  for (let index = db.rawLog.length - 1; index >= 0; index -= 1) {
+    const entry = db.rawLog[index];
+    if (entry.kind === 'story' && entry.scene) return entry.scene;
+  }
+  return '';
+}
+
 export function appendStoryMessage(
   db: AppDatabase,
   role: 'user' | 'assistant',
@@ -134,7 +142,9 @@ export function appendStoryMessage(
     promptTokens,
     completionTokens,
     chapter: db.state.chapter,
-    scene: db.state.scene,
+    // A chapter that opened without a scene name yet: the turn keeps the
+    // last named one rather than a blank (test run §12.7).
+    scene: db.state.scene || lastSceneName(db),
     inStoryDate: db.state.inStoryDate,
     createdAt: Date.now(),
   };

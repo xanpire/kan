@@ -1,3 +1,4 @@
+import { isKanEyesFact } from './kanEyes';
 import { loreActive } from './lore';
 import { daysBetween, sameDate } from './calendar';
 import { mentionsEntity } from './characterRefs';
@@ -191,9 +192,12 @@ export function relevantFacts(
   text: string,
   sceneIds: Set<string> = new Set()
 ): FactRecord[] {
-  const active = db.facts.filter((fact) => fact.validTo === null);
   const lower = text.toLowerCase();
   const kanId = db.entities.find((entity) => entity.name.toLowerCase() === 'kan')?.id ?? null;
+  // Kan's eyes come from CURRENT STATE, never an old condition fact (test run §1).
+  const active = db.facts.filter(
+    (fact) => fact.validTo === null && !((fact.subjectEntityId === kanId || !fact.subjectEntityId) && isKanEyesFact(fact))
+  );
 
   const score = (fact: FactRecord) => {
     const aboutKan = fact.subjectEntityId !== null && fact.subjectEntityId === kanId;

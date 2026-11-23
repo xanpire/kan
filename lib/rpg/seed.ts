@@ -23,6 +23,18 @@ import type {
  * Where things are and how long a shinobi takes to get there: always in the
  * narrator's prompt, so directions and travel times stay consistent.
  */
+
+/**
+ * Itachi at thirteen (test run §2): the details that tell him from Kan said
+ * outright, so neither the narrator nor the images give him Kan's wraps,
+ * belt plate or outfit.
+ */
+export const ITACHI_YOUNG_LOOK =
+  'Slim thirteen-year-old; scratched Hidden Leaf forehead protector worn on his forehead; dark high-collared shirt, grey ANBU arm guards (no cloth wraps), dark trousers, no belt plate; long black hair tied low at the nape, sharp dark eyes, faint tear-trough lines.';
+/** Izumi (test run §9: an image gave her pale lilac eyes). */
+export const IZUMI_LOOK =
+  'Young Uchiha girl with soft dark hair, gentle dark brown eyes, and the quiet posture of someone who always waited for others.';
+
 export const GEOGRAPHY_LORE =
   'GEOGRAPHY (fixed; directions and shinobi travel times at a hard pace, with rest): The Land of Fire is the large forested country in the middle of the continent; Hidden Leaf sits near its center, below the Hokage Rock. Along its northern border, west to east: the Land of Waterfalls (Hidden Waterfall); the Mountain Graveyard, a barren land of giant bones that runs north as a long peninsula; the small Land of Rice Fields (called the Land of Sound only once Orochimaru\'s Hidden Sound has risen there with its small hidden bases: PLACE NAMES NOW says which name is current; the Valley of the End is on its border with Fire); and the Land of Hot Water (hot-spring towns, Bamboo Village on its coast), which wraps down Fire\'s north-east coast. North of Hot Water lies the small, cold Land of Frost, and past Frost the Land of Lightning (Hidden Cloud), whose mountains fill the far north-east; a gulf of sea lies between the Graveyard peninsula and Lightning. The Land of Iron (samurai) lies on the snowy northern tip of the Graveyard peninsula, among the Three Wolf Mountains. West of Fire lies the Land of Rain (Hidden Rain), a small, always-raining country of iron towers squeezed between Fire, Wind and Earth; the Land of Grass is NORTH of Rain (Hidden Grass, Tenchi Bridge), between Rain, Earth, the Waterfall and Fire, and the Land of Rivers (Hidden Valley) is a strip south-west of Fire, between Fire and Wind, running down to the southern sea. Far west lies the desert Land of Wind (Hidden Sand), walled by mountains on its north; north-west, the mountainous Land of Earth (Hidden Stone). Between Earth and Wind, west of Rain, runs a strip of small lands: the Land of Birds (the small Hidden Rock village) next to Rain, and the walled Land of Silence (Curtain Village) at the continent\'s western edge. The Land of Waves is a small island off the southern coast, south of Hidden Leaf, reached only by boat until its bridge to Fire is finished at the end of Team 7\'s mission there; only from then on does the Great Naruto Bridge exist, under that name. Fire\'s south-east runs down in a long tongue of land to the Land of Tea, a crescent coast with fishing villages and Degarashi Port, plus the islands of Nagi and Ouza to its east; south of Tea, the scattered islands of the Land of the Sea. Off Fire\'s east coast, in a bay, lies the Land of Whirlpools, a small island with the ruins of Uzushio; the small Land of Woods borders Fire\'s south-east coast just below it. Further east lie the Land of Water islands (Hidden Mist), reached by boat from Fire\'s east coast. From Hidden Leaf: the Rain border about 2 days, Hidden Rain about 3 days; the Grass border about 2 days, the Waterfall about 2 days; the Rice Fields 1-2 days; the Mountain Graveyard about 2.5 days; Hot Water about 1.5 days; the Land of Waves about 2 days south; the Land of Tea about 2.5 days; Uzushio about 2 days with the crossing; Hidden Sand about 3 days; the Land of Silence 4-5 days; Hidden Stone about 5 days; Hidden Mist 4-5 days with the crossing; the Land of Frost about 3 days; the Land of Iron about 3.5 days; Hidden Cloud 5-7 days. Rain to Grass about 1 day north; Grass to the Waterfall about 1.5 days; Rain to Sand about 3 days west; Rain to the Land of Birds about 1.5 days west; Uzushio to Hidden Mist about 2.5 days by boat; Hidden Cloud to Hidden Mist about 4 days by sea; the Mountain Graveyard to Hot Water about 1.5 days across the gulf. Civilians and wagons take two to three times as long. Never contradict these: once a distance or direction is said, it holds.';
 
@@ -102,7 +114,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       notes: 'Kan’s closest friend since childhood, like an older brother; with Shisui, the three grew up together. Joined ANBU one year before Kan. He told Kan nothing: two days before the massacre he handed him a false ANBU order to get him out of the village, using Kan’s trust in him. Tonight he killed the clan, Kan’s cousin Izumi and his aunt Hazuki, who raised Kan, among them. He took Izumi’s eyes (and Hazuki’s) that night so Danzō could never have them, and carries them sealed, telling no one. He wants Kan beside him in the Akatsuki, the two of them spying on it together. He never defends himself and accepts Kan’s hatred: he wants to be hated. He is the only one who knows Kan has a crush on Hana Inuzuka, and only ever raises it when the two of them are alone, in private, never in front of anyone.',
       mood: 'Burdened, controlled, grieving beneath the calm',
       // His look at thirteen, the night he leaves; the Akatsuki cloak comes later.
-      appearance: 'Slim thirteen-year-old with long black hair tied low at the nape, sharp dark eyes and faint tear-trough lines; dark high-collared shirt, ANBU-issue arm guards, dark trousers, and a scratched Hidden Leaf forehead protector.',
+      appearance: ITACHI_YOUNG_LOOK,
       gender: 'male',
       romanceAccessibility: 'not-applicable',
       canonDevotion: 'His heart belongs to his brother and the village; love is a luxury he denied himself.',
@@ -152,7 +164,7 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       deceased: { known: false, canonEventId: 'event_canon_izumi-funeral' },
       notes: 'Kan’s cousin (their mothers were sisters: Izumi’s mother Hazuki raised Kan from five, so they grew up in one house, almost as siblings) and his former teammate from Team 3; he left the team when he joined ANBU. Killed in the Uchiha massacre, still a genin. She had loved Itachi since the Academy, and Kan knew it; she had the Sharingan from the Nine-Tails night.',
       mood: 'Unknown',
-      appearance: 'Young Uchiha girl with soft dark hair, gentle eyes, and the quiet posture of someone who always waited for others.',
+      appearance: IZUMI_LOOK,
       romanceAccessibility: 'lore-locked',
       gender: 'female',
       canonDevotion: 'Her heart belonged to Itachi Uchiha from childhood until the night she died.',

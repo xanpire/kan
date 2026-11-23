@@ -93,7 +93,11 @@ export type PlayerSheet = {
   natures?: NatureRecord[];
   /** Dōjutsu and other abilities, each at its current stage. */
   abilities?: AbilityRecord[];
+  /** Kan's eyes right now (test run 23 Nov 2026 §1); missing means off (brown). */
+  eyes?: KanEyes;
 };
+
+export type KanEyes = 'off' | 'sharingan' | 'mangekyo' | 'eternal';
 
 export type NatureRecord = {
   /** Fire, Water, Wind, Earth, Lightning, Wood, Ice, Lava… */
@@ -1267,6 +1271,8 @@ export type TurnDiff = {
     chapter?: number;
     scene?: string;
     sceneCast?: string[];
+    /** Kan's eyes, when this turn turns them on or off (kan_eyes). */
+    kanEyes?: KanEyes;
   };
   /** The state model judged this beat visually striking (queues a scene summary). */
   imageWorthy?: boolean;

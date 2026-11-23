@@ -5,7 +5,17 @@
 
 import { calculateAge, dateSortValue } from './calendar';
 import { isScratchedProtector } from './inventory';
-import type { AppDatabase, EntityRecord } from './types';
+import { EYES_ACTIVE_FACT, isKanEyesFact, kanEyes, kanEyesLine } from './kanEyes';
+import type { AppDatabase, EntityRecord, KanEyes } from './types';
+
+/** "soaked, Sharingan active, bloodied" without the Sharingan part while his eyes are off. */
+export function withoutEyes(look: string, eyes: KanEyes): string {
+  if (!look || eyes !== 'off') return look;
+  return look
+    .split(/\s*[;,]\s*|\.\s+/)
+    .filter((part) => part && !EYES_ACTIVE_FACT.test(part) && !/\b(sharingan|mangeky[oō]|tomoe)\b/i.test(part))
+    .join(', ');
+}
 
 /** Decided by Xan: Kan's eyes are brown (the Sharingan and Mangekyō override it while active). */
 export const KAN_EYES = 'brown eyes';
@@ -33,14 +43,14 @@ export const KAN_BOOTS = 'black boots';
  * chest under it, the same trousers and boots, no protector anywhere.
  */
 export const KAN_BLACK_OUTFIT =
-  'a plain black high-collared shinobi top, bandage-wrapped forearms, a black cloth belt knotted on his right hip with his Hidden Leaf protector worn on it, the metal plate at his left hip (never on his forehead), loose black trousers and black boots';
+  'a plain black high-collared shinobi top, black cloth wraps on his forearms (never white), a black cloth belt knotted on his right hip with his Hidden Leaf protector worn on it, the metal plate at his left hip (never on his forehead), loose black trousers and black boots';
 export const KAN_AKATSUKI_OUTFIT =
-  'the Akatsuki cloak (black with red clouds, high collar) over a bare chest, bandage-wrapped forearms, the same loose black trousers and black boots; no Leaf protector anywhere on him';
+  'the Akatsuki cloak (black with red clouds, high collar) with long, wide sleeves reaching his wrists, over a bare chest; his black cloth wraps (never white) show only at the wrists and hands; the same loose black trousers and black boots; no Leaf protector anywhere on him';
 /** Image models default to shinobi sandals: said once, as the only negative. */
 export const KAN_NO_SANDALS = 'Kan wears boots, never sandals.';
 
 /** His base look on the narrator card (new stories; old saves are migrated). */
-export const KAN_APPEARANCE = `Lean teenage shinobi with ${KAN_HAIR}, watchful ${KAN_EYES} and ${KAN_NOSE_SHORT}, wearing a plain black high-collared shinobi top with bandage-wrapped forearms, a cloth belt with his Leaf protector's plate at his left hip, black trousers and ${KAN_BOOTS}. No ANBU gear.`;
+export const KAN_APPEARANCE = `Lean teenage shinobi with ${KAN_HAIR}, watchful ${KAN_EYES} and ${KAN_NOSE_SHORT}, wearing a plain black high-collared shinobi top with black cloth wraps on his forearms (never white), a cloth belt with his Leaf protector's plate at his left hip, black trousers and ${KAN_BOOTS}. No ANBU gear.`;
 
 /**
  * Old saves said "dark watchful eyes", had no nose, and described the outfit
@@ -56,6 +66,8 @@ export function migrateKanEyes(appearance: string | undefined): string | undefin
       `plain black high-collared shinobi top with bandage-wrapped forearms, a cloth belt with his Leaf protector's plate at his left hip, black trousers and ${KAN_BOOTS}.`
     );
   }
+  // Test run §5: uncoloured "bandages" were painted white.
+  next = next.replace(/\bbandage-wrapped forearms\b/gi, 'black cloth wraps on his forearms (never white)');
   return next;
 }
 
@@ -121,6 +133,22 @@ export function kanOutfit(db: AppDatabase): KanOutfit {
 }
 
 /**
+ * What Kan has on right now, in words for the narrator's CURRENT STATE
+ * (test run §8: "bare shins" while he wore trousers; a bare chest under the
+ * cloak that the page never showed him change into).
+ */
+export function kanOutfitLine(db: AppDatabase): string {
+  const outfit = kanOutfit(db);
+  const wears =
+    outfit.sheet === 'akatsuki'
+      ? 'the Akatsuki cloak, closed, over a bare chest; loose black trousers and black boots; black cloth wraps at his wrists; his Leaf protector stowed out of sight'
+      : outfit.sheet === 'black'
+        ? "his plain black high-collared top, black cloth wraps on his forearms, a cloth belt with the Leaf protector's plate at his left hip, loose black trousers to the ankle and black boots"
+        : outfit.words ?? 'his own clothes';
+  return `Kan wears: ${wears}. Eyes: ${kanEyesLine(db)}.`;
+}
+
+/**
  * How Kan looks at this moment, for scene images: his look from the tracker
  * (soaked, bloodied, Sharingan active), his wounds and passing conditions,
  * and a scratched protector at his waist. Null when there is nothing to add.
@@ -143,7 +171,8 @@ export function kanRightNow(db: AppDatabase, options: { protectorSaid?: boolean 
   const kan = kanEntity(db);
   const today = dateSortValue(db.state.inStoryDate);
   const bits: string[] = [];
-  const look = kan?.currentLook?.trim();
+  // A look of the moment that still says the Sharingan is on loses that part when it is off.
+  const look = withoutEyes(kan?.currentLook?.trim() ?? '', kanEyes(db));
 
   if (look) bits.push(look.replace(/\.$/, ''));
 
@@ -153,13 +182,22 @@ export function kanRightNow(db: AppDatabase, options: { protectorSaid?: boolean 
         fact.validTo === null &&
         (fact.type === 'injury' || fact.type === 'condition') &&
         (!fact.subjectEntityId || fact.subjectEntityId === kan?.id) &&
-        (!fact.expiresAt || dateSortValue(fact.expiresAt) >= today)
+        (!fact.expiresAt || dateSortValue(fact.expiresAt) >= today) &&
+        // His eyes come from the flag below, never from an old condition (test run §1).
+        !isKanEyesFact(fact)
     )
     .slice(-4)
-    .map((fact) => fact.text.trim().replace(/\.$/, ''))
+    // A condition's place is wherever it began, not here: only the state goes to the image (test run §9).
+    .map((fact) =>
+      (fact.type === 'condition' ? fact.text.replace(/\s+(?:on|at|atop|beside|by|near|under|beneath|inside) (?:the|a|this|that) [^,;.]+/gi, '') : fact.text)
+        .trim()
+        .replace(/\.$/, '')
+    )
     .filter((text) => text && !bits.some((bit) => bit.toLowerCase().includes(text.toLowerCase())));
 
   bits.push(...conditions);
+  // The eyes flag decides, every time: on, or brown with no Sharingan.
+  bits.push(kanEyesLine(db));
 
   if (
     !options.protectorSaid &&
@@ -170,8 +208,6 @@ export function kanRightNow(db: AppDatabase, options: { protectorSaid?: boolean 
     bits.push('the Leaf protector at his left hip has a deep scratch cut straight through the Leaf symbol');
   }
 
-  if (bits.length === 0) return null;
-
   // Whole conditions only, up to 400 characters (Session 4: "Your eyesight is .").
   const kept: string[] = [];
   for (const bit of bits) {
@@ -180,5 +216,5 @@ export function kanRightNow(db: AppDatabase, options: { protectorSaid?: boolean 
   }
   if (kept.length === 0) kept.push(bits[0].slice(0, 400).replace(/\s+\S*$/, ''));
 
-  return `Kan right now: ${kept.join('; ')}. Show this on him; an active Sharingan or Mangekyō replaces his ${KAN_EYES}.`;
+  return `Kan right now: ${kept.join('; ')}. Show this on him.`;
 }

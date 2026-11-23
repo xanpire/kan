@@ -871,6 +871,7 @@ export default function StoryScreen() {
     isProcessing,
     pendingMemoryCount,
     retryPendingMemory,
+    settledDb,
     pendingAction,
     stopNarration,
     returnedAction,
@@ -1304,9 +1305,11 @@ export default function StoryScreen() {
 
       try {
         const caps = await ensureImageCaps(db, updateSettings);
+        // Paint the turn as its state step left it (test run §6), not the save from before it.
+        const settled = (await settledDb()) ?? db;
         const result = await paintScene({
           apiKey,
-          db,
+          db: settled,
           caps,
           chip,
           takes: twoTakes ? 2 : 1,
@@ -1336,7 +1339,7 @@ export default function StoryScreen() {
         setPaintingId(null);
       }
     },
-    [apiKey, attachImage, db, isGeneratingImage, showToast, updateSettings]
+    [apiKey, attachImage, db, isGeneratingImage, settledDb, showToast, updateSettings]
   );
 
   const keepTake = useCallback(

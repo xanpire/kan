@@ -482,6 +482,13 @@ export async function writeImageAction(
         shotType = wanted;
       }
 
+      // A hold, choke, throw, pin or lock can't be shown on a face alone
+      // (test run §9: a triangle choke drawn as an extreme close-up).
+      if (!wanted && (shotType === 'close-up' || shotType === 'extreme close-up') && isGrapple(parsed.action)) {
+        shot = shot?.replace(/(?:extreme )?close[- ]?up/i, 'medium') ?? 'medium';
+        shotType = 'medium';
+      }
+
       // Impact frames stay rare unless asked for.
       if (shotType === 'impact frame' && options.chip !== 'impact' && !impactFrameAllowed(db)) {
         shot = shot?.replace(/impact[- ]frame/i, 'close-up');
@@ -508,6 +515,27 @@ export async function writeImageAction(
 
 /** The profile crop of the face sheet (decided 14 Nov 2026: the nose). */
 export const KAN_PROFILE_LABEL = "Kan's profile: copy the exact shape of his nose, the gentle outward arch included.";
+
+/** A hold, choke, throw, pin or lock: it needs both bodies in frame. */
+export function isGrapple(action: string): boolean {
+  return /\b(chok\w*|strangl\w*|headlock\w*|triangle|arm ?bar|lock(?:s|ed|ing)? (?:his|her|their|an?|the) (?:arm|leg|elbow|knee|neck)|joint lock|pin(?:s|ned|ning)?\b|grappl\w*|wrestl\w*|throw(?:s|ing)?\b|threw|flips? (?:him|her)|slams? (?:him|her) (?:down|into)|holds? (?:him|her|them) (?:down|in a)|hold(?:ing)? (?:him|her) (?:down|in place)|takes? (?:him|her) down|takedown|mount(?:s|ed)? (?:him|her)|legs? (?:locked|wrapped) around)/i.test(action);
+}
+
+/** Said once for every scene with someone besides Kan in it. */
+export const KAN_THINGS_ARE_HIS = "Kan's belt plate, black forearm wraps and outfit are his alone; never put them on anyone else.";
+
+/** The ACTION has Kan holding, turning over or tying his own protector. */
+export function protectorInHand(action: string): boolean {
+  return action
+    .split(/(?<=[.!?;])\s+/)
+    .some(
+      (sentence) =>
+        /\b(kan|he|his)\b/i.test(sentence) &&
+        /\b(hold\w*|grip\w*|clutch\w*|in (?:his|one) (?:hand|fist|palm)|turn\w* (?:it )?over|unti(?:es|ed|ing)|scratch(?:es|ing)|carv(?:es|ing)|draws? (?:a|the) (?:kunai|blade) across)\b/i.test(sentence) &&
+        /\b(protector|headband|plate)\b/i.test(sentence) &&
+        !/\b(itachi|her|their)\b[^.]{0,20}\b(protector|headband)\b/i.test(sentence)
+    );
+}
 
 const KAN_LOOK = `Kan: a lean young shinobi with ${KAN_HAIR_AND_EYES}, and ${KAN_NOSE}.`;
 
@@ -670,8 +698,14 @@ export function buildSceneImagePrompt(
   // Kan's look. A scratched protector first, told early so the model draws
   // the scratch (audit 11c.1); with the cloak it is out of sight (14 Nov 2026).
   const protectorPlace = memoryNote ? null : kanProtectorPlace(db);
-  const scratched = protectorPlace === 'waist' && kanProtectorScratched(db);
-  if (scratched) {
+  // Kan holding his protector (test run §6: drawn in his hand and still at his waist).
+  const inHand = !memoryNote && protectorInHand(action);
+  const scratched = (protectorPlace === 'waist' || inHand) && kanProtectorScratched(db);
+  if (inHand) {
+    lines.push(
+      `Kan's Leaf protector is in his hand, not on his belt: nothing hangs at his waist${scratched ? '. Its plate has a deep horizontal scratch cut straight through the Leaf symbol; never draw the plate whole' : ''}.`
+    );
+  } else if (scratched) {
     lines.push(SCRATCHED_PROTECTOR_LINE);
   } else if (protectorPlace === 'hidden') {
     lines.push('Kan wears no Leaf protector anywhere: not on his forehead, not at his waist.');
@@ -700,6 +734,10 @@ export function buildSceneImagePrompt(
 
   if (looks.length > 0) {
     lines.push(`How the others look: ${looks.join(' | ')}.`);
+  }
+  // Test run §2: Itachi drawn with Kan's forearm wraps and belt plate.
+  if (!memoryNote && (cast.some((name) => name.toLowerCase() !== 'kan') || looks.length > 0)) {
+    lines.push(KAN_THINGS_ARE_HIS);
   }
 
   // Kan's vultures, when the scene has them (decided 14 Nov 2026).

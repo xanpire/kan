@@ -14,7 +14,7 @@ import { normalizeRenown } from './renown';
 import { normalizeConsequences } from './consequences';
 import { normalizeDeaths } from './deaths';
 import { ensureNames } from './names';
-import { classifyThread, knowersOf } from './facts';
+import { classifyThread, knowersOf, migrateEyesFacts } from './facts';
 
 import { DEFAULT_SETTINGS, emptyIndex, normalizePromptBudget } from './defaults';
 import { makeId } from './id';
@@ -25,7 +25,7 @@ import { CANON_GRID, CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from
 import { unfireFutureMilestones } from './canon';
 import { dropBareNatureJutsu, normalizeJutsuNature } from './jutsu';
 import { dateSortValue, normalizeDate } from './calendar';
-import { GEOGRAPHY_LORE, IZUMI_EYES_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING_TOLD, OPENING_MEMORY_TOLD, seedDatabase } from './seed';
+import { GEOGRAPHY_LORE, IZUMI_EYES_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING_TOLD, OPENING_MEMORY_TOLD, ITACHI_YOUNG_LOOK, IZUMI_LOOK, seedDatabase } from './seed';
 import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
 import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
@@ -858,6 +858,14 @@ export function scratchItachiProtector(appearance: string): string {
   return appearance.replace(/a Hidden Leaf forehead protector\./, 'a scratched Hidden Leaf forehead protector.');
 }
 
+/** Itachi's seed look from before the test run of 23 Nov 2026: the full one with what tells him from Kan. */
+export function migrateItachiLook(appearance: string): string {
+  if (/^Slim thirteen-year-old with long black hair tied low/.test(appearance)) {
+    return ITACHI_YOUNG_LOOK;
+  }
+  return scratchItachiProtector(appearance);
+}
+
 function migrateCanonV2(db: AppDatabase): AppDatabase {
   const progress = db.state?.canonProgress;
 
@@ -1025,7 +1033,9 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
             entity.type === 'character' && entity.name.toLowerCase() === 'kan'
               ? migrateKanEyes(entity.appearance) ?? KAN_APPEARANCE
               : entity.name === 'Itachi Uchiha' && typeof entity.appearance === 'string'
-                ? scratchItachiProtector(entity.appearance)
+                ? migrateItachiLook(entity.appearance)
+                : entity.name === 'Izumi Uchiha' && typeof entity.appearance === 'string' && /gentle eyes/.test(entity.appearance)
+                  ? IZUMI_LOOK
                 : entity.appearance ??
                   (entity.type === 'character' ? 'Unknown' : undefined),
           gender: entity.type === 'character' ? (entity.gender ?? genderOf(entity)) : undefined,
@@ -1139,7 +1149,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized)))))))));
+  const withDeaths = migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized))))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;

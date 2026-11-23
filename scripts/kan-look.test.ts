@@ -92,7 +92,10 @@ describe('Kan right now', () => {
     };
     db = owning({ ...db, facts: [...db.facts, wound] }, 'Scratched Hidden Leaf forehead protector');
     const line = kanRightNow(db)!;
-    expect(line).toContain('soaked to the skin, Sharingan active');
+    // His eyes are off (the flag decides, test run §1): the look keeps the rest.
+    expect(line).toContain('soaked to the skin');
+    expect(line).not.toContain('Sharingan active');
+    expect(line).toContain('no Sharingan');
     expect(line).toContain('shallow cut across his left forearm');
     expect(line).toContain('scratch cut straight through the Leaf symbol');
     const prompt = buildSceneImagePrompt(withReply(db), [], 'Kan waits.');
@@ -109,9 +112,9 @@ describe('Kan right now', () => {
     expect(prompt.match(/scratch/gi)!.length).toBe(1); // said once, not again in "Kan right now"
   });
 
-  test('nothing to add is no line', () => {
+  test('nothing else to add still says his eyes', () => {
     const db = { ...seed(), facts: [] };
-    expect(kanRightNow(db)).toBeNull();
+    expect(kanRightNow(db)).toBe('Kan right now: brown eyes, no Sharingan (it is off). Show this on him.');
   });
 });
 

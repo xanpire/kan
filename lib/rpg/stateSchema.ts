@@ -102,6 +102,8 @@ export const TURN_STATE_SCHEMA = object({
   location: nullableString,
   location_kind: nullableEnum(LOCATION_KINDS),
   mood: nullableString,
+  // Kan's eyes, only when this turn turns them on or off.
+  kan_eyes: nullableEnum(['off', 'sharingan', 'mangekyo', 'eternal']),
   world_description: nullableString,
   canon_point: nullableString,
   inventory_added: stringList,

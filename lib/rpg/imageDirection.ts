@@ -8,6 +8,7 @@ import { CANON_MILESTONES } from './canonData';
 import { mentionsEntity } from './characterRefs';
 import { dateSortValue, secondsBetween } from './calendar';
 import { currentWeather } from './weather';
+import { visibleInjuries } from './facts';
 import { sunsetHour } from './ambience';
 import type { AppDatabase, CalendarDate, JutsuRecord, RawLogEntry, WeatherCondition } from './types';
 
@@ -477,12 +478,17 @@ export function lookTags(
         Number.MAX_SAFE_INTEGER
       );
       const age = options.ageAt?.(entity.id);
-      const look = [entity.appearance?.trim(), entity.currentLook?.trim() ? `right now: ${entity.currentLook.trim()}` : '']
+      // What they wear right now first (it overrides the base clothes), each
+      // part clipped on its own (test run §2: Itachi's base look filled the
+      // whole 220, so his cloak and protector were cut off).
+      const now = entity.currentLook?.trim().replace(/\.$/, '');
+      const base = entity.appearance?.trim().replace(/\.$/, '');
+      const hurt = visibleInjuries(db, entity.id);
+      const look = [now ? `right now: ${clipAtClause(now, 300)}` : '', hurt.length > 0 ? `injuries: ${hurt.join('; ')}` : '', base ? clipAtClause(base, 300) : '']
         .filter(Boolean)
-        .join('; ')
-        .replace(/\.(?=;|$)/g, '');
+        .join('; ');
 
-      return { at, line: `${entity.name}${age !== undefined ? ` (age ${age})` : ''}: ${clipAtClause(look, 220)}` };
+      return { at, line: `${entity.name}${age !== undefined ? ` (age ${age})` : ''}: ${look}` };
     })
     .sort((a, b) => a.at - b.at)
     .slice(0, options.limit ?? 10)

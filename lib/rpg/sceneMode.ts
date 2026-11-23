@@ -17,6 +17,7 @@
 // turn, not a jarring change. The player can force or switch off a mode from
 // the chip on the Story screen (`override`).
 
+import { isKanEyesFact, kanEyes, kanEyesLine } from './kanEyes';
 import { heldFeelingsCeiling } from './bondGuard';
 import { priorBondFor } from './priorBonds';
 import { unknownJutsuInOption } from './jutsu';
@@ -463,10 +464,12 @@ function kanCondition(db: AppDatabase) {
       (fact) =>
         fact.validTo === null &&
         (fact.type === 'injury' || fact.type === 'condition') &&
+        !isKanEyesFact(fact) &&
         (fact.subjectEntityId === undefined || fact.subjectEntityId === null || db.entities.find((e) => e.id === fact.subjectEntityId)?.name.toLowerCase() === 'kan')
     )
     .slice(-3)
-    .map((fact) => (fact.text.length > 80 ? `${fact.text.slice(0, 79)}…` : fact.text));
+    .map((fact) => (fact.text.length > 80 ? `${fact.text.slice(0, 79)}…` : fact.text))
+    .concat(kanEyes(db) === 'off' ? [] : [kanEyesLine(db)]);
 }
 
 /** One or two lines for the narrator: which mode this turn is, and with whom. */

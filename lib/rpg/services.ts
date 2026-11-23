@@ -22,7 +22,8 @@ import { applyEntityDiff, mergeDuplicateEntities, recordPresence, resolveCharact
 import { applyGrudgeChanges } from './grudges';
 import { applyReputationChanges } from './reputation';
 import { restBlocked } from './safehouses';
-import { applyFactDiff, applyThreadDiff, endFacts, expireFacts, recordSceneEvent } from './facts';
+import { kanEyes, setKanEyes } from './kanEyes';
+import { endConditionsLeftBehind, applyFactDiff, applyThreadDiff, endFacts, expireFacts, recordSceneEvent } from './facts';
 import { applyJutsuDiff, isBareNatureName, jutsuKey } from './jutsu';
 import { settleNewlyMet } from './met';
 import { cloneDatabase } from './log';
@@ -120,6 +121,9 @@ export function applyTurnDiff(
 
   if (diff.state) {
     next = applyStateDiff(next, diff.state);
+    if (next.state.location !== db.state.location) {
+      next = endConditionsLeftBehind(next, db.state.location ?? '', next.state.location ?? '');
+    }
   }
 
   // A night's rest clears everyone's look of the moment (wet, bloodied,
@@ -279,6 +283,14 @@ export function applyTurnDiff(
     for (const fact of diff.facts) {
       next = applyFactDiff(next, fact);
     }
+  }
+
+  // Kan's eyes (test run §1): the tracker's kan_eyes (or Kan's own words)
+  // decide after the facts; a night's sleep closes them.
+  if (diff.state?.kanEyes) {
+    next = setKanEyes(next, diff.state.kanEyes);
+  } else if (isRest(diff) && kanEyes(next) !== 'off') {
+    next = setKanEyes(next, 'off');
   }
 
   if (Array.isArray(diff.threads)) {
