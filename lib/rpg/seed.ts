@@ -30,6 +30,9 @@ import type {
  * belt plate or outfit.
  */
 export const ITACHI_YOUNG_LOOK =
+  'Slim thirteen-year-old; scratched Hidden Leaf forehead protector worn on his forehead; dark short-sleeved high-collared shirt, upper arms bare (no long sleeves to pull back), grey ANBU arm guards on his forearms (no cloth wraps), dark trousers, no belt plate; long black hair tied low at the nape, sharp dark eyes, faint tear-trough lines.';
+/** Itachi's look from v1.25.54 to v1.25.58, before the short sleeves (test run of 23 Nov, second notes). */
+export const ITACHI_YOUNG_LOOK_LONG_SLEEVES =
   'Slim thirteen-year-old; scratched Hidden Leaf forehead protector worn on his forehead; dark high-collared shirt, grey ANBU arm guards (no cloth wraps), dark trousers, no belt plate; long black hair tied low at the nape, sharp dark eyes, faint tear-trough lines.';
 /** Izumi (test run §9: an image gave her pale lilac eyes). */
 export const IZUMI_LOOK =
@@ -847,6 +850,8 @@ export function seedDatabase(slotId: string, slotName: string): AppDatabase {
       purse: startingPurse(),
       // A new story tracks which names Kan knows from the start (names.ts).
       namesVersion: NAMES_VERSION,
+      // Nothing has been said yet: no old story to scan for people (heardOf.ts).
+      heardOfScanned: true,
     },
     indices: emptyIndex(),
     snapshots: [],

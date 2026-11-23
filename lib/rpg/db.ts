@@ -27,9 +27,10 @@ import { CANON_GRID, CANON_MILESTONES, CANON_VERSION, LEGACY_CANON_POINTS } from
 import { unfireFutureMilestones } from './canon';
 import { dropBareNatureJutsu, normalizeJutsuNature } from './jutsu';
 import { dateSortValue, normalizeDate } from './calendar';
-import { GEOGRAPHY_LORE, IZUMI_EYES_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING_TOLD, OPENING_MEMORY_TOLD, ITACHI_YOUNG_LOOK, IZUMI_LOOK, seedDatabase } from './seed';
+import { GEOGRAPHY_LORE, IZUMI_EYES_LORE, LEGACY_OPENING_SUMMARY_START, OPENING_BRIEFING_TOLD, OPENING_MEMORY_TOLD, ITACHI_YOUNG_LOOK, ITACHI_YOUNG_LOOK_LONG_SLEEVES, IZUMI_LOOK, seedDatabase } from './seed';
 import { CANON_CAST, FEMALE_CAST, ensureCanonCast } from './canonCast';
 import { repairUnmetLabels } from './met';
+import { backfillHeardOf } from './heardOf';
 import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
 import { collectImageGarbage, imageRefsIn } from './imageStore';
 import { normalizeSceneMode } from './sceneMode';
@@ -862,7 +863,7 @@ export function scratchItachiProtector(appearance: string): string {
 
 /** Itachi's seed look from before the test run of 23 Nov 2026: the full one with what tells him from Kan. */
 export function migrateItachiLook(appearance: string): string {
-  if (/^Slim thirteen-year-old with long black hair tied low/.test(appearance)) {
+  if (/^Slim thirteen-year-old with long black hair tied low/.test(appearance) || appearance === ITACHI_YOUNG_LOOK_LONG_SLEEVES) {
     return ITACHI_YOUNG_LOOK;
   }
   return scratchItachiProtector(appearance);
@@ -1151,7 +1152,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized)))))))))));
+  const withDeaths = backfillHeardOf(migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized))))))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;
@@ -1424,6 +1425,7 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     purse: normalizePurse(state.purse),
     loreKnown: normalizeLoreKnown(state.loreKnown),
     namesVersion: typeof state.namesVersion === 'number' ? state.namesVersion : undefined,
+    ...(state.heardOfScanned ? { heardOfScanned: true } : {}),
     ...(state.akatsukiTrial && Array.isArray(state.akatsukiTrial.missions)
       ? { akatsukiTrial: { since: normalizeDate(state.akatsukiTrial.since, seeded.inStoryDate), missions: state.akatsukiTrial.missions.filter((mission) => mission && typeof mission.title === 'string') } }
       : {}),

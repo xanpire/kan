@@ -123,6 +123,7 @@ NAMES
 - Narration calls people only by the name Kan knows (each card says it). Anyone he can't name gets the same short description every time ("the red-haired girl") until he learns the name: they give it, someone says it, a letter or document shows it, or he recognises someone famous by their look. Never force an introduction.
 - Characters say names aloud when they naturally would ("Tobi!", "Itachi-san"), each using the name THEY know the person by. A "narrator only" truth is never narrated or said by someone who couldn't know it.
 - If Kan says a name he couldn't know, he says it aloud and people react ("How do you know that name?").
+- Kinship words follow each person's own family (a card's "family:" line): Fugaku is Itachi's father, never his uncle; Hazuki is YOUR aunt, never Itachi's. Nobody borrows someone else's "aunt" or "uncle".
 - The same goes for things: a dōjutsu, a jutsu or a technique Kan has never heard named (the Rinnegan, a stranger's signature jutsu) is described as he sees it ("ripple-patterned purple eyes") until someone names it to him.
 
 ${REACTION_RULES}
@@ -135,6 +136,7 @@ STYLE
 - Encounters are rare and must fit the ENCOUNTER CONDITIONS (place, hour, how crowded). Most turns bring no new people; when a place is isolated, use animals, weather, sounds, or tracks. No cheerful strangers in empty wilderness or ruins at night, and never two encounters in a row.
 - New characters get a distinct name, age, role, personality, voice, look, and goals, within canon power levels.
 - In Kan's input, only "quoted text" is spoken aloud. Everything outside quotation marks is what he does or thinks, never speech (older turns may mark actions with *asterisks*; they mean the same).
+- Kan's thoughts are private. No one hears them, answers them or echoes their words; a question he only thinks ("is he lying?") gets no spoken reply. People react only to what they can see (a stare, a flinch, his silence) or to what he says aloud. No one reads minds, not even Itachi, unless a jutsu on the page does it.
 
 SCENE MODES (the turn's SCENE MODE line says which applies; with none, write as above)
 - Conversation: mostly speech, like talking to them directly. Length follows the talk: one line or a longer speech; someone can ask one question and stop. Between lines, only short action lines in asterisks (*Sasuke looks away.*), no scenery. Several people can speak, each in their own voice. Kan's small moves in place (a look, a touch, sitting, stepping closer, pouring tea, a flash of the Sharingan) and his silences are part of the talk; answer them the same way. Seconds to a minute or two pass.
@@ -244,6 +246,41 @@ Write 100-150 words describing what happened meanwhile during the supplied time 
 Reply in exactly this format, nothing else:
 TITLE: a 2-6 word name for this stretch of time, no ending punctuation
 SUMMARY: the 100-150 word summary`;
+
+/**
+ * Kan's input with what he says split from what he only does or thinks
+ * (test run 23 Nov 2026: "is he imagining things?", written outside quotes,
+ * got Itachi answering "I am not imagining anything" as if he heard it).
+ */
+export function splitKanInput(input: string): { spoken: string[]; unspoken: string } {
+  const spoken: string[] = [];
+  const unspoken = input
+    .replace(/"([^"]+)"|“([^”]+)”/g, (_, straight: string | undefined, curly: string | undefined) => {
+      const line = (straight ?? curly ?? '').trim();
+      if (line) spoken.push(line);
+      return ' … ';
+    })
+    .replace(/\*/g, '')
+    .replace(/(\s*…\s*)+/g, ' … ')
+    .replace(/^\s*…\s*|\s*…\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return { spoken, unspoken };
+}
+
+export function formatKanInput(input: string): string {
+  const { spoken, unspoken } = splitKanInput(input);
+  const lines = [`YOU (KAN) DO OR SAY:\n${input}`];
+  if (spoken.length > 0 && unspoken) {
+    lines.push(`- Said aloud (all anyone hears): ${spoken.map((line) => `"${line}"`).join(' ')}`);
+  }
+  if (unspoken) {
+    lines.push(
+      `- Not said aloud: ${unspoken}\n  This is what you do or think. A question or a doubt here is in your head: nobody hears it, answers it, repeats its words or reacts to it as if it were spoken. Others see only what shows on your face or in your body.`
+    );
+  }
+  return lines.join('\n');
+}
 
 export function buildNarrationPrompt(
   db: AppDatabase,
@@ -366,7 +403,7 @@ export function buildNarrationPrompt(
       'CONTINUITY: continue directly from the last narrated beat of the memory. Never repeat a beat you already wrote and never contradict it. Worn and carried things stay where they were last put (a mask pushed up or hung at the hip stays there until someone moves it on the page). When Kan goes off alone, let him be alone: a companion does not follow him into every scene or walk in on him unless he asks for them or the story gives a real reason (Session 4: Itachi turned up in every scene in the Rain).',
       // Present wounds don't exist in the memory.
       formatSceneModeLine({ ...db, facts: [] }, sceneMode),
-      `YOU (KAN) DO OR SAY:\n${userMessage}`,
+      formatKanInput(userMessage),
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -412,7 +449,7 @@ export function buildNarrationPrompt(
       formatHanaPrivacyLine(db),
       formatTrialLine(db),
       formatTimeSkipLine(db, userMessage, sceneMode.mode === 'fight' || isCombatPace(db.state.scenePace)),
-      `YOU (KAN) DO OR SAY:\n${userMessage}`,
+      formatKanInput(userMessage),
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -1056,7 +1093,7 @@ function formatMatchedEntities(
     'CHARACTERS IN SCENE',
     ...characters.map(
       (entity) =>
-        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isReanimated(entity) ? ` [REANIMATED: dead, here through Edo Tensei; ${REANIMATED_LOOK}]` : isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; ${lookOnCard(db, entity)}${formatLoreProfile(db, entity.name)}${canonEyesLine(entity)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${feeling(entity)}${survives(entity)}${voiceLine(entity)}`
+        `- ${known(entity)}${entity.role ? ` (${truncate(entity.role, 40)})` : ''}${isReanimated(entity) ? ` [REANIMATED: dead, here through Edo Tensei; ${REANIMATED_LOOK}]` : isDeceased(entity) ? ` [DECEASED${kanKnowsDeath(db, entity) ? '' : ', Kan does not know yet'}]` : ''}: personality ${truncate(entity.personality ?? 'unknown', 60)}; speech ${truncate(entity.speechStyle ?? 'unknown', 50)}; mood ${truncate(entity.mood ?? 'unknown', 60)}; ${lookOnCard(db, entity)}${formatLoreProfile(db, entity.name)}${familyLine(entity)}${canonEyesLine(entity)}${remembers(entity)}${truth(entity)}${reunions.has(entity.id) ? `\n  ${reunions.get(entity.id)}` : ''}${feeling(entity)}${survives(entity)}${voiceLine(entity)}`
     ),
     ...(extras.length > 0
       ? [
@@ -1095,7 +1132,7 @@ function lookOnCard(db: AppDatabase, entity: EntityRecord) {
   return [
     now ? `right now: ${clipAtClause(now, 160)}` : '',
     hurt.length > 0 ? `injuries that show: ${hurt.join('; ')}` : '',
-    `appearance ${base ? clipAtClause(base, 200) : 'unknown'}`,
+    `appearance ${base ? clipAtClause(base, 320) : 'unknown'}`,
   ]
     .filter(Boolean)
     .join('; ');
@@ -1110,6 +1147,37 @@ const CANON_EYES: Record<string, string> = {
   'Itachi Uchiha':
     "eyes: his Sharingan is a Mangekyō (a three-bladed pinwheel) since Shisui's death; Tsukuyomi, Amaterasu and Susanoo need it and show it when used, and a Sharingan watching him sees the change",
 };
+
+/**
+ * Who is whose family, and what each calls them (test run 23 Nov 2026:
+ * Itachi called his own father "Uncle Fugaku" and Kan's aunt "Aunt Hazuki").
+ * Kinship words follow these lines; nobody borrows someone else's.
+ */
+export const FAMILY_TIES: Record<string, string> = {
+  'Itachi Uchiha':
+    'family: his father Fugaku and mother Mikoto (to him "Father" and "Mother", never uncle or aunt), his little brother Sasuke. Hazuki and Izumi are YOUR aunt and cousin, not his family: he says "Hazuki-san" and "Izumi", never "Aunt Hazuki"',
+  'Sasuke Uchiha': 'family: his father Fugaku, his mother Mikoto, his big brother Itachi ("Nii-san"); Hazuki and Izumi are not his family',
+  'Fugaku Uchiha': 'family: husband of Mikoto, father of Itachi and Sasuke; no kin of yours or Hazuki\'s beyond the clan',
+  'Mikoto Uchiha': 'family: wife of Fugaku, mother of Itachi and Sasuke; no kin of yours or Hazuki\'s beyond the clan',
+  'Hazuki Uchiha': 'family: your mother Erisa\'s sister, so your aunt; Izumi\'s mother; no kin of Itachi\'s family beyond the clan',
+  'Izumi Uchiha': 'family: Hazuki\'s daughter, your cousin; no kin of Itachi\'s family beyond the clan',
+  'Hana Inuzuka': 'family: her mother Tsume, the clan head, and her little brother Kiba',
+  'Kiba Inuzuka': 'family: his mother Tsume and his big sister Hana',
+  'Tsume Inuzuka': 'family: mother of Hana and Kiba',
+  'Hiruzen Sarutobi': 'family: father of Asuma, grandfather of Konohamaru; his wife Biwako died in the Nine-Tails attack',
+  'Asuma Sarutobi': 'family: son of Hiruzen, uncle of Konohamaru',
+  'Hiashi Hyuga': 'family: father of Hinata and Hanabi, twin brother of the late Hizashi, uncle of Neji',
+  'Neji Hyuga': 'family: son of the late Hizashi, nephew of Hiashi, cousin of Hinata and Hanabi',
+  'Hinata Hyuga': 'family: daughter of Hiashi, big sister of Hanabi, cousin of Neji',
+  'Shikamaru Nara': 'family: son of Shikaku and Yoshino',
+  'Ino Yamanaka': 'family: daughter of Inoichi',
+  'Choji Akimichi': 'family: son of Choza',
+};
+
+function familyLine(entity: EntityRecord) {
+  const line = FAMILY_TIES[entity.name];
+  return line ? `; ${line}` : '';
+}
 
 function canonEyesLine(entity: EntityRecord) {
   const line = CANON_EYES[entity.name];

@@ -47,11 +47,29 @@ function escapeRegExp(text: string) {
 }
 
 /**
- * True when the text names this person as a whole word: "Lee" is not found
- * in "asleep", "Tobi" is not found in "Sarutobi".
+ * Text without accents and macrons ("Danzō" → "Danzo"), so a name the prose
+ * spells with a macron still finds the person (test run 23 Nov: "Danzō" never
+ * matched "Danzo Shimura", so his card and his bond never came up). The last
+ * text is kept: the same scene is checked against every person in a row.
  */
-export function mentionsName(text: string, name: string) {
-  const trimmed = name.trim();
+let foldedFrom = '';
+let foldedTo = '';
+export function foldAccents(text: string) {
+  if (text === foldedFrom) return foldedTo;
+  const folded = /[^\u0000-\u007f]/.test(text) ? text.normalize('NFD').replace(/\p{M}/gu, '') : text;
+  foldedFrom = text;
+  foldedTo = folded;
+  return folded;
+}
+
+/**
+ * True when the text names this person as a whole word: "Lee" is not found
+ * in "asleep", "Tobi" is not found in "Sarutobi". Accents and macrons don't
+ * count: "Danzō" and "Danzo" are the same name.
+ */
+export function mentionsName(rawText: string, name: string) {
+  const trimmed = name.trim().normalize('NFD').replace(/\p{M}/gu, '');
+  const text = rawText ? foldAccents(rawText) : rawText;
 
   if (trimmed.length < 2 || !text) {
     return false;

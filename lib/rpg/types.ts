@@ -194,6 +194,8 @@ export type GameState = {
   scrollCache?: ScrollCacheState;
   /** Set once the save tracks which names Kan knows (names.ts); older saves get it on load. */
   namesVersion?: number;
+  /** Old saves had their story scanned once for people already talked about (heardOf.ts). */
+  heardOfScanned?: boolean;
   /** Canon lore Kan learned in the story, by entry id (loreList.ts, section 11). */
   loreKnown?: Record<string, LoreLearned>;
 };
@@ -711,6 +713,12 @@ export type EntityRecord = {
   lastSeen?: CalendarDate;
   /** Where Kan last saw this person (state.location at the time). */
   lastSeenAt?: string;
+  /**
+   * Someone Kan knows of but hasn't met in the story, named on the page
+   * (heardOf.ts): when they last came up, so the bonds screen can list them
+   * under "Talked about" (test run 23 Nov: Danzō was talked about and never showed).
+   */
+  heardOf?: CalendarDate;
   /**
    * Dead, but walking again through Edo Tensei (deaths.ts isReanimated):
    * since when, who holds the jutsu, and when it ended (they passed on).

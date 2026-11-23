@@ -1117,6 +1117,14 @@ From Xan's test run (claude/test-run-fixes.md in the Claude project):
 - **Memory**: facts that mean the same (same subject and type, 70% shared content words, no change word) are one; texts cut at a sentence or word; at most `NEW_FACTS_PER_TURN` (4) new facts a turn, weightiest first; facts and memories made this turn carry the time it ended on (`stampAtTurnEnd`). Summaries follow the amount of story: the threshold counts turns, a striking image no longer queues one, a scene that ends waits for 3 turns, and short scenes with the same cast ride together (up to 24 messages). Chapters need 30 turns or a day of story (a major beat or a time skip after 6). Lore can have a `fromDate` (Sasuke's vow from April of year 14) and rests for 3 turns of a scene once sent (`loreShown`, `recentlyShownLore`). A turn after an unnamed new chapter keeps the last scene name on its log entry.
 - **Prompt size**: `promptTokenBudget` (6,000) limits only the per-turn part; the cached system part (rules ~3k, player sheet ~1.2k, geography ~0.9k, Kan's jutsu ~0.7k, romance ~0.6k, bonds ~0.4k) is the rest of a ~13.5k prompt. The recent scene was the largest per-turn part: replies older than the last three now keep 800 characters (`OLDER_NARRATION_CHARS`).
 
+### Test run notes, second set (23 Nov 2026, v1.25.59; tests: `scripts/test-run-23nov-b.test.ts`)
+
+- **Accents don't hide names** (`foldAccents` in characterRefs.ts): `mentionsName` folds macrons and accents on both sides, so "Danzō" finds Danzo Shimura (his card never reached the narrator before).
+- **Talked about** (`heardOf.ts`): someone unmet whose name Kan knows (not minor, not a summon or tailed beast; the dead only if Kan knew them) gets `entity.heardOf` when the turn's input or prose names them (`markHeardOf` in `applyStateStep`). The bonds screen lists them under "Talked about" ("came up 1 Oct"); meeting still happens only in the scene cast. Old saves are scanned once (`backfillHeardOf`, `state.heardOfScanned`).
+- **Thoughts are private** (`splitKanInput`, `formatKanInput` in prompt.ts): the narrator gets Kan's input with "Said aloud" and "Not said aloud" split out, and a rule that nobody hears, answers or echoes a thought.
+- **Family words** (`FAMILY_TIES` in prompt.ts): a "family:" line on the cards of Itachi, Sasuke, Fugaku, Mikoto, Hazuki, Izumi and a few clan families; a rule says kinship words follow each person's own family (Fugaku is Itachi's father, Hazuki is Kan's aunt).
+- **Itachi's sleeves**: his young look is a short-sleeved shirt with bare upper arms and arm guards on the forearms (`ITACHI_YOUNG_LOOK`; the long-sleeved one migrates). The card shows up to 320 characters of a base look.
+
 ### Session 6 watch items (22 Nov 2026, v1.25.53; tests: `scripts/session6-watch.test.ts`)
 
 The watch items Session 6 didn't reach live, played through the real pipeline (prompt → reply → `applyStateStep`):

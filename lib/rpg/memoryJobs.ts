@@ -27,6 +27,7 @@ import { syncBondSides } from './bonds';
 import { isDeceased, markKnownDeathsOnBonds } from './deaths';
 import { castWithCompanions } from './companions';
 import { markMet } from './met';
+import { markHeardOf } from './heardOf';
 import { applyStoryHooks } from './hooks';
 import { advanceCanon, applyCanonMarks, isCombatPace, markNewsHeard, markWitnessedNews, unfireFutureMilestones } from './canon';
 import { applyCanonEndgames } from './canonEndgame';
@@ -405,6 +406,8 @@ export function applyStateStep(
 
   // Someone Kan had not seen in a long time is here again.
   next = markReunions(latest, next);
+  // Someone he knows of was named on the page: they show under "Talked about".
+  next = markHeardOf(next, `${turn.userMessage}\n${turn.narration}`);
   const appliedSeconds = Math.max(0, secondsBetween(beforeDate, next.state.inStoryDate));
   const stalled = latest.state.turnsWithoutTimeChange ?? 0;
 

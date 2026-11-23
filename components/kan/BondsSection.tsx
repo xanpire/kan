@@ -12,6 +12,7 @@ import { grudgeKnown } from '@/lib/rpg/disclosure';
 import { kanProfile } from '@/lib/rpg/kanView';
 import { statusLabel } from '@/lib/rpg/bonds';
 import { isPlaceholderStatus } from '@/lib/rpg/met';
+import { canBeHeardOf } from '@/lib/rpg/heardOf';
 import { STAGE_LABEL, grudgeStage } from '@/lib/rpg/grudges';
 import { useGame } from '@/lib/rpg/game';
 import { latestCharacterPortraitMap } from '@/lib/rpg/characterPortrait';
@@ -32,7 +33,7 @@ function dateValue(date: CalendarDate | undefined | null) {
 }
 
 function contactDate(entry: BondEntry) {
-  return Math.max(dateValue(entry.entity.lastSeen), dateValue(entry.bond?.updatedInStoryDate));
+  return Math.max(dateValue(entry.entity.lastSeen), dateValue(entry.bond?.updatedInStoryDate), dateValue(entry.entity.heardOf));
 }
 
 export function formatAffinity(affinity: number) {
@@ -68,11 +69,16 @@ export function bondSubtitle(entry: BondEntry, db: AppDatabase) {
     bond?.relationship && bond.relationship !== 'stranger'
       ? bond.relationship.charAt(0).toUpperCase() + bond.relationship.slice(1)
       : telling || kanProfile(db, entity).role || status || 'Unknown';
+  // Known of, not met in the story: when they last came up (heardOf.ts).
   const seen = entity.lastSeen
     ? dateValue(entity.lastSeen) === dateValue(today)
       ? 'seen today'
       : `last seen ${formatDayMonth(entity.lastSeen)}`
-    : null;
+    : entity.met === false && entity.heardOf
+      ? dateValue(entity.heardOf) === dateValue(today)
+        ? 'came up today'
+        : `came up ${formatDayMonth(entity.heardOf)}`
+      : null;
 
   return seen ? `${relation} · ${seen}` : relation;
 }
@@ -158,10 +164,14 @@ export function BondsSection() {
     const term = query.trim().toLowerCase();
 
     return db.entities
-      // People you have not met, and one-scene characters, stay off the list.
+      // One-scene characters stay off the list; people you have not met
+      // only once the story names someone you know of (under "Talked about").
       .filter(
         (entity) =>
-          entity.type === 'character' && entity.name !== 'Kan' && entity.met !== false && entity.tier !== 'minor'
+          entity.type === 'character' &&
+          entity.name !== 'Kan' &&
+          entity.tier !== 'minor' &&
+          (entity.met !== false || (Boolean(entity.heardOf) && canBeHeardOf(entity)))
       )
       .map((entity) => ({
         entity,
@@ -206,7 +216,9 @@ export function BondsSection() {
 
   // People travelling with you lead the list; everyone else by last contact.
   const travelling = query ? [] : entries.filter((entry) => !entry.dead && entry.entity.companion);
-  const living = entries.filter((entry) => !entry.dead && !travelling.includes(entry));
+  // Known of, never met in the story: their own heading, after the people you know.
+  const heardOf = query ? [] : entries.filter((entry) => !entry.dead && entry.entity.met === false && !travelling.includes(entry));
+  const living = entries.filter((entry) => !entry.dead && !travelling.includes(entry) && !heardOf.includes(entry));
   const dead = entries.filter((entry) => entry.dead);
 
   if (!db) {
@@ -301,6 +313,13 @@ export function BondsSection() {
         <>
           <SectionLabel>{query ? 'Results' : 'Seen recently'}</SectionLabel>
           <ListCard>{recent.map(renderRow)}</ListCard>
+        </>
+      ) : null}
+
+      {heardOf.length > 0 ? (
+        <>
+          <SectionLabel>Talked about</SectionLabel>
+          <ListCard>{heardOf.map(renderRow)}</ListCard>
         </>
       ) : null}
 
