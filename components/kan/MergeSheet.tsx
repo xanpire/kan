@@ -1,3 +1,4 @@
+import { kanProfile } from '@/lib/rpg/kanView';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
@@ -213,7 +214,7 @@ export function MergeSheet({ visible, db, entity, onCancel, onMerge }: MergeShee
                       accessibilityState={{ checked: selected }}
                       key={item.id}
                       leading={<Avatar name={displayName(db, item)} size={34} />}
-                      meta={item.met === false ? 'Not met yet' : (item.role ?? null)}
+                      meta={item.met === false ? 'Not met yet' : (kanProfile(db, item).role ?? null)}
                       onPress={() => setKeepId(item.id)}
                       title={titleName(db, item)}
                       titleLines={1}

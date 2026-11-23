@@ -102,6 +102,17 @@ export function resolveCharacterRefs(db: AppDatabase, diff: TurnDiff): TurnDiff 
     }));
   }
 
+  // What Kan learned about people (test run §10): ids become people; a
+  // teller stays as said when nobody matches.
+  if (diff.learnedAbout) {
+    next.learnedAbout = diff.learnedAbout.flatMap((item) => {
+      const ref = resolve(item.entityId ?? item.character);
+      if (!ref) return [];
+      const teller = item.toldBy ? resolve(item.toldBy) : null;
+      return [{ ...item, character: ref.name, entityId: ref.entityId, toldBy: teller?.entityId ?? item.toldBy }];
+    });
+  }
+
   if (diff.jutsuUsed) {
     next.jutsuUsed = diff.jutsuUsed.map((jutsu) => ({ ...jutsu, user: nameOf(jutsu.user) ?? jutsu.user }));
   }

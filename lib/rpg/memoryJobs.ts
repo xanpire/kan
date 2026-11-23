@@ -18,6 +18,7 @@
  * to no longer exists (undo, regenerate).
  */
 import { eyesFromInput } from './kanEyes';
+import { applyCondensed, applyLearnedAbout, linesToCondense, needsCondensing } from './kanView';
 import { scratchProtectorFromProse } from './inventory';
 import { checkSave, checkTurn, describeViolations, strictInvariants, type Violation } from './invariants';
 import { bingoListings, formatRyo } from './reputation';
@@ -69,6 +70,7 @@ import {
   applyTurnDiff,
   extractTurnDiff,
   isRest,
+  condenseProfile,
   foldSagaSummary,
   rollArcSummary,
   summarizeScene,
@@ -196,6 +198,11 @@ export function isJobValid(db: AppDatabase, job: MemoryJob): boolean {
     // Year summaries are no longer made (nothing read them); queued ones are dropped.
     case 'year':
       return false;
+    case 'profile': {
+      const entity = db.entities.find((item) => item.id === job.entityId);
+      const ids = new Set(job.viewIds ?? []);
+      return Boolean(entity) && (entity!.kanView ?? []).filter((entry) => ids.has(entry.id) && !entry.folded).length >= 2;
+    }
     default:
       return false;
   }
@@ -499,6 +506,9 @@ export function applyStateStep(
     narration: turn.narration,
     presentIds,
   });
+  // What Kan learned about people, for their profiles (test run §10): after
+  // the names, so a name he just heard can show.
+  next = applyLearnedAbout(next, extraction ?? {});
   // Canon lore Kan was told, read or saw (section 11): only what was offered
   // for this reply, from the state its prompt was built on.
   next = applyLoreLearned(
@@ -628,6 +638,15 @@ export function applyStateStep(
     if (planned.jobId) {
       followUpIds.push(planned.jobId);
     }
+  }
+
+  // A profile with too many noticed lines gets them condensed (test run §10).
+  for (const entity of next.entities) {
+    if (!needsCondensing(entity) || jobsOf(next).some((job) => job.kind === 'profile' && job.entityId === entity.id)) continue;
+    const job = newJob('profile', turn.turnLogId, { entityId: entity.id, viewIds: linesToCondense(entity).map((entry) => entry.id) });
+    next = withJobs(next, [...jobsOf(next), job]);
+    followUpIds.push(job.id);
+    break;
   }
 
   // A name Kan doesn't know yet, used outside dialogue, becomes the label he
@@ -1243,6 +1262,13 @@ export async function runSummaryJob(
         : null;
       break;
     }
+    case 'profile': {
+      const entity = base.entities.find((item) => item.id === job.entityId);
+      const ids = new Set(job.viewIds ?? []);
+      const lines = (entity?.kanView ?? []).filter((entry) => ids.has(entry.id) && !entry.folded).map((entry) => entry.text);
+      result = entity && lines.length >= 2 ? await condenseProfile({ apiKey, db: base, lines, debugTurnId: job.turnLogId }) : null;
+      break;
+    }
     default:
       throw new Error(`Unknown memory step: ${job.kind}`);
   }
@@ -1419,6 +1445,15 @@ export function applySummaryJob(
       if (updated) {
         next = updated;
       }
+      break;
+    }
+    case 'profile': {
+      const lines = output.text
+        .split(/\n+/)
+        .map((line) => line.replace(/^[-•*\d.)\s]+/, '').trim())
+        .filter((line) => line.length > 3)
+        .slice(0, 2);
+      next = applyCondensed(next, job.entityId ?? '', job.viewIds ?? [], lines);
       break;
     }
     case 'saga': {

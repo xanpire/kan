@@ -22,6 +22,7 @@ export type DebugCallKind =
   | 'arc'
   | 'year'
   | 'saga'
+  | 'profile'
   | 'image'
   | 'imageAction'
   | 'imageCheck'

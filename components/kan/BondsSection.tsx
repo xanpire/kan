@@ -8,7 +8,8 @@ import { colors, fonts, radius, spacing, type } from '@/constants/theme';
 import { formatDayMonth } from '@/lib/rpg/calendar';
 import { avatarLetter } from '@/lib/rpg/util';
 import { kanKnowsDeath } from '@/lib/rpg/deaths';
-import { grudgeKnown, shownField } from '@/lib/rpg/disclosure';
+import { grudgeKnown } from '@/lib/rpg/disclosure';
+import { kanProfile } from '@/lib/rpg/kanView';
 import { statusLabel } from '@/lib/rpg/bonds';
 import { isPlaceholderStatus } from '@/lib/rpg/met';
 import { STAGE_LABEL, grudgeStage } from '@/lib/rpg/grudges';
@@ -60,12 +61,13 @@ export function bondSubtitle(entry: BondEntry, db: AppDatabase) {
   }
   // A status only counts as a short label ("Travelling with you"); a story
   // sentence or a placeholder ("Newly met") gives way to their role.
-  const status = statusLabel(bond?.status) ?? statusLabel(entity.status);
+  // The seed's status is canon, not what Kan knows: only for people he knew or has heard of (test run §10).
+  const status = statusLabel(bond?.status) ?? (kanProfile(db, entity).basis === 'stranger' ? undefined : statusLabel(entity.status));
   const telling = status && !isPlaceholderStatus(status) && status.toLowerCase() !== 'acquaintance' ? status : undefined;
   const relation =
     bond?.relationship && bond.relationship !== 'stranger'
       ? bond.relationship.charAt(0).toUpperCase() + bond.relationship.slice(1)
-      : telling || shownField(db, entity, 'role') || status || 'Unknown';
+      : telling || kanProfile(db, entity).role || status || 'Unknown';
   const seen = entity.lastSeen
     ? dateValue(entity.lastSeen) === dateValue(today)
       ? 'seen today'

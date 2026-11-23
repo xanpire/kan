@@ -759,6 +759,33 @@ export async function foldSagaSummary(options: {
   });
 }
 
+/**
+ * Folds a person's many "what you noticed" lines into one or two (test run
+ * §10): only what the lines already say, never anything new.
+ */
+export async function condenseProfile(options: {
+  apiKey: string;
+  db: AppDatabase;
+  lines: string[];
+  debugTurnId?: string;
+}): Promise<TitledSummary | null> {
+  return summaryChat('profile', options.debugTurnId, {
+    apiKey: options.apiKey,
+    model: options.db.settings.summaryModel,
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You condense what the player (Kan, "you") has noticed about one person into one or two short lines for their profile. Second person ("Watches your hands; never raises her voice."). Keep the newest and most telling details. Use only what the lines say: never add, guess or explain anything. No names. Reply with SUMMARY: followed by the line or two, one per line.',
+      },
+      { role: 'user', content: `WHAT YOU NOTICED (oldest first):\n${options.lines.map((line) => `- ${line}`).join('\n')}` },
+    ],
+    temperature: 0.2,
+    maxTokens: 600,
+    reasoning: { effort: 'low', exclude: true },
+  });
+}
+
 export async function rollArcSummary(options: {
   apiKey: string;
   db: AppDatabase;

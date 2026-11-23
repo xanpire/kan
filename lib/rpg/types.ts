@@ -644,6 +644,25 @@ export type PlaceLookRecord = {
   createdAt: number;
 };
 
+/** One line of Kan's own view of someone, for their profile (test run §10). */
+export type KanViewEntry = {
+  id: string;
+  field: 'role' | 'noticed' | 'suspect' | 'speech' | 'heard';
+  text: string;
+  source: 'seen' | 'told' | 'rumour' | 'guess';
+  /** Who told him (an entity id when known, else their description). */
+  toldBy?: string;
+  /** Where and when Kan learned it (the short place name). */
+  place?: string;
+  date: CalendarDate;
+  /** A guess or a claim the story later settled: confirmed, or proven wrong (crossed out). */
+  verdict?: 'confirmed' | 'wrong';
+  /** Folded into a condensed line (`condensedFrom` on it); kept for the tap detail. */
+  folded?: boolean;
+  /** A condensed line: the entries it stands for. */
+  condensedFrom?: string[];
+};
+
 export type EntityRecord = {
   id: string;
   name: string;
@@ -672,6 +691,12 @@ export type EntityRecord = {
   currentLook?: string;
   /** The scene (GameState.sceneSeq) currentLook was last set in. */
   currentLookSeq?: number;
+  /**
+   * What Kan himself knows of them (test run §10): what he saw and was told,
+   * shown on their profile instead of the canon seed. The narrator keeps
+   * the seed.
+   */
+  kanView?: KanViewEntry[];
   /** Where the story last said they are or are going, when not with Kan. */
   whereabouts?: string;
   lastSeen?: CalendarDate;
@@ -1058,7 +1083,7 @@ export type SummaryRecord = {
  * Jobs live in the save so a failed or interrupted step survives a reload
  * and can be retried from the story screen.
  */
-export type MemoryJobKind = 'state' | 'timeSkip' | 'scene' | 'arc' | 'year' | 'saga' | 'flashback';
+export type MemoryJobKind = 'state' | 'timeSkip' | 'scene' | 'arc' | 'year' | 'saga' | 'flashback' | 'profile';
 
 export type MemoryJob = {
   id: string;
@@ -1075,6 +1100,9 @@ export type MemoryJob = {
   summaryIds?: string[];
   /** flashback: the memory being written up (see flashbacks.ts). */
   flashbackId?: string;
+  /** profile: whose noticed lines to condense, and which (test run §10). */
+  entityId?: string;
+  viewIds?: string[];
   /** timeSkip: the jump being summarized. */
   fromDate?: CalendarDate;
   toDate?: CalendarDate;
@@ -1274,6 +1302,18 @@ export type TurnDiff = {
     /** Kan's eyes, when this turn turns them on or off (kan_eyes). */
     kanEyes?: KanEyes;
   };
+  /** What Kan learned about people this turn (learned_about, test run §10). */
+  learnedAbout?: {
+    character: string;
+    entityId?: string;
+    field: KanViewEntry['field'];
+    text: string;
+    source: KanViewEntry['source'];
+    toldBy?: string;
+    /** A view line this one settles, by ref ("v-3k9x"). */
+    settles?: string;
+    verdict?: 'confirmed' | 'wrong';
+  }[];
   /** The state model judged this beat visually striking (queues a scene summary). */
   imageWorthy?: boolean;
   /** How this turn played, and who Kan was talking with (ids from the tracker). */

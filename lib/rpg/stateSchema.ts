@@ -185,6 +185,18 @@ export const TURN_STATE_SCHEMA = object({
     // short description of how they look to him ("the scarred ferryman").
     name_known: { type: 'boolean' },
   }),
+  // What you (Kan) learned about someone this turn, for their profile: what
+  // you saw of them or were told (see KNOWING PEOPLE). settles: the ref of a
+  // line under "you know" that this confirms or proves wrong.
+  learned_about: list({
+    character_id: { type: 'string' },
+    field: { type: 'string', enum: ['role', 'noticed', 'suspect', 'speech', 'heard'] },
+    text: { type: 'string' },
+    source: { type: 'string', enum: ['seen', 'told', 'rumour', 'guess'] },
+    told_by: nullableString,
+    settles: nullableString,
+    verdict: nullableEnum(['confirmed', 'wrong']),
+  }),
   // appearance: how they look right now (clothes, wet, bloodied, Sharingan
   // active). lasting_appearance: only a real lasting change to their base look.
   character_updates: list({

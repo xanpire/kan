@@ -87,7 +87,8 @@ export function applyBondDiff(db: AppDatabase, bond: BondDiff, options: BondOpti
       entityId: bondEntity.id,
       characterName: bondEntity.name,
       affinity: theirs,
-      status: bond.status?.trim() || prior?.status || 'Acquaintance',
+      // With no label from the tracker, the status follows the relationship (test run §3: "Acquaintance" / stranger).
+      status: bond.status?.trim() || prior?.status || relationshipStatus(normalizeRelationship(bond.relationship)) || 'Acquaintance',
       lastKeyEventId: null,
       note: bond.note?.trim() || prior?.note || '',
       isMajor: Boolean(bond.isMajor),
@@ -123,7 +124,11 @@ export function applyBondDiff(db: AppDatabase, bond: BondDiff, options: BondOpti
       affinity: clamp(yourBefore.affinity + (typeof bond.yourDelta === 'number' ? bond.yourDelta : 0), -10, 10),
       note: bond.yourNote?.trim() || yourBefore.note,
     },
-    status: bond.status?.trim() || existing.status,
+    status:
+      bond.status?.trim() ||
+      (normalizeRelationship(bond.relationship) && GENERIC_STATUS.test(existing.status ?? '')
+        ? relationshipStatus(normalizeRelationship(bond.relationship)) ?? existing.status
+        : existing.status),
     note,
     isMajor: typeof bond.isMajor === 'boolean' ? bond.isMajor : existing.isMajor,
     relationship:
@@ -138,6 +143,15 @@ export function applyBondDiff(db: AppDatabase, bond: BondDiff, options: BondOpti
     ...db,
     bonds,
   };
+}
+
+/** A status that is only a relationship word, which a new relationship may replace. */
+const GENERIC_STATUS = /^(acquaintance|stranger|newly met|friendly|close|old friend|teammate|former teammate|partner|rival|enemy|unknown)?$/i;
+
+/** "old friend" → "Old friend": a relationship as a bond's status label. */
+function relationshipStatus(relationship: string | undefined | null): string | undefined {
+  if (!relationship || /^(romantic interest|lover|rejected|ex)$/i.test(relationship)) return undefined;
+  return relationship.charAt(0).toUpperCase() + relationship.slice(1);
 }
 
 /**

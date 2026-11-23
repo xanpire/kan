@@ -12,7 +12,8 @@ import { CharacterPortraitCard } from '@/components/kan/CharacterPortraitCard';
 import { memoryTitle } from '@/components/kan/JournalSection';
 import { sharedMemories } from '@/lib/rpg/sharedMemories';
 import { knownLife } from '@/lib/rpg/lives';
-import { grudgeKnown, howTheySeem, shownProfile } from '@/lib/rpg/disclosure';
+import { grudgeKnown, howTheySeem } from '@/lib/rpg/disclosure';
+import { entryOrigin, kanProfile, type ProfileLine } from '@/lib/rpg/kanView';
 import { resolveEntity } from '@/lib/rpg/entities';
 import { statusLabel } from '@/lib/rpg/bonds';
 import { MergeSheet } from '@/components/kan/MergeSheet';
@@ -29,6 +30,26 @@ function Chip({ label, accent }: { label: string; accent?: boolean }) {
     <View style={[styles.chip, accent && styles.chipAccent]}>
       <Text style={[styles.chipText, accent && styles.chipTextAccent]}>{label}</Text>
     </View>
+  );
+}
+
+/** One line of what Kan knows of someone; a tap shows where, when and from whom he learned it. */
+function ProfileLineRow({ line, origin }: { line: ProfileLine; origin: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Pressable
+      accessibilityHint="Shows where and when you learned this"
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      onPress={() => setOpen((value) => !value)}
+      style={({ pressed }) => [styles.detail, pressed && styles.pressed]}
+    >
+      <Text style={[styles.detailValue, line.crossed && styles.crossed]}>
+        {line.text}
+        {line.crossed ? <Text style={styles.wrongTag}>{line.field === 'heard' ? '  not so' : '  wrong'}</Text> : null}
+      </Text>
+      {open && origin ? <Text style={styles.originText}>{origin}</Text> : null}
+    </Pressable>
   );
 }
 
@@ -80,8 +101,8 @@ export default function BondScreen() {
   // Your own feelings you know exactly; theirs only as they seem to you.
   const affinity = bond?.yourFeelings?.affinity ?? bond?.affinity ?? 0;
   const theySeem = howTheySeem(bond?.theirFeelings?.affinity ?? bond?.affinity ?? 0);
-  // What Kan can know of them: no canon secret before the story tells him.
-  const profile = shownProfile(db, entity);
+  // What Kan himself knows of them (test run §10): a stranger starts blank.
+  const profile = kanProfile(db, entity);
   // Their mood now only if they are here; otherwise how they were when you last saw them.
   const hereNow =
     Boolean(entity.companion) ||
@@ -134,9 +155,16 @@ export default function BondScreen() {
           : `${entity.mood}${entity.lastSeen ? ` (${formatDayMonth(entity.lastSeen)}, year ${entity.lastSeen.year})` : ''}`,
     },
     { label: 'Personality', value: profile.personality },
-    { label: 'Speaks', value: profile.speechStyle },
     { label: 'Appearance', value: profile.appearance },
   ].filter((item) => item.value && item.value !== 'Unknown');
+  const origin = (line: ProfileLine) => entryOrigin(db, line, formatDayMonth);
+  const sections: { label: string; lines: ProfileLine[] }[] = [
+    { label: 'What you’ve noticed', lines: profile.noticed },
+    { label: 'What you suspect', lines: profile.suspect },
+    { label: 'How they speak', lines: profile.speechEntry ? [profile.speechEntry] : [] },
+    { label: 'What you’ve heard', lines: profile.heard },
+  ].filter((section) => section.lines.length > 0);
+  const speaksPlain = !profile.speechEntry && profile.speech ? profile.speech : null;
 
   return (
     <SafeAreaView edges={['top']} style={styles.root}>
@@ -156,7 +184,7 @@ export default function BondScreen() {
         <CharacterPortraitCard
           dead={dead}
           entity={entity}
-          subtitle={[deathLabel, !dead && age !== undefined ? `Age ${age}` : null, profile.role ?? entity.status]
+          subtitle={[deathLabel, !dead && age !== undefined ? `Age ${age}` : null, profile.role ?? (profile.basis === 'stranger' ? 'Unknown' : null)]
             .filter(Boolean)
             .join(' · ')}
         />
@@ -223,6 +251,30 @@ export default function BondScreen() {
               </View>
             ))}
           </ListCard>
+        ) : null}
+
+        {speaksPlain ? (
+          <ListCard>
+            <View style={styles.detail}>
+              <Text style={styles.detailLabel}>Speaks</Text>
+              <Text style={styles.detailValue}>{speaksPlain}</Text>
+            </View>
+          </ListCard>
+        ) : null}
+
+        {sections.map((section) => (
+          <View key={section.label} style={styles.section}>
+            <SectionLabel>{section.label}</SectionLabel>
+            <ListCard>
+              {section.lines.map((line) => (
+                <ProfileLineRow key={line.id} line={line} origin={origin(line)} />
+              ))}
+            </ListCard>
+          </View>
+        ))}
+
+        {profile.basis === 'stranger' && sections.length === 0 && !dead ? (
+          <EmptyRow title="You barely know them yet" body="What you see and hear of them fills in here." />
         ) : null}
 
         {life.length > 0 ? (
@@ -482,6 +534,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     color: colors.textSoft,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  crossed: {
+    textDecorationLine: 'line-through',
+    color: colors.textDim,
+  },
+  wrongTag: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    textDecorationLine: 'none',
+    color: colors.textMeta,
+  },
+  originText: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textMeta,
   },
 });
 

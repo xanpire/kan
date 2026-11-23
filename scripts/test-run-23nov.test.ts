@@ -264,3 +264,98 @@ describe('§12.7 no blank scene names', () => {
     expect(db.rawLog[db.rawLog.length - 1].scene).toBe(named);
   });
 });
+
+describe('§3 §10 profiles fill in as Kan learns', () => {
+  const metHere = (db: AppDatabase, name: string): AppDatabase => ({
+    ...db,
+    entities: db.entities.map((e) => (e.name === name ? { ...e, met: true, lastSeen: db.state.inStoryDate } : e)),
+  });
+
+  test('a stranger shows nothing of the canon seed: Konan is not "devoted to Pain"', async () => {
+    const { kanProfile } = await import('../lib/rpg/kanView');
+    const db = metHere(seed(), 'Konan');
+    const profile = kanProfile(db, person(db, 'Konan'));
+    expect(profile.basis).toBe('stranger');
+    expect(profile.role).toBeUndefined();
+    expect(profile.personality).toBeUndefined();
+    expect(JSON.stringify(profile)).not.toContain('Pain');
+    expect(profile.appearance).toBeTruthy();
+  });
+
+  test('people Kan knew start full; famous people show their public role only', async () => {
+    const { kanProfile } = await import('../lib/rpg/kanView');
+    const db = seed();
+    const itachi = kanProfile(db, person(db, 'Itachi Uchiha'));
+    expect(itachi.basis).toBe('known');
+    expect(itachi.personality).toBeTruthy();
+    expect(itachi.role).toBe('Hidden Leaf ANBU captain');
+    const jiraiya = kanProfile(db, person(db, 'Jiraiya'));
+    expect(jiraiya.basis).toBe('public');
+    expect(jiraiya.role).toBeTruthy();
+    expect(jiraiya.personality).toBeUndefined();
+  });
+
+  test('learned_about fills the profile: two lines per person per turn, stamped, never repeated', async () => {
+    const { kanProfile, viewRef } = await import('../lib/rpg/kanView');
+    let db = withCast(metHere(seed(), 'Konan'), ['Konan', 'Itachi Uchiha']);
+    const konan = person(db, 'Konan');
+    const itachi = person(db, 'Itachi Uchiha');
+    db = play(db, 'I watch the paper woman.', 'She watches your hands the whole time and never raises her voice. Itachi says she is the leader\'s voice.', {
+      learned_about: [
+        { character_id: 'Konan', field: 'noticed', text: 'Watched your hands the whole time.', source: 'seen', told_by: null, settles: null, verdict: null },
+        { character_id: 'Konan', field: 'heard', text: "Speaks for the leader.", source: 'told', told_by: 'Itachi Uchiha', settles: null, verdict: null },
+        { character_id: 'Konan', field: 'noticed', text: 'Never raised her voice.', source: 'seen', told_by: null, settles: null, verdict: null },
+      ],
+    }).db;
+    let profile = kanProfile(db, person(db, 'Konan'));
+    expect(profile.noticed.map((l) => l.text)).toEqual(['Watched your hands the whole time.']);
+    expect(profile.heard[0].toldBy).toBe(itachi.id);
+    expect(profile.heard[0].place).toBeTruthy();
+    // A repeat adds nothing; a guess proven wrong is crossed out.
+    db = play(db, 'I watch her.', 'She watches your hands.', {
+      learned_about: [
+        { character_id: 'Konan', field: 'noticed', text: 'She watched your hands the whole time.', source: 'seen', told_by: null, settles: null, verdict: null },
+        { character_id: 'Konan', field: 'suspect', text: 'You suspect she knows more about the masked man than she lets on.', source: 'guess', told_by: null, settles: null, verdict: null },
+      ],
+    }).db;
+    profile = kanProfile(db, person(db, 'Konan'));
+    expect(profile.noticed).toHaveLength(1);
+    const guess = profile.suspect[0];
+    db = play(db, 'I ask.', 'She has never met him.', {
+      learned_about: [{ character_id: 'Konan', field: 'noticed', text: 'Has never met the masked man.', source: 'seen', told_by: null, settles: viewRef(guess), verdict: 'wrong' }],
+    }).db;
+    profile = kanProfile(db, person(db, 'Konan'));
+    expect(profile.suspect[0].crossed).toBe(true);
+    // The tracker sees what Kan knows, with refs.
+    const tracker = (await import('../lib/rpg/prompt')).buildExtractionPrompt(db, 'I wait.', 'She waits.');
+    expect(JSON.stringify(tracker)).toContain('you know: [v-');
+  });
+
+  test('too many noticed lines are folded behind condensed ones', async () => {
+    const { applyCondensed, kanProfile, linesToCondense, needsCondensing } = await import('../lib/rpg/kanView');
+    let db = metHere(seed(), 'Konan');
+    const konan = person(db, 'Konan');
+    const lines = Array.from({ length: 9 }, (_, i) => ({ id: `view_${i}abcde`, field: 'noticed' as const, text: `Thing ${i} about her.`, source: 'seen' as const, date: db.state.inStoryDate }));
+    db = { ...db, entities: db.entities.map((e) => (e.id === konan.id ? { ...e, kanView: lines } : e)) };
+    expect(needsCondensing(person(db, 'Konan'))).toBe(true);
+    const folded = linesToCondense(person(db, 'Konan')).map((l) => l.id);
+    expect(folded).toHaveLength(7);
+    db = applyCondensed(db, konan.id, folded, ['Quiet and watchful; gives nothing away.']);
+    const profile = kanProfile(db, person(db, 'Konan'));
+    expect(profile.noticed).toHaveLength(3);
+    expect(profile.noticed[0].condensedFrom).toHaveLength(7);
+  });
+
+  test('old saves: people met in the story get a view from facts Kan knows; a bond status follows the relationship', async () => {
+    let db = metHere(seed(), 'Konan');
+    const konan = person(db, 'Konan');
+    const kanId = kanEntity(db)!.id;
+    db = { ...db, facts: [...db.facts, { ...kanFact(db, 'She gave you the Akatsuki cloak at the conduit.', 'event'), subjectEntityId: konan.id, whoKnows: [kanId] }] };
+    const next = normalizeDatabase(db);
+    expect(person(next, 'Konan').kanView?.[0].text).toContain('gave you the Akatsuki cloak');
+
+    const { applyBondDiff } = await import('../lib/rpg/bonds');
+    const bonded = applyBondDiff(next, { character: 'Konan', entityId: konan.id, relationship: 'stranger' });
+    expect(bonded.bonds.find((b) => b.entityId === konan.id)!.status).toBe('Stranger');
+  });
+});

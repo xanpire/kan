@@ -7,6 +7,7 @@ import { THREAD_TYPES } from './stateSchema';
 import { MAX_SKIP_SECONDS } from './timeSkip';
 import type {
   KanEyes,
+  KanViewEntry,
   Audience,
   ConsequenceKind,
   FactType,
@@ -493,6 +494,34 @@ export function convertStateBlock(
   // Kan's eyes, when this turn turns them on or off (test run §1).
   if (typeof block.kan_eyes === 'string' && (KAN_EYE_STATES as readonly string[]).includes(block.kan_eyes)) {
     diff.state = { ...diff.state, kanEyes: block.kan_eyes as KanEyes };
+  }
+
+  // What Kan learned about people (test run §10).
+  if (Array.isArray(block.learned_about)) {
+    const fields = ['role', 'noticed', 'suspect', 'speech', 'heard'];
+    const sources = ['seen', 'told', 'rumour', 'guess'];
+    const learned = block.learned_about.flatMap((raw) => {
+      if (!raw || typeof raw !== 'object') return [];
+      const item = raw as Record<string, unknown>;
+      const character = cleanString(item.character_id);
+      const text = cleanString(item.text);
+      const field = typeof item.field === 'string' && fields.includes(item.field) ? (item.field as KanViewEntry['field']) : null;
+      if (!character || !text || !field) return [];
+      const source: KanViewEntry['source'] =
+        typeof item.source === 'string' && sources.includes(item.source) ? (item.source as KanViewEntry['source']) : field === 'suspect' ? 'guess' : field === 'heard' ? 'told' : 'seen';
+      const settles = cleanString(item.settles);
+      const verdict: 'confirmed' | 'wrong' | undefined = item.verdict === 'confirmed' || item.verdict === 'wrong' ? item.verdict : undefined;
+      return [{
+        character,
+        field,
+        text,
+        source,
+        ...(cleanString(item.told_by) ? { toldBy: cleanString(item.told_by)! } : {}),
+        ...(settles ? { settles } : {}),
+        ...(verdict ? { verdict } : {}),
+      }];
+    });
+    if (learned.length > 0) diff.learnedAbout = learned;
   }
 
   const flatLocation = cleanString(block.location);

@@ -15,6 +15,7 @@ import { normalizeConsequences } from './consequences';
 import { normalizeDeaths } from './deaths';
 import { ensureNames } from './names';
 import { classifyThread, knowersOf, migrateEyesFacts } from './facts';
+import { migrateKanViews } from './kanView';
 
 import { DEFAULT_SETTINGS, emptyIndex, normalizePromptBudget } from './defaults';
 import { makeId } from './id';
@@ -1149,7 +1150,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized))))))))));
+  const withDeaths = migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized)))))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;
