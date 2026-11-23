@@ -19,6 +19,7 @@
 // one line. Otherwise CURRENT STATE names the places he can go back to.
 
 import { dateSortValue, daysBetween, formatDayMonth, shiftDate } from './calendar';
+import { fullPlace } from './placeName';
 import { isCombatPace } from './canon';
 import { characterRefs } from './characterRefs';
 import { castWithCompanions } from './companions';
@@ -203,7 +204,7 @@ function findHere(db: AppDatabase): Safehouse | null {
   const active = activeSafehouses(db);
   const exact = active.find((house) => norm(house.place) === norm(db.state.location));
 
-  return exact ?? active.find((house) => matchesSafehouse(house, db.state.location)) ?? null;
+  return exact ?? active.find((house) => matchesSafehouse(house, fullPlace(db.state))) ?? null;
 }
 
 export function isOvergrown(db: Pick<AppDatabase, 'state'>, house: Safehouse): boolean {
@@ -817,7 +818,7 @@ function returningCamp(db: AppDatabase): Safehouse | null {
         house.kind === 'camp' &&
         house.ended?.reason === 'left' &&
         daysBetween(house.ended.on, db.state.inStoryDate) <= CAMP_RETURN_DAYS &&
-        matchesSafehouse(house, db.state.location)
+        matchesSafehouse(house, fullPlace(db.state))
     ) ?? null
   );
 }

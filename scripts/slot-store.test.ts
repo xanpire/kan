@@ -305,6 +305,7 @@ describe('load keeps every GameState field (audit 3.4)', () => {
     const date = db.state.inStoryDate;
     const full = {
       ...db.state,
+      locationDetail: 'past the old gate',
       locationKind: 'road',
       turnsWithoutTimeChange: 2,
       canonProgress: db.state.canonProgress ?? {
@@ -325,7 +326,7 @@ describe('load keeps every GameState field (audit 3.4)', () => {
       renown: { deeds: [], epithets: [] },
       consequences: [],
       weather: { region: 'fire', condition: 'rain', since: date, source: 'world' },
-      travelLog: [{ place: 'The road north', date }],
+      travelLog: [{ place: 'The road north', short: 'The road north', date }],
       flashbacks: { played: [], offered: {} },
       safehouses: { places: [{ id: 'sh_1', name: 'the cave above the falls', kind: 'camp', place: 'Falls', since: date, status: 'active' }] },
       purse: { ryo: 120, history: [] },

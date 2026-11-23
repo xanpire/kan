@@ -14,6 +14,7 @@
 // place and pass it to ambienceMix, so the present scene is never touched.
 
 import { flashbackView } from './flashbacks';
+import { fullPlace } from './placeName';
 import { timeOfDayOf, type DayPeriod } from './calendar';
 import { locationKindOf } from './encounters';
 import { localizePlaceNames } from './glossary';
@@ -115,7 +116,7 @@ export function ambienceInputOf(db: AppDatabase): AmbienceInput {
   const weather = currentWeather(db);
   const house = currentSafehouse(db);
   // A safehouse's own name says what it is ("the cave above the falls").
-  const place = localizePlaceNames([db.state.location ?? '', house?.name ?? ''].filter(Boolean).join(', '));
+  const place = localizePlaceNames([fullPlace(db.state), house?.name ?? ''].filter(Boolean).join(', '));
 
   return {
     condition: weather.condition,

@@ -23,6 +23,7 @@ import { applyGrudgeChanges } from './grudges';
 import { applyReputationChanges } from './reputation';
 import { restBlocked } from './safehouses';
 import { kanEyes, setKanEyes } from './kanEyes';
+import { fullPlace, splitPlace } from './placeName';
 import { endConditionsLeftBehind, applyFactDiff, applyThreadDiff, endFacts, expireFacts, recordSceneEvent } from './facts';
 import { applyJutsuDiff, isBareNatureName, jutsuKey } from './jutsu';
 import { settleNewlyMet } from './met';
@@ -408,7 +409,9 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
   if (typeof state.location === 'string' && state.location.trim()) {
     // Compare the stored form: a long place was cut on the way in, so the
     // full text never equalled it and every turn there counted as a move.
-    const location = clipLocation(state.location);
+    // A short "Region · spot" name and a detail (test run §11).
+    const split = splitPlace(db, clipLocation(state.location), state.locationDetail);
+    const location = split.location;
     const moved = location.toLowerCase() !== (db.state.location ?? '').trim().toLowerCase();
 
     // Kan left, and the tracker didn't say who came along: only companions
@@ -418,7 +421,10 @@ function applyStateDiff(db: AppDatabase, state: StateDiff): AppDatabase {
     }
 
     next.state.location = location;
-    next.state.locationKind = validateLocationKind(next.state.location, state.locationKind);
+    // A new place keeps its own detail; the same spot keeps the old one unless a new one came.
+    if (split.detail) next.state.locationDetail = split.detail;
+    else if (moved) delete next.state.locationDetail;
+    next.state.locationKind = validateLocationKind(fullPlace(next.state), state.locationKind);
   } else if (state.locationKind) {
     next.state.locationKind = state.locationKind;
   }

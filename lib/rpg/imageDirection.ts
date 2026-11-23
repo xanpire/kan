@@ -5,6 +5,7 @@
 // See docs: claude/image-generator-cinematic.md.
 
 import { CANON_MILESTONES } from './canonData';
+import { fullPlace } from './placeName';
 import { mentionsEntity } from './characterRefs';
 import { dateSortValue, secondsBetween } from './calendar';
 import { currentWeather } from './weather';
@@ -313,7 +314,7 @@ export function sceneMoment(db: AppDatabase, inMemory: boolean): {
     condition: now.condition,
     weatherText: now.text,
     indoors: db.state.locationKind === 'structure',
-    underground: isUndergroundText(`${db.state.location} ${db.state.scene ?? ''}`),
+    underground: isUndergroundText(`${fullPlace(db.state)} ${db.state.scene ?? ''}`),
   };
 }
 
@@ -401,7 +402,7 @@ export function canonArtDirection(db: AppDatabase): string | null {
   const date = db.state.inStoryDate;
 
   // The massacre night, if Kan is where it happened.
-  if (date.year === 13 && date.month === 10 && date.day <= 1 && /\buchiha\b|\bdistrict\b|\bcompound\b/i.test(db.state.location ?? '')) {
+  if (date.year === 13 && date.month === 10 && date.day <= 1 && /\buchiha\b|\bdistrict\b|\bcompound\b/i.test(fullPlace(db.state))) {
     return 'the night of the Uchiha massacre: a huge blood-red full moon low in the sky, silhouettes on rooftops, deep red and black';
   }
 
@@ -409,7 +410,7 @@ export function canonArtDirection(db: AppDatabase): string | null {
 
   if (!progress) return null;
 
-  const here = new Set(placeWords(db.state.location ?? ''));
+  const here = new Set(placeWords(fullPlace(db.state)));
 
   for (const milestone of CANON_MILESTONES) {
     if (!milestone.artDirection) continue;

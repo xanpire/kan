@@ -130,7 +130,10 @@ export type GameState = {
   inventory: string[];
   /** Items you pinned by hand so the limit never drops them (audit 10). */
   pinnedItems?: string[];
+  /** Short "Region · spot" name (test run §11): "Hidden Rain · inner ward". */
   location: string;
+  /** The rest of the place, one short phrase: "past the iron gate beneath the steel spires". */
+  locationDetail?: string;
   locationKind?: LocationKind;
   inStoryDate: CalendarDate;
   turnsWithoutTimeChange?: number;
@@ -341,8 +344,10 @@ export type WeatherLock = {
 
 /** One stop on Kan's road (see mapData.ts). */
 export type TravelStop = {
-  /** state.location as the story gave it. */
+  /** state.location as the story gave it (with its detail). */
   place: string;
+  /** The short place name (test run §11); stops are compared by it. */
+  short?: string;
   /** A geography region id, when the place names one or Kan has not left the last one. */
   region?: string;
   /** The map place it matches (a village, a shrine, a ruin). */
@@ -1290,6 +1295,7 @@ export type TurnDiff = {
     inventoryAdded?: string[];
     inventoryRemoved?: string[];
     location?: string;
+    locationDetail?: string;
     locationKind?: LocationKind;
     inStoryDate?: CalendarDate;
     elapsedSeconds?: number;

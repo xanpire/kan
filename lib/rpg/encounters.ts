@@ -1,4 +1,5 @@
 import { formatClock, timeOfDayOf } from './calendar';
+import { fullPlace } from './placeName';
 import type { DayPeriod } from './calendar';
 import { currentSafehouse } from './safehouses';
 import type { AppDatabase, LocationKind } from './types';
@@ -108,7 +109,7 @@ export function locationKindOf(db: AppDatabase): LocationKind {
     return kind;
   }
 
-  return classifyLocation(`${db.state.location} ${db.state.scene}`);
+  return classifyLocation(`${fullPlace(db.state)} ${db.state.scene}`);
 }
 
 export function encounterRisk(kind: LocationKind, timeOfDay: DayPeriod): EncounterRisk {

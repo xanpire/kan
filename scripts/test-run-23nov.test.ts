@@ -359,3 +359,41 @@ describe('§3 §10 profiles fill in as Kan learns', () => {
     expect(bonded.bonds.find((b) => b.entityId === konan.id)!.status).toBe('Stranger');
   });
 });
+
+describe('§11 short place names', () => {
+  test('a long place becomes "Region · spot" plus a detail', async () => {
+    const { splitPlace, headerPlace, fullPlace } = await import('../lib/rpg/placeName');
+    const db = seed();
+    const split = splitPlace(db, 'The inner ward of the Rain village, past the iron gate beneath the steel spires');
+    expect(split.location).toBe('Hidden Rain · inner ward');
+    expect(split.detail).toBe('past the iron gate beneath the steel spires');
+    expect(split.location.length).toBeLessThanOrEqual(28);
+    expect(splitPlace(db, 'Hidden Rain · inner ward', 'by the gate')).toEqual({ location: 'Hidden Rain · inner ward', detail: 'by the gate' });
+    expect(headerPlace('Land of Rice Fields · an extremely long abandoned spot')).not.toContain('Land of');
+    expect(fullPlace({ location: 'Hidden Rain · inner ward', locationDetail: 'past the gate' })).toBe('Hidden Rain · inner ward, past the gate');
+  });
+
+  test('the tracker\'s place is stored short; the narrator and images get it joined; the travel log compares short names', () => {
+    let db = seed();
+    db = play(db, 'I walk through the gate.', 'You pass the iron gate into the inner ward of the Rain village.', {
+      location: 'The inner ward of the Rain village, past the iron gate beneath the steel spires',
+      location_kind: 'settlement',
+    }).db;
+    expect(db.state.location).toBe('Hidden Rain · inner ward');
+    expect(db.state.locationDetail).toContain('iron gate');
+    expect(promptText(db, 'I look around.')).toContain('Location: Hidden Rain · inner ward, past the iron gate');
+    expect(buildSceneImagePrompt(db, [], 'Kan looks up at the spires.')).toContain('Location: Hidden Rain · inner ward, past');
+    const stops = db.state.travelLog!.length;
+    db = play(db, 'I wait.', 'You wait by the gate.', { location: 'Hidden Rain · inner ward', location_detail: 'by the iron gate', location_kind: 'settlement' }).db;
+    expect(db.state.travelLog!.length).toBe(stops);
+    expect(db.state.locationDetail).toBe('by the iron gate');
+  });
+
+  test('old saves: an over-long place is shortened once on load', () => {
+    const db = seed();
+    const next = normalizeDatabase({ ...db, state: { ...db.state, location: 'The inner ward of the Rain village, past the iron gate beneath the steel spires' } });
+    expect(next.state.location).toBe('Hidden Rain · inner ward');
+    expect(next.state.locationDetail).toContain('iron gate');
+    expect(next.state.travelLog!.every((stop) => stop.short)).toBe(true);
+  });
+});

@@ -27,6 +27,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { headerPlace } from '@/lib/rpg/placeName';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -1516,7 +1517,10 @@ export default function StoryScreen() {
   const weather = db ? currentWeather(playing ? flashbackView(db) ?? db : db) : { condition: 'clear' as const, seasonLabel: '', night, region: 'fire' as const };
   const override = state.sceneMode?.override ?? null;
   const latestFightOptions = messages.find((message) => message.id === lastAssistantId)?.fightOptions ?? NO_OPTIONS;
+  // The short name (test run §11); the Right Now card adds the detail under it.
   const location = localizePlaceNames(state.location);
+  const headerLocation = headerPlace(location);
+  const locationDetail = state.locationDetail ? localizePlaceNames(state.locationDetail) : undefined;
   // Let time pass is closed in a fight (audit 4.9); the sheet says why.
   const skipBlocked = db && !playing ? timeSkipBlocked(db) : null;
 
@@ -1540,7 +1544,7 @@ export default function StoryScreen() {
                 {formatClock(state.inStoryDate)} · {formatDayMonth(state.inStoryDate)}
               </Text>
               <Text numberOfLines={1} style={styles.statusPlace}>
-                {location}
+                {headerLocation}
               </Text>
             </View>
             <WeatherIcon color={colors.textMuted} condition={weather.condition} night={night} />
@@ -1873,6 +1877,8 @@ export default function StoryScreen() {
             <SectionLabel first>Right now</SectionLabel>
             <ListCard>
               <ListRow
+                body={locationDetail}
+                bodyLines={2}
                 meta={formatStoryDate(
                   state.inStoryDate,
                   state.player.birthday,

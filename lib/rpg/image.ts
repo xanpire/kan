@@ -1,4 +1,5 @@
 import { characterFaceOf, latestCharacterPortrait } from './characterPortrait';
+import { fullPlace } from './placeName';
 import { resolveEntity } from './entities';
 import { displayName } from './names';
 import { mentionsEntity } from './characterRefs';
@@ -341,7 +342,7 @@ export function directorContext(db: AppDatabase, options: DirectorOptions = {}):
   return [
     memory || reply.flashback
       ? `This reply is a memory from Year ${reply.flashback!.date.year}: Kan is ${kanAgeAt(db, reply.flashback!.date)} years old in it.${memory ? ` Location: ${memory.place}.` : ''}`
-      : `Location: ${db.state.location}.`,
+      : `Location: ${fullPlace(db.state)}.`,
     reply.flashback || !placeLookOf(db)?.look ? '' : `This place looks like: ${placeLookOf(db)!.look}`,
     reply.flashback ? '' : `Scene: ${db.state.scene}.`,
     reply.flashback ? '' : `Kan's clothes: ${outfitWords(kanOutfit(db))}. ${kanAgeLine(kanAgeNow(db))}`,
@@ -690,7 +691,7 @@ export function buildSceneImagePrompt(
   if (memoryNote) {
     lines.push(memoryNote);
   } else {
-    lines.push(`Location: ${db.state.location}.`);
+    lines.push(`Location: ${fullPlace(db.state)}.`);
     const placeLook = options.placeLook ?? placeLookOf(db)?.look;
     if (placeLook) lines.push(`This place looks like: ${placeLook.replace(/\.$/, '')}.`);
   }

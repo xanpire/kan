@@ -530,10 +530,13 @@ export function convertStateBlock(
   const inventoryAdded = stringItems(block.inventory_added);
   const inventoryRemoved = stringItems(block.inventory_removed);
 
+  const flatDetail = cleanString(block.location_detail);
+
   if (flatLocation || flatLocationKind || flatCanonPoint || inventoryAdded.length || inventoryRemoved.length) {
     diff.state = {
       ...diff.state,
       ...(flatLocation ? { location: flatLocation } : {}),
+      ...(flatLocation && flatDetail ? { locationDetail: flatDetail } : {}),
       ...(flatLocationKind ? { locationKind: flatLocationKind } : {}),
       ...(flatCanonPoint ? { canonPoint: flatCanonPoint } : {}),
       ...(inventoryAdded.length ? { inventoryAdded } : {}),

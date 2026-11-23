@@ -1,4 +1,5 @@
 import { daysBetween, entityAge } from './calendar';
+import { fullPlace } from './placeName';
 import { narratorName } from './names';
 import { isCombatPace } from './canon';
 import { CANON_CAST } from './canonCast';
@@ -152,7 +153,7 @@ function fitFor(
  */
 export function returningCandidates(db: AppDatabase, recentText = ''): ReturningOffer[] {
   const kind = locationKindOf(db);
-  const here = placeTokens(db.state.location);
+  const here = placeTokens(fullPlace(db.state));
   const cast = new Set((db.state.sceneCast ?? []).map((name) => name.toLowerCase()));
   const now = db.state.inStoryDate;
 

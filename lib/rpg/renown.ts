@@ -24,6 +24,7 @@
 //   that page.
 
 import { firstNight } from './opening';
+import { fullPlace } from './placeName';
 import { dateSortValue, daysBetween, monthName, timeOfDayOf } from './calendar';
 import { isCombatPace } from './canon';
 import { castWithCompanions } from './companions';
@@ -615,7 +616,7 @@ const COUNTRYSIDE = /\b(farm\w*|fields?|paddy|paddies|orchards?|temples?|shrines
 
 /** Whose name ordinary people use where he stands. */
 export function civilianAudience(db: AppDatabase): Audience {
-  const place = `${db.state.location} ${db.state.scene ?? ''}`;
+  const place = `${fullPlace(db.state)} ${db.state.scene ?? ''}`;
   const region = regionOf(place) ?? currentRegion(db);
 
   if (region === 'rain') return 'rain';
@@ -746,7 +747,7 @@ export function epithetLines(db: AppDatabase): string[] {
 }
 
 function checkpoint(db: AppDatabase) {
-  return /\b(checkpoint|border|gate|toll|barrier station|outpost)\b/i.test(`${db.state.location} ${db.state.scene ?? ''}`);
+  return /\b(checkpoint|border|gate|toll|barrier station|outpost)\b/i.test(`${fullPlace(db.state)} ${db.state.scene ?? ''}`);
 }
 
 /** Where people gather and talk: towns, and checkpoints on the road. */

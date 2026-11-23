@@ -226,13 +226,16 @@ function samePlace(a: string, b: string) {
 export function recordTravel(db: AppDatabase): AppDatabase {
   const log = db.state.travelLog ?? [];
   const last = log[log.length - 1];
-  const place = db.state.location?.trim();
+  const short = db.state.location?.trim();
+  // The stop keeps the place with its detail; stops are compared by the short name (test run §11).
+  const place = db.state.locationDetail && short ? `${short}, ${db.state.locationDetail}` : short;
 
-  if (!place || (last && samePlace(last.place, place))) return db;
+  if (!place || !short || (last && samePlace(last.short ?? last.place, short))) return db;
 
   const region = regionOf(place) ?? (last && isRegion(last.region) ? last.region : null) ?? (log.length === 0 ? currentRegion(db) : null);
   const stop: TravelStop = {
     place: place.slice(0, 140),
+    short,
     ...(region ? { region } : {}),
     ...(placeIdOf(place) ? { placeId: placeIdOf(place)! } : {}),
     date: db.state.inStoryDate,

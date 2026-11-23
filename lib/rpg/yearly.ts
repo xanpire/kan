@@ -13,6 +13,7 @@
 // - Offered, never forced: the narrator gets one line.
 
 import { daysFromCivil, entityAge, isLeapYear } from './calendar';
+import { fullPlace } from './placeName';
 import { displayName, narratorName } from './names';
 import { isCombatPace } from './canon';
 import { castWithCompanions } from './companions';
@@ -141,7 +142,7 @@ function turns(age: number | undefined) {
 
 /** Kan is in or near a place: its words appear in the location. */
 function nearPlace(db: AppDatabase, words: string[]) {
-  const location = db.state.location.toLowerCase();
+  const location = fullPlace(db.state).toLowerCase();
   return words.some((word) => location.includes(word));
 }
 

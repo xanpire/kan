@@ -100,6 +100,7 @@ export const TURN_STATE_SCHEMA = object({
   beat_with: stringList,
   fight_options: stringList,
   location: nullableString,
+  location_detail: nullableString,
   location_kind: nullableEnum(LOCATION_KINDS),
   mood: nullableString,
   // Kan's eyes, only when this turn turns them on or off.

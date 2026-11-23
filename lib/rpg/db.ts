@@ -15,6 +15,7 @@ import { normalizeConsequences } from './consequences';
 import { normalizeDeaths } from './deaths';
 import { ensureNames } from './names';
 import { classifyThread, knowersOf, migrateEyesFacts } from './facts';
+import { isShortPlace, splitPlace } from './placeName';
 import { migrateKanViews } from './kanView';
 
 import { DEFAULT_SETTINGS, emptyIndex, normalizePromptBudget } from './defaults';
@@ -1310,6 +1311,12 @@ function seededState(): AppDatabase['state'] {
   return seededStateCache;
 }
 
+function shortenedPlace(state: AppDatabase['state'], place: string): { location: string; locationDetail?: string } {
+  if (isShortPlace(place)) return { location: place, ...(state.locationDetail ? { locationDetail: state.locationDetail } : {}) };
+  const split = splitPlace({ state }, place, state.locationDetail);
+  return { location: split.location, ...(split.detail ? { locationDetail: split.detail } : {}) };
+}
+
 function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['state'] {
   if (!state) {
     return seedDatabase(makeId('slot'), DEFAULT_SLOT_NAME).state;
@@ -1336,7 +1343,8 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     ...(Array.isArray(state.pinnedItems)
       ? { pinnedItems: state.pinnedItems.filter((item: unknown): item is string => typeof item === 'string').slice(0, 40) }
       : {}),
-    location: state.location ?? seeded.location,
+    // Over-long places from before the short names are shortened once (test run §11).
+    ...shortenedPlace(state, state.location ?? seeded.location),
     locationKind:
       state.locationKind === 'settlement' ||
       state.locationKind === 'road' ||
@@ -1408,7 +1416,9 @@ function normalizeState(state: AppDatabase['state'] | undefined): AppDatabase['s
     renown: normalizeRenown(state.renown),
     consequences: normalizeConsequences(state.consequences),
     weather: normalizeWeather(state.weather),
-    travelLog: normalizeTravelLog(state.travelLog, state.location ?? seeded.location, normalizeDate(state.inStoryDate, seeded.inStoryDate)),
+    travelLog: normalizeTravelLog(state.travelLog, state.location ?? seeded.location, normalizeDate(state.inStoryDate, seeded.inStoryDate)).map((stop) =>
+      stop.short ? stop : { ...stop, short: splitPlace({ state }, stop.place).location }
+    ),
     flashbacks: normalizeFlashbacks(state.flashbacks),
     safehouses: normalizeSafehouses(state.safehouses),
     purse: normalizePurse(state.purse),
