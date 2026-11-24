@@ -5,6 +5,7 @@
 // about them, what he suspects, how they speak, and what others told him.
 // A stranger starts blank; it fills in as the story goes.
 
+import { speakerKin } from './kinGuard';
 import { shownField } from './disclosure';
 import { fameOf, kanKnowsName } from './names';
 import { PRIOR_BONDS } from './priorBonds';
@@ -113,7 +114,10 @@ export function applyLearnedAbout(db: AppDatabase, diff: TurnDiff): AppDatabase 
       }
     }
 
-    const text = cleanLine(db, entity, item.text);
+    // Their "Father" and "our home" are theirs, never Kan's (third test).
+    const own = speakerKin(db, cleanLine(db, entity, item.text), item.toldBy ?? entity.id);
+    if (!own) continue;
+    const text = own;
     const field = item.field;
     const live = view.filter((entry) => !entry.folded && entry.verdict !== 'wrong');
 

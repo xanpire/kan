@@ -1,3 +1,4 @@
+import { kanEyes, sharinganImageLine } from './kanEyes';
 import { characterFaceOf, latestCharacterPortrait } from './characterPortrait';
 import { fullPlace } from './placeName';
 import { resolveEntity } from './entities';
@@ -8,6 +9,7 @@ import { completeChat, type CallUsage } from '../openrouter';
 import {
   KAN_AKATSUKI_OUTFIT,
   KAN_BLACK_OUTFIT,
+  KAN_HAIR,
   KAN_HAIR_AND_EYES,
   KAN_NO_SANDALS,
   KAN_NOSE,
@@ -229,8 +231,8 @@ SHOT: frame that instant like an anime key frame in a wide 16:9 frame. One line,
 - lens feel: wide-angle distortion | telephoto compression | shallow depth of field
 - composition: where the subject sits (lower third, off-center, tiny in frame, filling the frame), and what fills the rest of the wide frame (open sky, smoke, flames, the jutsu, the landscape)
 - focus: the ONE person who gets the sharpest light and the most space in the frame (usually Kan)
-- emotion at its peak, shown physically (screaming with veins on the neck, tears streaking a bloodied face, eyes wide with Sharingan spinning)
-- light and effects: the light given under "Light now" (never a sunset or a bright sky after dark, never sun under thick cloud; underground or in a cell, no window and no sky at all), its colour, motion (wind-whipped hair and cloak, speed lines, debris, embers, dust, chakra glow)
+- emotion at its peak, shown physically (screaming with veins on the neck, tears streaking a bloodied face, eyes wide and red with the Sharingan)
+- light and effects: the Sharingan never glows, spins or lights anything, so never make Kan's eyes the light source; the light given under "Light now" (never a sunset or a bright sky after dark, never sun under thick cloud; underground or in a cell, no window and no sky at all), its colour, motion (wind-whipped hair and cloak, speed lines, debris, embers, dust, chakra glow)
 Pick the shot that sells the moment:
 - emotional peak (a scream, tears, rage, shock, grief): close-up or extreme close-up on that face. Not a medium shot: the face fills the frame.
 - one person alone and still (thinking, watching, at a rail or a window, by a lamp): close-up, often a side profile
@@ -278,11 +280,30 @@ export function parseImageAction(text: string): { action: string; shot?: string;
   }
 
   const caption = found.caption?.slice(0, 200);
-  const shot = found.shot?.slice(0, 500);
+  const shot = found.shot ? calmSharingan(found.shot).slice(0, 500) : undefined;
   const place = found.place?.slice(0, 240);
-  const action = cleanProse(rest).replace(/^action:\s*/i, '').slice(0, 700);
+  const action = calmSharingan(cleanProse(rest).replace(/^action:\s*/i, '')).slice(0, 700);
 
   return { action, ...(shot ? { shot } : {}), ...(caption ? { caption } : {}), ...(place ? { place } : {}) };
+}
+
+const EYE_WORD = /\b(sharingan|tomoe|mangeky[oō])\b/i;
+const EYE_LIGHT = /\b(glow\w*|lit\b|light(?:s|ing|ed)?\b|spinn\w*|whirl\w*|trembl\w*|blaz\w*|burn\w*|radian\w*|shin\w*)/i;
+
+/**
+ * The director's lines without a glowing, spinning or light-giving Sharingan
+ * (third test: "lit only by the faint red glow of Kan's Sharingan", "trembling
+ * pupil with a single black tomoe spinning" gave red smears). A clause that
+ * only did that goes; the eyes are described separately.
+ */
+export function calmSharingan(text: string): string {
+  if (!EYE_WORD.test(text)) return text;
+  return text
+    .split(/(?<=[,;])\s+/)
+    .filter((part) => !(EYE_WORD.test(part) && EYE_LIGHT.test(part)))
+    .join(' ')
+    .replace(/[,;]\s*$/, '')
+    .trim();
 }
 
 export type DirectorOptions = {
@@ -731,6 +752,8 @@ export function buildSceneImagePrompt(
 
     const now = kanRightNow(db, { protectorSaid: scratched });
     if (now) lines.push(now);
+    const eyes = sharinganImageLine(db);
+    if (eyes) lines.push(eyes);
   }
 
   if (looks.length > 0) {
@@ -758,7 +781,7 @@ export function buildSceneImagePrompt(
       lines.push(`Reference image ${n}: the image to edit.`);
     } else if (reference.kind === 'face') {
       lines.push(
-        `Reference image ${n}: Kan's face sheet (front, both profiles, back of head; no clothes). Match his face exactly: ${KAN_HAIR_AND_EYES}, facial structure, hairline, and ${KAN_NOSE}. ${IDENTITY_ONLY}`
+        `Reference image ${n}: Kan's face sheet (front, both profiles, back of head; no clothes). Match his face exactly: ${!memoryNote && kanEyes(db) !== 'off' ? `${KAN_HAIR} (his eyes are not the sheet's brown right now: draw them as described above)` : KAN_HAIR_AND_EYES}, facial structure, hairline, and ${KAN_NOSE}. ${IDENTITY_ONLY}`
       );
     } else if (reference.kind === 'profile') {
       lines.push(`Reference image ${n}: ${KAN_PROFILE_LABEL} ${IDENTITY_ONLY}`);

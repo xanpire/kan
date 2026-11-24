@@ -93,3 +93,10 @@ export function isImageData(uri: string) {
   return uri.startsWith('data:image/');
 }
 
+/**
+ * The other outfit's sheet goes only when the moment changes clothes (third
+ * test: the cloak sheet was sent with Kan in his black clothes).
+ */
+export function changesClothes(text: string) {
+  return /\b(cloak|robe|changes?|changing|chang(?:es|ed|ing)? (?:into|out of)|puts? on|pulls? on|takes? off|sheds?|strips?|removes?|undress\w*|dons?|shrugs? (?:on|off))\b/i.test(text);
+}

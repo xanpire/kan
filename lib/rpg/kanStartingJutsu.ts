@@ -1,3 +1,4 @@
+import { VULTURES_EFFECT } from './vultureLink';
 // Kan's starting jutsu (decided by Xan, 14 Nov 2026; section 10 of
 // claude/before-variety-ideas.md): a young ANBU about Itachi's level, a master
 // of taijutsu, Fire and Earth, enormous Uzumaki reserves, sealing from his
@@ -109,7 +110,7 @@ export const KAN_STARTING_JUTSU: StartingJutsu[] = [
   j(
     'Your vultures',
     'None',
-    'Okuri the courier, Hōmuri the scout and Tomurai the watcher (all three female), with a nameless flock beside them: spawned from your chakra anywhere, any time, never truly dead.',
+    VULTURES_EFFECT,
     'Bearded vultures, slate-black backs and wings, blood red where a wild one is rust-orange.',
     ['original', 'signature', 'vultures']
   ),

@@ -198,6 +198,10 @@ export type GameState = {
   heardOfScanned?: boolean;
   /** The one-time repair of 23 Nov 2026 ran (repair23nov.ts). */
   repaired23Nov?: boolean;
+  /** The third test's vulture repair ran (vultureLink.ts). */
+  vultureLinkRepaired?: boolean;
+  /** Kan's vultures away from him, with when they arrive (vultureLink.ts). */
+  vulturesOut?: { name: string; toward: string; sentAt: CalendarDate; runHours: number; arriveAt: CalendarDate }[];
   /** Canon lore Kan learned in the story, by entry id (loreList.ts, section 11). */
   loreKnown?: Record<string, LoreLearned>;
 };
@@ -1324,6 +1328,10 @@ export type TurnDiff = {
   };
   /** Topics this turn explained in full, or questions it answered (test run §12.2). */
   explained?: string[];
+  /** Vultures Kan sent off this turn, and how far (hours of a shinobi's run) they are going. */
+  vulturesSent?: { name: string; toward: string; runHours: number }[];
+  /** Vultures back at Kan's side this turn. */
+  vulturesBack?: string[];
   /** What Kan learned about people this turn (learned_about, test run §10). */
   learnedAbout?: {
     character: string;

@@ -132,3 +132,17 @@ export function kanEyesLine(db: Pick<AppDatabase, 'state'>): string {
       return 'brown eyes, no Sharingan (it is off)';
   }
 }
+
+const TOMOE_COUNT: Record<string, string> = { '1': 'one', '2': 'two', '3': 'three' };
+
+/**
+ * The tomoe Sharingan drawn exactly, for the image prompt (third test: the
+ * eyes came out as red smears). No glow: a lit eye is a blown-out blob.
+ */
+export function sharinganImageLine(db: Pick<AppDatabase, 'state'>): string | null {
+  if (kanEyes(db) !== 'sharingan') return null;
+  const sharingan = (db.state.player.abilities ?? []).find((ability) => /^sharingan$/i.test(ability.name.trim()));
+  const digit = sharingan?.stage?.match(/[123]/)?.[0] ?? '3';
+  const count = TOMOE_COUNT[digit];
+  return `Kan's Sharingan, drawn exactly in both eyes: the whole iris flat red; a small round black pupil in the centre; a thin black ring around the pupil, about halfway to the iris edge; ${count} small black comma-shaped tomoe sitting on that ring${digit === '1' ? '' : ', evenly spaced, their tails curving the same way'}; the whites of the eyes white; one small highlight. The eyes do not glow and give off no light, no red haze or light streaks around them. If his face is small in the frame, the irises only need to read as red.`;
+}

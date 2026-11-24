@@ -3,6 +3,7 @@
 // made (one or two takes), and the swapped-roles check runs and retries
 // once. Also the quick retouch. The Story screen only shows the results.
 
+import { changesClothes } from './referencePlan';
 import type { PaintStage } from './storyMarkers';
 import { generateImage, type ImageModelCaps } from '../openrouter';
 import { packPeopleReferences } from './castSheet';
@@ -135,7 +136,7 @@ export async function paintScene({
       ...people,
       ...(placeLoaded ? [{ kind: 'place' as const, uri: placeLoaded, name: db.state.location }] : []),
       ...recentImages.map((uri) => ({ kind: 'previous' as const, uri })),
-      ...(sheets ? [{ kind: 'alternate' as const, uri: kanRefs.alternate }] : []),
+      ...(sheets && changesClothes(`${action} ${shot ?? ''}`) ? [{ kind: 'alternate' as const, uri: kanRefs.alternate }] : []),
     ],
     caps.maxReferences
   );

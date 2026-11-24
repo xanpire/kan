@@ -2,6 +2,8 @@
 // the state step and the summaries. The pieces live in entities, bonds,
 // facts, clock, jutsu, log and stateBlock.
 
+import { speakerKin } from './kinGuard';
+import { applyVultureChanges, deniesVultureLink } from './vultureLink';
 import { CALL_TIMEOUTS, isTransientError, type ChatRequest, completeChat } from '../openrouter';
 import { applyAbilityChanges } from './abilities';
 import { applyBondDiff, syncBondSides } from './bonds';
@@ -281,6 +283,27 @@ export function applyTurnDiff(
   }
 
   if (Array.isArray(diff.facts)) {
+    // Third test: no invented limits on Kan's vultures, and someone's
+    // "Father and Mother" are theirs, not Kan's.
+    diff = {
+      ...diff,
+      facts: diff.facts.flatMap((fact) => {
+        if (fact.action === 'end') return [fact];
+        if (deniesVultureLink(fact.text)) {
+          options.events?.push({ kind: 'refused', text: `Fact left out (a limit Kan's vultures don't have): ${fact.text.slice(0, 80)}` });
+          return [];
+        }
+        const text = speakerKin(next, fact.text, fact.claimedBy);
+        if (text === null) {
+          options.events?.push({ kind: 'refused', text: `Fact left out (Kan's parents died in the Nine-Tails attack): ${fact.text.slice(0, 80)}` });
+          return [];
+        }
+        return [text === fact.text ? fact : { ...fact, text }];
+      }),
+    };
+  }
+
+  if (Array.isArray(diff.facts)) {
     // At most a few new facts a turn, the weightiest first (test run §12.3:
     // 104 facts in 11 story hours). Endings always apply.
     let added = 0;
@@ -303,10 +326,13 @@ export function applyTurnDiff(
     next = setKanEyes(next, 'off');
   }
 
+  // Kan's vultures in the air, and back (third test).
+  next = applyVultureChanges(next, diff);
+
   // What has been explained lately, so it is not explained again (test run §12.2).
   if (Array.isArray(diff.explained) && diff.explained.length > 0) {
     const said = [...(next.state.alreadySaid ?? [])];
-    for (const text of diff.explained) {
+    for (const text of diff.explained.filter((item) => !deniesVultureLink(item) && !/\b(vultures?|h[oō]muri|okuri|tomurai)\b.*\b(cannot|can['’]?t|not)\b/i.test(item))) {
       if (!said.some((item) => item.text.toLowerCase() === text.toLowerCase())) said.push({ text, date: next.state.inStoryDate });
     }
     next = { ...next, state: { ...next.state, alreadySaid: said.slice(-ALREADY_SAID_LIMIT) } };

@@ -277,7 +277,6 @@ const ACCENTS: [RegExp, string][] = [
   [/\b(water style|suiton|tidal|water dragon|shark)\b/i, 'deep ocean blue'],
   [/\b(rasengan|wind style|futon)\b/i, 'swirling pale blue chakra'],
   [/\bsand\b/i, 'gold sand'],
-  [/\b(sharingan|mangeky[oō])\b/i, 'the red glow of the Sharingan'],
   [/\b(blood|bleeding|bloodied|wound)\b/i, 'crimson blood'],
 ];
 

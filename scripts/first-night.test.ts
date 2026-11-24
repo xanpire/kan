@@ -53,7 +53,9 @@ describe('the first night block', () => {
     expect(openingBeats(db)).toEqual({ deathsTold: false, sharingan: false, truthTold: false });
 
     const block = formatOpeningBlock(db);
-    expect(block).toContain('1. He says it in plain words');
+    expect(block).toContain('1. First he stops you');
+    expect(block).toContain('he says it in plain words');
+    expect(block).not.toContain('She didn’t run');
     expect(block).toMatch(/2\. Your Sharingan wakes/);
     expect(block).toMatch(/3\. He tells you why/);
     expect(block).toMatch(/4\. His offer/);

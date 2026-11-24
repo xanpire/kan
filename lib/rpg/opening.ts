@@ -57,7 +57,7 @@ export function formatOpeningBlock(db: AppDatabase): string {
 
   if (!beats.deathsTold) {
     steps.push(
-      'He says it in plain words, without being asked twice: the clan is dead by his hand, your cousin Izumi and your aunt Hazuki with it. One honest detail of Hazuki, no more ("She didn’t run.").'
+      'First he stops you ("Don’t go to the village"). When you ask why or try to pass, he says it in plain words, without being asked twice: the clan is dead by his hand, your cousin Izumi and your aunt Hazuki with it. Nothing about how anyone died unless you ask; if you ask about Hazuki, one honest detail in his own words, never a stock line.'
     );
   }
 

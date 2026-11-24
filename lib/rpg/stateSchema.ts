@@ -107,6 +107,13 @@ export const TURN_STATE_SCHEMA = object({
   explained: stringList,
   // Kan's eyes, only when this turn turns them on or off.
   kan_eyes: nullableEnum(['off', 'sharingan', 'mangekyo', 'eternal']),
+  // Kan's vultures sent off this turn (how far, in hours of a shinobi's run), and those back with him.
+  vultures_sent: list({
+    name: { type: 'string' },
+    toward: { type: 'string' },
+    run_hours: { type: 'number' },
+  }),
+  vultures_back: stringList,
   world_description: nullableString,
   canon_point: nullableString,
   inventory_added: stringList,

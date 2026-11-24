@@ -33,6 +33,8 @@ import { repairUnmetLabels } from './met';
 import { backfillHeardOf } from './heardOf';
 import { repairTestRun23Nov } from './repair23nov';
 import { ensureVultureFacts } from './vultures';
+import { ensureVultureLink } from './vultureLink';
+import { repairSpeakerKin } from './kinGuard';
 import { listStoredKeys, readSlotJson, removeSlotJson, writeSlotJson } from './slotStore';
 import { collectImageGarbage, imageRefsIn } from './imageStore';
 import { normalizeSceneMode } from './sceneMode';
@@ -864,6 +866,11 @@ export function scratchItachiProtector(appearance: string): string {
 }
 
 /** Itachi's seed look from before the test run of 23 Nov 2026: the full one with what tells him from Kan. */
+const HAZUKI_LINE_OLD = 'He may give you one honest detail of Hazuki’s death ("She didn’t run.").';
+const HAZUKI_LINE_NEW = 'He says nothing of how anyone died unless you ask; if you ask about Hazuki, he gives one honest detail of her death in his own words, never a stock line.';
+const HAZUKI_NOTE_OLD = '(he may give you one honest detail of Hazuki, such as "She didn’t run.")';
+const HAZUKI_NOTE_NEW = '(he says nothing of how anyone died unless you ask; if you ask about Hazuki, he gives one honest detail of her death in his own words, never a stock line)';
+
 export function migrateItachiLook(appearance: string): string {
   if (/^Slim thirteen-year-old with long black hair tied low/.test(appearance) || appearance === ITACHI_YOUNG_LOOK_LONG_SLEEVES) {
     return ITACHI_YOUNG_LOOK;
@@ -1070,6 +1077,12 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
                   : event
               )
         )
+        // Third test: the stock "She didn’t run." example in the opening note.
+        .map((event) =>
+          typeof event.narratorNote === 'string' && event.narratorNote.includes(HAZUKI_NOTE_OLD)
+            ? { ...event, narratorNote: event.narratorNote.replace(HAZUKI_NOTE_OLD, HAZUKI_NOTE_NEW) }
+            : event
+        )
       : [],
     eventEntities: Array.isArray(db.eventEntities) ? db.eventEntities : [],
     bonds: Array.isArray(db.bonds)
@@ -1115,6 +1128,12 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
               ? { ...lore, text: IZUMI_EYES_LORE }
               : lore
           )
+          // Third test: the stock "She didn’t run." line came out word for word.
+          .map((lore) =>
+            typeof lore.text === 'string' && lore.text.includes(HAZUKI_LINE_OLD)
+              ? { ...lore, text: lore.text.replace(HAZUKI_LINE_OLD, HAZUKI_LINE_NEW) }
+              : lore
+          )
           // The seed's old typo "kurma" (audit 11).
           .map((lore) =>
             Array.isArray(lore.keywords) && lore.keywords.includes('kurma')
@@ -1154,7 +1173,7 @@ export function normalizeDatabase(db: AppDatabase): AppDatabase {
     ...(Array.isArray(db.placeLooks) ? { placeLooks: normalizePlaceLooks(db.placeLooks) } : {}),
   };
 
-  const withDeaths = ensureVultureFacts(repairTestRun23Nov(backfillHeardOf(migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized))))))))))))));
+  const withDeaths = repairSpeakerKin(ensureVultureLink(ensureVultureFacts(repairTestRun23Nov(backfillHeardOf(migrateKanViews(migrateEyesFacts(regridCanon(syncEraRoles(ensureNames(dropBareNatureJutsu(repairUnmetLabels(normalizeDeaths(normalizeFactKnowers(addHanaCrush(acceptedBeforeTrial(normalized))))))))))))))));
   withDeaths.indices = buildIndices(withDeaths);
 
   return withDeaths;

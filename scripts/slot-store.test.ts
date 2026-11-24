@@ -307,6 +307,8 @@ describe('load keeps every GameState field (audit 3.4)', () => {
       ...db.state,
       locationDetail: 'past the old gate',
       alreadySaid: [{ text: 'why the clan died', date }],
+      vultureLinkRepaired: true,
+      vulturesOut: [{ name: 'Hōmuri', toward: 'the Leaf', sentAt: date, runHours: 5, arriveAt: date }],
       locationKind: 'road',
       turnsWithoutTimeChange: 2,
       canonProgress: db.state.canonProgress ?? {

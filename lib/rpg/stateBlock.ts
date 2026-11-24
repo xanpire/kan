@@ -496,6 +496,21 @@ export function convertStateBlock(
     diff.state = { ...diff.state, kanEyes: block.kan_eyes as KanEyes };
   }
 
+  // Kan's vultures sent off and back (third test, 23 Nov 2026).
+  if (Array.isArray(block.vultures_sent)) {
+    const sent = block.vultures_sent.flatMap((raw) => {
+      if (!raw || typeof raw !== 'object') return [];
+      const item = raw as Record<string, unknown>;
+      const name = cleanString(item.name);
+      const hours = typeof item.run_hours === 'number' && Number.isFinite(item.run_hours) ? item.run_hours : null;
+      if (!name || hours === null || hours < 0) return [];
+      return [{ name, toward: cleanString(item.toward) ?? 'somewhere', runHours: hours }];
+    });
+    if (sent.length > 0) diff.vulturesSent = sent.slice(0, 3);
+  }
+  const vulturesBack = stringItems(block.vultures_back).slice(0, 3);
+  if (vulturesBack.length > 0) diff.vulturesBack = vulturesBack;
+
   // What this turn explained or answered (test run §12.2).
   const explained = stringItems(block.explained).map((item) => item.slice(0, 80)).slice(0, 3);
   if (explained.length > 0) diff.explained = explained;
